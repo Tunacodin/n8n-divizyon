@@ -1,0 +1,279 @@
+{
+  "name": "🎪 Circle - Event Attendee Handler (FULL)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "event-attendee-add",
+        "responseMode": "responseNode"
+      },
+      "name": "Etkinlik Katılımcısı Ekle Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {"name": "email", "value": "={{ $json.body?.email }}"},
+            {"name": "ad_soyad", "value": "={{ $json.body?.ad_soyad }}"},
+            {"name": "event_name", "value": "={{ $json.body?.event_name }}"}
+          ]
+        }
+      },
+      "name": "Katılımcı Verilerini Hazırla",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {"__rl": true, "value": "GOOGLE_SHEET_ID_PLACEHOLDER", "mode": "id"},
+        "sheetName": {"__rl": true, "value": "Etkinlik Katılımcıları", "mode": "name"},
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Email": "={{ $json.email }}",
+            "Ad Soyad": "={{ $json.ad_soyad }}",
+            "Event Name": "={{ $json.event_name }}",
+            "Ekleme Tarihi": "={{ $now.toISO() }}",
+            "Başvuru Yaptı mı?": "Hayır",
+            "Warning Count": "0",
+            "Status": "Active"
+          }
+        }
+      },
+      "name": "Etkinlik Sheet'e Kaydet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.circle.so/v1/community_members",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "Authorization", "value": "Token CIRCLE_API_TOKEN_PLACEHOLDER"}
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {"name": "email", "value": "={{ $json.email }}"},
+            {"name": "name", "value": "={{ $json.ad_soyad }}"},
+            {"name": "tags", "value": "event_attendee"}
+          ]
+        }
+      },
+      "name": "Circle'a Ekle",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "fromEmail": "noreply@circleapp.com",
+        "toEmail": "={{ $json.email }}",
+        "subject": "🎉 Circle Topluluğuna Hoşgeldiniz!",
+        "emailType": "html",
+        "message": "=<h2>Merhaba {{ $json.ad_soyad }}!</h2><p>{{ $json.event_name }} etkinliğine katıldığınız için teşekkürler.</p><p>Circle topluluğuna eklemediniz. Lütfen 7 gün içinde başvuru formunu doldurun:</p><p><a href='https://form.typeform.com/circle-application'>Başvuru Formunu Doldur</a></p><p><strong>Önemli:</strong> Başvuru yapmazsanız hesabınız deaktif edilecektir.</p>",
+        "options": {}
+      },
+      "name": "Hoşgeldin Maili Gönder",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"status\": \"added\", \"email\": $json.email, \"message\": \"Hoşgeldin maili gönderildi\" } }}"
+      },
+      "name": "Success Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "event-application-check",
+        "responseMode": "responseNode"
+      },
+      "name": "Başvuru Kontrol Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [240, 600]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {"__rl": true, "value": "GOOGLE_SHEET_ID_PLACEHOLDER", "mode": "id"},
+        "sheetName": {"__rl": true, "value": "Etkinlik Katılımcıları", "mode": "name"},
+        "filters": {
+          "conditions": [
+            {"column": "Başvuru Yaptı mı?", "value": "Hayır"}
+          ]
+        }
+      },
+      "name": "Başvuru Yapmamışları Bul",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [460, 600]
+    },
+    {
+      "parameters": {
+        "jsCode": "const now = new Date();\nconst sevenDaysAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);\n\nconst items = $input.all();\nconst needsWarning = [];\n\nfor (const item of items) {\n  const eklemeTarihi = new Date(item.json['Ekleme Tarihi']);\n  const warningCount = parseInt(item.json['Warning Count'] || 0);\n  const gunGecti = Math.floor((now - eklemeTarihi) / (24 * 60 * 60 * 1000));\n  \n  if (gunGecti >= 7) {\n    needsWarning.push({\n      email: item.json.Email,\n      ad_soyad: item.json['Ad Soyad'],\n      event_name: item.json['Event Name'],\n      warning_count: warningCount,\n      days_passed: gunGecti,\n      should_deactivate: warningCount >= 1\n    });\n  }\n}\n\nreturn needsWarning.map(item => ({ json: item }));"
+      },
+      "name": "7 Gün Geçenleri Filtrele",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 600]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "name": "Her Biri İçin Loop",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [900, 600]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"combinator": "and"},
+          "conditions": [
+            {"leftValue": "={{ $json.should_deactivate }}", "rightValue": true, "operator": {"type": "boolean", "operation": "equal"}}
+          ]
+        }
+      },
+      "name": "Deaktif Edilmeli mi?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1120, 600]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {"__rl": true, "value": "GOOGLE_SHEET_ID_PLACEHOLDER", "mode": "id"},
+        "sheetName": {"__rl": true, "value": "Etkinlik Katılımcıları", "mode": "name"},
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Status": "Deaktif"
+          }
+        },
+        "options": {
+          "lookupColumn": "Email",
+          "lookupValue": "={{ $json.email }}"
+        }
+      },
+      "name": "Status Deaktif Yap",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [1340, 520]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {"__rl": true, "value": "GOOGLE_SHEET_ID_PLACEHOLDER", "mode": "id"},
+        "sheetName": {"__rl": true, "value": "Deaktifler", "mode": "name"},
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Email": "={{ $json.email }}",
+            "Ad Soyad": "={{ $json.ad_soyad }}",
+            "Deaktif Tarihi": "={{ $now.toISO() }}",
+            "Sebep": "Etkinlik sonrası başvuru yapmama",
+            "Warning Count": "={{ $json.warning_count + 1 }}"
+          }
+        }
+      },
+      "name": "Deaktifler'e Ekle",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [1560, 520]
+    },
+    {
+      "parameters": {
+        "fromEmail": "admin@circleapp.com",
+        "toEmail": "={{ $json.email }}",
+        "subject": "🚫 Hesabınız Deaktif Edildi",
+        "emailType": "html",
+        "message": "=<h2>Hesabınız Deaktif Edildi</h2><p>{{ $json.days_passed }} gün önce etkinlikten Circle'a eklendiniz ancak başvuru yapmadınız.</p><p>Hesabınız deaktif edilmiştir.</p>",
+        "options": {}
+      },
+      "name": "Deaktif Maili",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1780, 520]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {"__rl": true, "value": "GOOGLE_SHEET_ID_PLACEHOLDER", "mode": "id"},
+        "sheetName": {"__rl": true, "value": "Etkinlik Katılımcıları", "mode": "name"},
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Warning Count": "={{ $json.warning_count + 1 }}",
+            "Son Kontrol Tarihi": "={{ $now.toISO() }}"
+          }
+        },
+        "options": {
+          "lookupColumn": "Email",
+          "lookupValue": "={{ $json.email }}"
+        }
+      },
+      "name": "Warning Count Artır",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [1340, 680]
+    },
+    {
+      "parameters": {
+        "fromEmail": "noreply@circleapp.com",
+        "toEmail": "={{ $json.email }}",
+        "subject": "⚠️ Son Uyarı: Başvuru Yapın",
+        "emailType": "html",
+        "message": "=<h2>Son Uyarı</h2><p>{{ $json.days_passed }} gün önce etkinlikten Circle'a eklendiniz ancak henüz başvuru yapmadınız.</p><p>Lütfen hemen başvuru yapın, aksi takdirde hesabınız deaktif edilecektir:</p><p><a href='https://form.typeform.com/circle-application'>Başvuru Yap</a></p>",
+        "options": {}
+      },
+      "name": "Uyarı Maili",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1560, 680]
+    }
+  ],
+  "connections": {
+    "Etkinlik Katılımcısı Ekle Webhook": {"main": [[{"node": "Katılımcı Verilerini Hazırla", "type": "main", "index": 0}]]},
+    "Katılımcı Verilerini Hazırla": {"main": [[{"node": "Etkinlik Sheet'e Kaydet", "type": "main", "index": 0}]]},
+    "Etkinlik Sheet'e Kaydet": {"main": [[{"node": "Circle'a Ekle", "type": "main", "index": 0}]]},
+    "Circle'a Ekle": {"main": [[{"node": "Hoşgeldin Maili Gönder", "type": "main", "index": 0}]]},
+    "Hoşgeldin Maili Gönder": {"main": [[{"node": "Success Response", "type": "main", "index": 0}]]},
+    "Başvuru Kontrol Webhook": {"main": [[{"node": "Başvuru Yapmamışları Bul", "type": "main", "index": 0}]]},
+    "Başvuru Yapmamışları Bul": {"main": [[{"node": "7 Gün Geçenleri Filtrele", "type": "main", "index": 0}]]},
+    "7 Gün Geçenleri Filtrele": {"main": [[{"node": "Her Biri İçin Loop", "type": "main", "index": 0}]]},
+    "Her Biri İçin Loop": {"main": [[{"node": "Deaktif Edilmeli mi?", "type": "main", "index": 0}]]},
+    "Deaktif Edilmeli mi?": {
+      "main": [
+        [{"node": "Status Deaktif Yap", "type": "main", "index": 0}],
+        [{"node": "Warning Count Artır", "type": "main", "index": 0}]
+      ]
+    },
+    "Status Deaktif Yap": {"main": [[{"node": "Deaktifler'e Ekle", "type": "main", "index": 0}]]},
+    "Deaktifler'e Ekle": {"main": [[{"node": "Deaktif Maili", "type": "main", "index": 0}]]},
+    "Deaktif Maili": {"main": [[{"node": "Her Biri İçin Loop", "type": "main", "index": 0}]]},
+    "Warning Count Artır": {"main": [[{"node": "Uyarı Maili", "type": "main", "index": 0}]]},
+    "Uyarı Maili": {"main": [[{"node": "Her Biri İçin Loop", "type": "main", "index": 0}]]}
+  },
+  "settings": {"executionOrder": "v1"}
+}

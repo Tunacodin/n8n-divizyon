@@ -1,0 +1,156 @@
+{
+  "name": "🎭 Circle - Role Assignment Engine (FULL)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "assign-role",
+        "responseMode": "responseNode"
+      },
+      "name": "Rol Atama Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [240, 400]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {"name": "email", "value": "={{ $json.body?.email }}"},
+            {"name": "dijital_urun", "value": "={{ $json.body?.dijital_urun_score }}"},
+            {"name": "kreatif_yapim", "value": "={{ $json.body?.kreatif_yapim_score }}"},
+            {"name": "dijital_deneyim", "value": "={{ $json.body?.dijital_deneyim_score }}"}
+          ]
+        }
+      },
+      "name": "Skorları Hazırla",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [460, 400]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {"__rl": true, "value": "GOOGLE_SHEET_ID_PLACEHOLDER", "mode": "id"},
+        "sheetName": {"__rl": true, "value": "Nihai AĞ Üyesi", "mode": "name"},
+        "filters": {},
+        "options": {}
+      },
+      "name": "Nihai Liste Oku",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [680, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "const dijitalUrun = parseFloat($input.first().json.dijital_urun) || 0;\nconst kreatifYapim = parseFloat($input.first().json.kreatif_yapim) || 0;\nconst dijitalDeneyim = parseFloat($input.first().json.dijital_deneyim) || 0;\n\nconst scores = {\n  'Dijital Ürün': dijitalUrun,\n  'Kreatif Yapım': kreatifYapim,\n  'Dijital Deneyim': dijitalDeneyim\n};\n\nconst maxScore = Math.max(dijitalUrun, kreatifYapim, dijitalDeneyim);\nconst topRoles = Object.keys(scores).filter(k => scores[k] === maxScore);\n\n// Rol sayımı\nconst nList = $input.last().json;\nconst roleCounts = {\n  'Dijital Ürün': nList.filter(u => u['Ana Rol'] === 'Dijital Ürün').length,\n  'Kreatif Yapım': nList.filter(u => u['Ana Rol'] === 'Kreatif Yapım').length,\n  'Dijital Deneyim': nList.filter(u => u['Ana Rol'] === 'Dijital Deneyim').length\n};\n\nlet assignedRole;\nif (topRoles.length > 1) {\n  assignedRole = topRoles.reduce((min, role) => \n    roleCounts[role] < roleCounts[min] ? role : min\n  );\n} else {\n  assignedRole = topRoles[0];\n}\n\nreturn {\n  email: $input.first().json.email,\n  ana_rol: assignedRole,\n  max_score: maxScore,\n  all_scores: scores,\n  role_counts: roleCounts,\n  has_multiple: topRoles.length > 1\n};"
+      },
+      "name": "Rol Hesapla (Akıllı)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 400]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {"__rl": true, "value": "GOOGLE_SHEET_ID_PLACEHOLDER", "mode": "id"},
+        "sheetName": {"__rl": true, "value": "Başvuru Sheet", "mode": "name"},
+        "filters": {
+          "conditions": [
+            {"column": "Email", "value": "={{ $json.email }}"}
+          ]
+        }
+      },
+      "name": "Kullanıcı Bilgisi Al",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [1120, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.circle.so/v1/community_members",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "Authorization", "value": "Token CIRCLE_API_TOKEN_PLACEHOLDER"}
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {"name": "email", "value": "={{ $json.email }}"},
+            {"name": "name", "value": "={{ $('Kullanıcı Bilgisi Al').item.json['Ad Soyad'] }}"},
+            {"name": "tags", "value": "={{ $json.ana_rol }}"}
+          ]
+        },
+        "options": {}
+      },
+      "name": "Circle API - Tag Ata",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 400]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {"__rl": true, "value": "GOOGLE_SHEET_ID_PLACEHOLDER", "mode": "id"},
+        "sheetName": {"__rl": true, "value": "Nihai AĞ Üyesi", "mode": "name"},
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Email": "={{ $('Kullanıcı Bilgisi Al').item.json.Email }}",
+            "Ad Soyad": "={{ $('Kullanıcı Bilgisi Al').item.json['Ad Soyad'] }}",
+            "Circle User ID": "={{ $json.id }}",
+            "Ana Rol": "={{ $('Rol Hesapla (Akıllı)').item.json.ana_rol }}",
+            "Tags": "={{ $('Rol Hesapla (Akıllı)').item.json.ana_rol }}",
+            "Katılım Tarihi": "={{ $now.toISO() }}",
+            "Warning Count": "0",
+            "Status": "Active"
+          }
+        }
+      },
+      "name": "Nihai Listeye Ekle",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [1560, 400]
+    },
+    {
+      "parameters": {
+        "fromEmail": "noreply@circleapp.com",
+        "toEmail": "={{ $('Kullanıcı Bilgisi Al').item.json.Email }}",
+        "subject": "🎉 Rolünüz Atandı - Circle",
+        "emailType": "html",
+        "message": "=<h2>Tebrikler!</h2><p>Circle topluluğundaki rolünüz belirlendi:</p><p><strong>Ana Rol:</strong> {{ $('Rol Hesapla (Akıllı)').item.json.ana_rol }}</p><p><strong>Skorunuz:</strong> {{ $('Rol Hesapla (Akıllı)').item.json.max_score }}</p><p>Artık topluluk aktivitelerine katılabilirsiniz!</p>",
+        "options": {}
+      },
+      "name": "Rol Atandı Maili",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1780, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"status\": \"success\", \"email\": $('Kullanıcı Bilgisi Al').item.json.Email, \"rol\": $('Rol Hesapla (Akıllı)').item.json.ana_rol, \"circle_id\": $json.id } }}"
+      },
+      "name": "Success Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2000, 400]
+    }
+  ],
+  "connections": {
+    "Rol Atama Trigger": {"main": [[{"node": "Skorları Hazırla", "type": "main", "index": 0}]]},
+    "Skorları Hazırla": {"main": [[{"node": "Nihai Liste Oku", "type": "main", "index": 0}]]},
+    "Nihai Liste Oku": {"main": [[{"node": "Rol Hesapla (Akıllı)", "type": "main", "index": 0}]]},
+    "Rol Hesapla (Akıllı)": {"main": [[{"node": "Kullanıcı Bilgisi Al", "type": "main", "index": 0}]]},
+    "Kullanıcı Bilgisi Al": {"main": [[{"node": "Circle API - Tag Ata", "type": "main", "index": 0}]]},
+    "Circle API - Tag Ata": {"main": [[{"node": "Nihai Listeye Ekle", "type": "main", "index": 0}]]},
+    "Nihai Listeye Ekle": {"main": [[{"node": "Rol Atandı Maili", "type": "main", "index": 0}]]},
+    "Rol Atandı Maili": {"main": [[{"node": "Success Response", "type": "main", "index": 0}]]}
+  },
+  "settings": {"executionOrder": "v1"}
+}

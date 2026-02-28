@@ -1,0 +1,425 @@
+{
+  "name": "🧪 Circle - Test Manager (FULL)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "circle-login",
+        "responseMode": "responseNode"
+      },
+      "name": "Circle Login Event",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {"name": "email", "value": "={{ $json.body?.email }}"},
+            {"name": "circle_user_id", "value": "={{ $json.body?.user_id }}"},
+            {"name": "login_time", "value": "={{ $now.toISO() }}"}
+          ]
+        }
+      },
+      "name": "Login Data Hazırla",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {"__rl": true, "value": "GOOGLE_SHEET_ID_PLACEHOLDER", "mode": "id"},
+        "sheetName": {"__rl": true, "value": "Başvuru Sheet", "mode": "name"},
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Circle'a Giriş Yaptı": "Evet",
+            "Circle Giriş Tarihi": "={{ $json.login_time }}"
+          }
+        },
+        "options": {
+          "lookupColumn": "Email",
+          "lookupValue": "={{ $json.email }}"
+        }
+      },
+      "name": "Başvuru Sheet Güncelle",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {"__rl": true, "value": "GOOGLE_SHEET_ID_PLACEHOLDER", "mode": "id"},
+        "sheetName": {"__rl": true, "value": "Test Sonuçları", "mode": "name"},
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Email": "={{ $json.email }}",
+            "Circle User ID": "={{ $json.circle_user_id }}",
+            "Karakteristik Skor": "",
+            "Dijital Ürün Skor": "",
+            "Kreatif Yapım Skor": "",
+            "Dijital Deneyim Skor": "",
+            "Karakteristik Tamamlandı": "Hayır",
+            "Dijital Ürün Tamamlandı": "Hayır",
+            "Kreatif Yapım Tamamlandı": "Hayır",
+            "Dijital Deneyim Tamamlandı": "Hayır"
+          }
+        }
+      },
+      "name": "Test Sonuçları Row Oluştur",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "list": "MAILCHIMP_LIST_ID",
+        "email": "={{ $json.email }}",
+        "updateFields": {
+          "mergeFields": {
+            "mergeFieldsValues": [
+              {"name": "CIRCLELOGIN", "value": "={{ $json.login_time }}"}
+            ]
+          }
+        }
+      },
+      "name": "Mailchimp - Test Linklerini Gönder",
+      "type": "n8n-nodes-base.mailchimp",
+      "typeVersion": 1,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"status\": \"success\", \"message\": \"Test linkleri gönderildi\" } }}"
+      },
+      "name": "Login Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "test-karakteristik",
+        "responseMode": "responseNode"
+      },
+      "name": "Karakteristik Test Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [240, 500]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {"name": "email", "value": "={{ $json.body?.email }}"},
+            {"name": "test_type", "value": "karakteristik"},
+            {"name": "score", "value": "={{ $json.body?.score }}"}
+          ]
+        }
+      },
+      "name": "Karakteristik Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [460, 500]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {"__rl": true, "value": "GOOGLE_SHEET_ID_PLACEHOLDER", "mode": "id"},
+        "sheetName": {"__rl": true, "value": "Test Sonuçları", "mode": "name"},
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Karakteristik Skor": "={{ $json.score }}",
+            "Karakteristik Tamamlandı": "Evet"
+          }
+        },
+        "options": {
+          "lookupColumn": "Email",
+          "lookupValue": "={{ $json.email }}"
+        }
+      },
+      "name": "Karakteristik Sonuç Kaydet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [680, 500]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"status\": \"saved\", \"test\": \"karakteristik\" } }}"
+      },
+      "name": "Karakteristik Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [900, 500]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "test-dijital-urun",
+        "responseMode": "responseNode"
+      },
+      "name": "Dijital Ürün Test Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [240, 700]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {"name": "email", "value": "={{ $json.body?.email }}"},
+            {"name": "test_type", "value": "dijital_urun"},
+            {"name": "score", "value": "={{ $json.body?.score }}"}
+          ]
+        }
+      },
+      "name": "Dijital Ürün Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [460, 700]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {"__rl": true, "value": "GOOGLE_SHEET_ID_PLACEHOLDER", "mode": "id"},
+        "sheetName": {"__rl": true, "value": "Test Sonuçları", "mode": "name"},
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Dijital Ürün Skor": "={{ $json.score }}",
+            "Dijital Ürün Tamamlandı": "Evet"
+          }
+        },
+        "options": {
+          "lookupColumn": "Email",
+          "lookupValue": "={{ $json.email }}"
+        }
+      },
+      "name": "Dijital Ürün Sonuç Kaydet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [680, 700]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {"__rl": true, "value": "GOOGLE_SHEET_ID_PLACEHOLDER", "mode": "id"},
+        "sheetName": {"__rl": true, "value": "Test Sonuçları", "mode": "name"},
+        "filters": {
+          "conditions": [
+            {"column": "Email", "value": "={{ $json.email }}"}
+          ]
+        }
+      },
+      "name": "Test Durumu Kontrol",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [900, 700]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"combinator": "and"},
+          "conditions": [
+            {"leftValue": "={{ $json['Tüm Testler Tamamlandı'] }}", "rightValue": "Evet", "operator": {"type": "string", "operation": "equals"}}
+          ]
+        }
+      },
+      "name": "Tüm Testler Tamamlandı mı?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1120, 700]
+    },
+    {
+      "parameters": {
+        "url": "https://83ohvlw5.rpcld.net/webhook/assign-role",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {"name": "email", "value": "={{ $json.Email }}"},
+            {"name": "dijital_urun_score", "value": "={{ $json['Dijital Ürün Skor'] }}"},
+            {"name": "kreatif_yapim_score", "value": "={{ $json['Kreatif Yapım Skor'] }}"},
+            {"name": "dijital_deneyim_score", "value": "={{ $json['Dijital Deneyim Skor'] }}"}
+          ]
+        }
+      },
+      "name": "Role Assignment Trigger",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 640]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"status\": \"completed\", \"message\": \"Tüm testler tamamlandı, rol atanıyor\" } }}"
+      },
+      "name": "Tamamlandı Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1560, 640]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"status\": \"saved\", \"remaining\": \"Diğer testleri tamamlayın\" } }}"
+      },
+      "name": "Bekliyor Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1340, 760]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "test-kreatif-yapim",
+        "responseMode": "responseNode"
+      },
+      "name": "Kreatif Yapım Test Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [240, 900]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {"name": "email", "value": "={{ $json.body?.email }}"},
+            {"name": "score", "value": "={{ $json.body?.score }}"}
+          ]
+        }
+      },
+      "name": "Kreatif Yapım Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [460, 900]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {"__rl": true, "value": "GOOGLE_SHEET_ID_PLACEHOLDER", "mode": "id"},
+        "sheetName": {"__rl": true, "value": "Test Sonuçları", "mode": "name"},
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Kreatif Yapım Skor": "={{ $json.score }}",
+            "Kreatif Yapım Tamamlandı": "Evet"
+          }
+        },
+        "options": {
+          "lookupColumn": "Email",
+          "lookupValue": "={{ $json.email }}"
+        }
+      },
+      "name": "Kreatif Yapım Kaydet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [680, 900]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"status\": \"saved\" } }}"
+      },
+      "name": "Kreatif Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [900, 900]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "test-dijital-deneyim",
+        "responseMode": "responseNode"
+      },
+      "name": "Dijital Deneyim Test Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [240, 1100]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {"name": "email", "value": "={{ $json.body?.email }}"},
+            {"name": "score", "value": "={{ $json.body?.score }}"}
+          ]
+        }
+      },
+      "name": "Dijital Deneyim Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [460, 1100]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {"__rl": true, "value": "GOOGLE_SHEET_ID_PLACEHOLDER", "mode": "id"},
+        "sheetName": {"__rl": true, "value": "Test Sonuçları", "mode": "name"},
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Dijital Deneyim Skor": "={{ $json.score }}",
+            "Dijital Deneyim Tamamlandı": "Evet"
+          }
+        },
+        "options": {
+          "lookupColumn": "Email",
+          "lookupValue": "={{ $json.email }}"
+        }
+      },
+      "name": "Dijital Deneyim Kaydet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [680, 1100]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"status\": \"saved\" } }}"
+      },
+      "name": "Deneyim Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [900, 1100]
+    }
+  ],
+  "connections": {
+    "Circle Login Event": {"main": [[{"node": "Login Data Hazırla", "type": "main", "index": 0}]]},
+    "Login Data Hazırla": {"main": [[{"node": "Başvuru Sheet Güncelle", "type": "main", "index": 0}]]},
+    "Başvuru Sheet Güncelle": {"main": [[{"node": "Test Sonuçları Row Oluştur", "type": "main", "index": 0}]]},
+    "Test Sonuçları Row Oluştur": {"main": [[{"node": "Mailchimp - Test Linklerini Gönder", "type": "main", "index": 0}]]},
+    "Mailchimp - Test Linklerini Gönder": {"main": [[{"node": "Login Response", "type": "main", "index": 0}]]},
+    "Karakteristik Test Webhook": {"main": [[{"node": "Karakteristik Data", "type": "main", "index": 0}]]},
+    "Karakteristik Data": {"main": [[{"node": "Karakteristik Sonuç Kaydet", "type": "main", "index": 0}]]},
+    "Karakteristik Sonuç Kaydet": {"main": [[{"node": "Karakteristik Response", "type": "main", "index": 0}]]},
+    "Dijital Ürün Test Webhook": {"main": [[{"node": "Dijital Ürün Data", "type": "main", "index": 0}]]},
+    "Dijital Ürün Data": {"main": [[{"node": "Dijital Ürün Sonuç Kaydet", "type": "main", "index": 0}]]},
+    "Dijital Ürün Sonuç Kaydet": {"main": [[{"node": "Test Durumu Kontrol", "type": "main", "index": 0}]]},
+    "Test Durumu Kontrol": {"main": [[{"node": "Tüm Testler Tamamlandı mı?", "type": "main", "index": 0}]]},
+    "Tüm Testler Tamamlandı mı?": {
+      "main": [
+        [{"node": "Role Assignment Trigger", "type": "main", "index": 0}],
+        [{"node": "Bekliyor Response", "type": "main", "index": 0}]
+      ]
+    },
+    "Role Assignment Trigger": {"main": [[{"node": "Tamamlandı Response", "type": "main", "index": 0}]]},
+    "Kreatif Yapım Test Webhook": {"main": [[{"node": "Kreatif Yapım Data", "type": "main", "index": 0}]]},
+    "Kreatif Yapım Data": {"main": [[{"node": "Kreatif Yapım Kaydet", "type": "main", "index": 0}]]},
+    "Kreatif Yapım Kaydet": {"main": [[{"node": "Kreatif Response", "type": "main", "index": 0}]]},
+    "Dijital Deneyim Test Webhook": {"main": [[{"node": "Dijital Deneyim Data", "type": "main", "index": 0}]]},
+    "Dijital Deneyim Data": {"main": [[{"node": "Dijital Deneyim Kaydet", "type": "main", "index": 0}]]},
+    "Dijital Deneyim Kaydet": {"main": [[{"node": "Deneyim Response", "type": "main", "index": 0}]]}}
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

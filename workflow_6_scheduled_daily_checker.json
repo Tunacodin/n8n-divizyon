@@ -1,0 +1,172 @@
+{
+  "name": "⏰ Circle - Daily Checker (Scheduled)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * *"
+            }
+          ]
+        }
+      },
+      "name": "Her Gün 09:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 400]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "value": "GOOGLE_SHEET_ID_PLACEHOLDER",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Kabul Edilenler",
+          "mode": "name"
+        },
+        "filters": {},
+        "options": {}
+      },
+      "name": "Kabul Edilenleri Oku",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [460, 400]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "value": "GOOGLE_SHEET_ID_PLACEHOLDER",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Başvuru Sheet",
+          "mode": "name"
+        },
+        "filters": {},
+        "options": {}
+      },
+      "name": "Başvuru Sheet Oku",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [680, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Kabul edilenler ve başvuru sheet'i birleştir\nconst kabulEdilenler = $input.first().json;\nconst basvuruSheet = $input.last().json;\n\n// Circle'a giriş yapmamışları filtrele (3+ gün)\nconst now = new Date();\nconst threeDaysAgo = new Date(now - 3 * 24 * 60 * 60 * 1000);\n\nconst notLoggedIn = [];\n\nfor (const kabul of kabulEdilenler) {\n  const basvuru = basvuruSheet.find(b => b.Email === kabul.Email);\n  \n  if (basvuru && basvuru['Circle\\'a Giriş Yaptı'] === 'Hayır') {\n    const kabulTarihi = new Date(kabul['Kabul Tarihi']);\n    \n    if (kabulTarihi < threeDaysAgo) {\n      notLoggedIn.push({\n        email: kabul.Email,\n        ad_soyad: kabul['Ad Soyad'],\n        kabul_tarihi: kabul['Kabul Tarihi'],\n        gun_gecti: Math.floor((now - kabulTarihi) / (24 * 60 * 60 * 1000))\n      });\n    }\n  }\n}\n\nreturn notLoggedIn.map(item => ({ json: item }));"
+      },
+      "name": "Circle Giriş Yapmamışları Filtrele",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 400]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "name": "Her Biri İçin",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [1120, 400]
+    },
+    {
+      "parameters": {
+        "fromEmail": "noreply@circleapp.com",
+        "toEmail": "={{ $json.email }}",
+        "subject": "⚠️ Hatırlatma: Circle Platformuna Giriş Yapın",
+        "emailType": "html",
+        "message": "=<h2>Merhaba {{ $json.ad_soyad }},</h2><p>{{ $json.gun_gecti }} gün önce Circle topluluğuna kabul edildiniz ancak henüz platforma giriş yapmadınız.</p><p>Lütfen aşağıdaki linkten giriş yapıp testlerinizi tamamlayın:</p><p><a href='https://circle.app/join/INVITE_LINK'>Circle'a Giriş Yap</a></p><p>7 gün içinde giriş yapmazsanız başvurunuz iptal edilecektir.</p>",
+        "options": {}
+      },
+      "name": "Hatırlatma Maili Gönder",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1340, 400]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "value": "GOOGLE_SHEET_ID_PLACEHOLDER",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Test Sonuçları",
+          "mode": "name"
+        },
+        "filters": {},
+        "options": {}
+      },
+      "name": "Test Sonuçlarını Oku",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [460, 600]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Test tamamlamayan ancak Circle'a giriş yapmış olanları bul\nconst testSonuclari = $input.first().json;\n\nconst now = new Date();\nconst sevenDaysAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);\n\nconst notCompleted = testSonuclari.filter(test => {\n  const giris = new Date(test['Circle Giriş Tarihi'] || now);\n  return test['Tüm Testler Tamamlandı'] !== 'Evet' && giris < sevenDaysAgo;\n});\n\nreturn notCompleted.map(item => ({ \n  json: {\n    email: item.Email,\n    ad_soyad: item['Ad Soyad'],\n    tamamlanan: [\n      item['Karakteristik Tamamlandı'],\n      item['Dijital Ürün Tamamlandı'],\n      item['Kreatif Yapım Tamamlandı'],\n      item['Dijital Deneyim Tamamlandı']\n    ].filter(x => x === 'Evet').length\n  }\n}));"
+      },
+      "name": "Test Tamamlamayanları Filtrele",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 600]
+    },
+    {
+      "parameters": {
+        "fromEmail": "noreply@circleapp.com",
+        "toEmail": "={{ $json.email }}",
+        "subject": "⏰ Son Hatırlatma: Testlerinizi Tamamlayın",
+        "emailType": "html",
+        "message": "=<h2>Merhaba {{ $json.ad_soyad }},</h2><p>Circle platformuna giriş yaptınız ancak testlerinizi henüz tamamlamadınız.</p><p><strong>Tamamlanan test sayısı:</strong> {{ $json.tamamlanan }}/4</p><p>Lütfen kalan testleri en kısa sürede tamamlayın, aksi takdirde rol ataması yapılamayacaktır.</p>",
+        "options": {}
+      },
+      "name": "Test Hatırlatma Maili",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [900, 600]
+    }
+  ],
+  "connections": {
+    "Her Gün 09:00": {
+      "main": [[
+        {"node": "Kabul Edilenleri Oku", "type": "main", "index": 0},
+        {"node": "Test Sonuçlarını Oku", "type": "main", "index": 0}
+      ]]
+    },
+    "Kabul Edilenleri Oku": {
+      "main": [[{"node": "Başvuru Sheet Oku", "type": "main", "index": 0}]]
+    },
+    "Başvuru Sheet Oku": {
+      "main": [[{"node": "Circle Giriş Yapmamışları Filtrele", "type": "main", "index": 0}]]
+    },
+    "Circle Giriş Yapmamışları Filtrele": {
+      "main": [[{"node": "Her Biri İçin", "type": "main", "index": 0}]]
+    },
+    "Her Biri İçin": {
+      "main": [[{"node": "Hatırlatma Maili Gönder", "type": "main", "index": 0}]]
+    },
+    "Hatırlatma Maili Gönder": {
+      "main": [[{"node": "Her Biri İçin", "type": "main", "index": 0}]]
+    },
+    "Test Sonuçlarını Oku": {
+      "main": [[{"node": "Test Tamamlamayanları Filtrele", "type": "main", "index": 0}]]
+    },
+    "Test Tamamlamayanları Filtrele": {
+      "main": [[{"node": "Test Hatırlatma Maili", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

@@ -1,0 +1,567 @@
+{
+  "name": "🎯 Circle - Application Handler (FULL)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "circle-application",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "name": "Typeform Başvuru Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [240, 400]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "email",
+              "value": "={{ $json.body?.email || $json.body?.form_response?.answers?.find(a => a.type === 'email')?.email }}"
+            },
+            {
+              "name": "ad_soyad",
+              "value": "={{ $json.body?.ad_soyad || $json.body?.form_response?.answers?.find(a => a.field?.ref === 'ad_soyad')?.text }}"
+            },
+            {
+              "name": "yas",
+              "value": "={{ $json.body?.yas || $json.body?.form_response?.answers?.find(a => a.field?.ref === 'yas')?.number }}"
+            },
+            {
+              "name": "ilkeler_kabul",
+              "value": "={{ $json.body?.ilkeler_kabul || $json.body?.form_response?.answers?.find(a => a.field?.ref === 'ilkeler')?.boolean }}"
+            },
+            {
+              "name": "timestamp",
+              "value": "={{ $now.toISO() }}"
+            }
+          ]
+        }
+      },
+      "name": "Başvuru Verilerini Hazırla",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [460, 400]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "GOOGLE_SHEET_ID_PLACEHOLDER",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Başvuru Sheet",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Timestamp": "={{ $json.timestamp }}",
+            "Email": "={{ $json.email }}",
+            "Ad Soyad": "={{ $json.ad_soyad }}",
+            "Yaş": "={{ $json.yas }}",
+            "İlkeler Kabul": "={{ $json.ilkeler_kabul ? 'Evet' : 'Hayır' }}",
+            "Durum": "Beklemede",
+            "Circle'a Giriş Yaptı": "Hayır",
+            "Değerlendiren": "",
+            "Değerlendirme Zamanı": "",
+            "Notlar": ""
+          }
+        },
+        "options": {}
+      },
+      "name": "Tüm Başvuruları Kaydet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [680, 400],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "combinator": "and"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.yas }}",
+              "rightValue": 18,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            },
+            {
+              "leftValue": "={{ $json.ilkeler_kabul }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equal"
+              }
+            }
+          ]
+        }
+      },
+      "name": "Yaş ≥18 VE İlkeler Kabul?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [900, 400]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "GOOGLE_SHEET_ID_PLACEHOLDER",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Başvuru Sheet",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Durum": "Kesin Ret",
+            "Değerlendirme Zamanı": "={{ $now.toISO() }}",
+            "Notlar": "={{ $json.yas < 18 ? '18 yaşından küçük' : 'Topluluk ilkelerini kabul etmedi' }}"
+          }
+        },
+        "options": {
+          "lookupColumn": "Email",
+          "lookupValue": "={{ $json.email }}"
+        }
+      },
+      "name": "Sheet Güncelle - Kesin Ret",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [1120, 560]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "GOOGLE_SHEET_ID_PLACEHOLDER",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Reddedilenler",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Timestamp": "={{ $json.timestamp }}",
+            "Email": "={{ $json.email }}",
+            "Ad Soyad": "={{ $json.ad_soyad }}",
+            "Ret Tarihi": "={{ $now.toISO() }}",
+            "Ret Sebebi": "={{ $json.yas < 18 ? '18 yaşından küçük' : 'Topluluk ilkelerini kabul etmedi' }}",
+            "Ret Tipi": "Otomatik"
+          }
+        }
+      },
+      "name": "Reddedilenler Sheet'e Ekle",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [1340, 560]
+    },
+    {
+      "parameters": {
+        "list": "MAILCHIMP_LIST_ID",
+        "email": "={{ $json.email }}",
+        "updateFields": {
+          "mergeFields": {
+            "mergeFieldsValues": [
+              {
+                "name": "FNAME",
+                "value": "={{ $json.ad_soyad.split(' ')[0] }}"
+              },
+              {
+                "name": "LNAME",
+                "value": "={{ $json.ad_soyad.split(' ').slice(1).join(' ') }}"
+              }
+            ]
+          }
+        },
+        "options": {}
+      },
+      "name": "Mailchimp - Ret Maili",
+      "type": "n8n-nodes-base.mailchimp",
+      "typeVersion": 1,
+      "position": [1560, 560]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"status\": \"rejected\", \"reason\": $json.yas < 18 ? 'age' : 'terms' } }}"
+      },
+      "name": "Webhook Yanıt - Ret",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1780, 560]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "GOOGLE_SHEET_ID_PLACEHOLDER",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Başvuru Sheet",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Durum": "Manuel Kontrol Bekliyor"
+          }
+        },
+        "options": {
+          "lookupColumn": "Email",
+          "lookupValue": "={{ $json.email }}"
+        }
+      },
+      "name": "Sheet Güncelle - Manuel Bekliyor",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [1120, 240]
+    },
+    {
+      "parameters": {
+        "fromEmail": "admin@circleapp.com",
+        "toEmail": "admin@circleapp.com",
+        "subject": "🔔 Yeni Başvuru - Manuel Onay Gerekli",
+        "emailType": "html",
+        "message": "=<h2>Yeni Başvuru</h2><ul><li>Ad Soyad: {{ $json.ad_soyad }}</li><li>Email: {{ $json.email }}</li><li>Yaş: {{ $json.yas }}</li><li>Başvuru: {{ $json.timestamp }}</li></ul><p><a href='https://83ohvlw5.rpcld.net/webhook/manuel-onay/{{ $json.email }}?action=approve'>✅ ONAYLA</a> | <a href='https://83ohvlw5.rpcld.net/webhook/manuel-onay/{{ $json.email }}?action=reject'>❌ REDDET</a></p>"
+      },
+      "name": "Admin Bildirimi",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1340, 240]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"status\": \"pending_review\", \"message\": \"Manuel değerlendirme bekliyor\" } }}"
+      },
+      "name": "Webhook Yanıt - Bekliyor",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1560, 240]
+    },
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "manuel-onay/:email",
+        "responseMode": "responseNode"
+      },
+      "name": "Manuel Onay Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [240, 800]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "value": "GOOGLE_SHEET_ID_PLACEHOLDER",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Başvuru Sheet",
+          "mode": "name"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "column": "Email",
+              "value": "={{ $json.params.email }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Başvuruyu Sheet'ten Oku",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [460, 800]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "combinator": "and"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.query.action }}",
+              "rightValue": "approve",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ]
+        }
+      },
+      "name": "Onaylandı mı?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 800]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "GOOGLE_SHEET_ID_PLACEHOLDER",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Başvuru Sheet",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Durum": "Onaylandı",
+            "Değerlendiren": "={{ $json.query.evaluator || 'Admin' }}",
+            "Değerlendirme Zamanı": "={{ $now.toISO() }}",
+            "Notlar": "={{ $json.query.notes || 'Manuel onay' }}"
+          }
+        },
+        "options": {
+          "lookupColumn": "Email",
+          "lookupValue": "={{ $json.params.email }}"
+        }
+      },
+      "name": "Sheet Güncelle - Onaylandı",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [900, 720]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "GOOGLE_SHEET_ID_PLACEHOLDER",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Kabul Edilenler",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Email": "={{ $json.params.email }}",
+            "Ad Soyad": "={{ $('Başvuruyu Sheet\\'ten Oku').item.json['Ad Soyad'] }}",
+            "Kabul Tarihi": "={{ $now.toISO() }}",
+            "Değerlendiren": "={{ $json.query.evaluator || 'Admin' }}"
+          }
+        }
+      },
+      "name": "Kabul Edilenler Sheet'e Ekle",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [1120, 720]
+    },
+    {
+      "parameters": {
+        "list": "MAILCHIMP_LIST_ID",
+        "email": "={{ $json.params.email }}",
+        "updateFields": {
+          "tags": "circle_accepted",
+          "mergeFields": {
+            "mergeFieldsValues": [
+              {
+                "name": "STATUS",
+                "value": "Accepted"
+              }
+            ]
+          }
+        }
+      },
+      "name": "Mailchimp - Kabul Maili",
+      "type": "n8n-nodes-base.mailchimp",
+      "typeVersion": 1,
+      "position": [1340, 720]
+    },
+    {
+      "parameters": {
+        "respondWith": "html",
+        "responseBody": "=<html><body style='font-family: Arial; padding: 40px; text-align: center;'><h1 style='color: #4CAF50;'>✅ Başvuru Onaylandı</h1><p>{{ $json.params.email }} kabul edildi ve mail gönderildi.</p></body></html>"
+      },
+      "name": "Webhook Yanıt - Onaylandı",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1560, 720]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "GOOGLE_SHEET_ID_PLACEHOLDER",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Başvuru Sheet",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Durum": "Reddedildi",
+            "Değerlendiren": "={{ $json.query.evaluator || 'Admin' }}",
+            "Değerlendirme Zamanı": "={{ $now.toISO() }}",
+            "Notlar": "={{ $json.query.reason || 'Manuel ret' }}"
+          }
+        },
+        "options": {
+          "lookupColumn": "Email",
+          "lookupValue": "={{ $json.params.email }}"
+        }
+      },
+      "name": "Sheet Güncelle - Reddedildi",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [900, 880]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "GOOGLE_SHEET_ID_PLACEHOLDER",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Reddedilenler",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Email": "={{ $json.params.email }}",
+            "Ad Soyad": "={{ $('Başvuruyu Sheet\\'ten Oku').item.json['Ad Soyad'] }}",
+            "Ret Tarihi": "={{ $now.toISO() }}",
+            "Ret Sebebi": "={{ $json.query.reason || 'Manuel ret' }}",
+            "Ret Tipi": "Manuel",
+            "Değerlendiren": "={{ $json.query.evaluator || 'Admin' }}"
+          }
+        }
+      },
+      "name": "Reddedilenler Sheet'e Ekle (Manuel)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [1120, 880]
+    },
+    {
+      "parameters": {
+        "list": "MAILCHIMP_LIST_ID",
+        "email": "={{ $json.params.email }}",
+        "updateFields": {
+          "tags": "circle_rejected"
+        }
+      },
+      "name": "Mailchimp - Manuel Ret Maili",
+      "type": "n8n-nodes-base.mailchimp",
+      "typeVersion": 1,
+      "position": [1340, 880]
+    },
+    {
+      "parameters": {
+        "respondWith": "html",
+        "responseBody": "=<html><body style='font-family: Arial; padding: 40px; text-align: center;'><h1 style='color: #f44336;'>❌ Başvuru Reddedildi</h1><p>{{ $json.params.email }} reddedildi.</p><p>Sebep: {{ $json.query.reason || 'Belirtilmedi' }}</p></body></html>"
+      },
+      "name": "Webhook Yanıt - Reddedildi",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1560, 880]
+    }
+  ],
+  "connections": {
+    "Typeform Başvuru Webhook": {
+      "main": [[{"node": "Başvuru Verilerini Hazırla", "type": "main", "index": 0}]]
+    },
+    "Başvuru Verilerini Hazırla": {
+      "main": [[{"node": "Tüm Başvuruları Kaydet", "type": "main", "index": 0}]]
+    },
+    "Tüm Başvuruları Kaydet": {
+      "main": [[{"node": "Yaş ≥18 VE İlkeler Kabul?", "type": "main", "index": 0}]]
+    },
+    "Yaş ≥18 VE İlkeler Kabul?": {
+      "main": [
+        [{"node": "Sheet Güncelle - Manuel Bekliyor", "type": "main", "index": 0}],
+        [{"node": "Sheet Güncelle - Kesin Ret", "type": "main", "index": 0}]
+      ]
+    },
+    "Sheet Güncelle - Kesin Ret": {
+      "main": [[{"node": "Reddedilenler Sheet'e Ekle", "type": "main", "index": 0}]]
+    },
+    "Reddedilenler Sheet'e Ekle": {
+      "main": [[{"node": "Mailchimp - Ret Maili", "type": "main", "index": 0}]]
+    },
+    "Mailchimp - Ret Maili": {
+      "main": [[{"node": "Webhook Yanıt - Ret", "type": "main", "index": 0}]]
+    },
+    "Sheet Güncelle - Manuel Bekliyor": {
+      "main": [[{"node": "Admin Bildirimi", "type": "main", "index": 0}]]
+    },
+    "Admin Bildirimi": {
+      "main": [[{"node": "Webhook Yanıt - Bekliyor", "type": "main", "index": 0}]]
+    },
+    "Manuel Onay Webhook": {
+      "main": [[{"node": "Başvuruyu Sheet'ten Oku", "type": "main", "index": 0}]]
+    },
+    "Başvuruyu Sheet'ten Oku": {
+      "main": [[{"node": "Onaylandı mı?", "type": "main", "index": 0}]]
+    },
+    "Onaylandı mı?": {
+      "main": [
+        [{"node": "Sheet Güncelle - Onaylandı", "type": "main", "index": 0}],
+        [{"node": "Sheet Güncelle - Reddedildi", "type": "main", "index": 0}]
+      ]
+    },
+    "Sheet Güncelle - Onaylandı": {
+      "main": [[{"node": "Kabul Edilenler Sheet'e Ekle", "type": "main", "index": 0}]]
+    },
+    "Kabul Edilenler Sheet'e Ekle": {
+      "main": [[{"node": "Mailchimp - Kabul Maili", "type": "main", "index": 0}]]
+    },
+    "Mailchimp - Kabul Maili": {
+      "main": [[{"node": "Webhook Yanıt - Onaylandı", "type": "main", "index": 0}]]
+    },
+    "Sheet Güncelle - Reddedildi": {
+      "main": [[{"node": "Reddedilenler Sheet'e Ekle (Manuel)", "type": "main", "index": 0}]]
+    },
+    "Reddedilenler Sheet'e Ekle (Manuel)": {
+      "main": [[{"node": "Mailchimp - Manuel Ret Maili", "type": "main", "index": 0}]]
+    },
+    "Mailchimp - Manuel Ret Maili": {
+      "main": [[{"node": "Webhook Yanıt - Reddedildi", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

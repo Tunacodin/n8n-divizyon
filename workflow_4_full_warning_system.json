@@ -1,0 +1,224 @@
+{
+  "name": "⚠️ Circle - Warning System (FULL)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "circle-warning",
+        "responseMode": "responseNode"
+      },
+      "name": "Circle Uyarı Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [240, 400]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {"name": "email", "value": "={{ $json.body?.email }}"},
+            {"name": "circle_user_id", "value": "={{ $json.body?.user_id }}"},
+            {"name": "violation_type", "value": "={{ $json.body?.violation_type }}"},
+            {"name": "violation_details", "value": "={{ $json.body?.details }}"}
+          ]
+        }
+      },
+      "name": "Uyarı Verilerini Hazırla",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [460, 400]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {"__rl": true, "value": "GOOGLE_SHEET_ID_PLACEHOLDER", "mode": "id"},
+        "sheetName": {"__rl": true, "value": "Nihai AĞ Üyesi", "mode": "name"},
+        "filters": {
+          "conditions": [
+            {"column": "Email", "value": "={{ $json.email }}"}
+          ]
+        }
+      },
+      "name": "Kullanıcıyı Bul",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [680, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "const currentWarnings = parseInt($input.item.json['Warning Count'] || 0);\nconst newWarnings = currentWarnings + 1;\n\nreturn {\n  email: $input.item.json.Email,\n  ad_soyad: $input.item.json['Ad Soyad'],\n  circle_id: $input.item.json['Circle User ID'],\n  current_warnings: currentWarnings,\n  new_warnings: newWarnings,\n  should_deactivate: newWarnings >= 2,\n  violation_type: $('Uyarı Verilerini Hazırla').item.json.violation_type,\n  violation_details: $('Uyarı Verilerini Hazırla').item.json.violation_details\n};"
+      },
+      "name": "Uyarı Sayısını Hesapla",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 400]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {"__rl": true, "value": "GOOGLE_SHEET_ID_PLACEHOLDER", "mode": "id"},
+        "sheetName": {"__rl": true, "value": "Nihai AĞ Üyesi", "mode": "name"},
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Warning Count": "={{ $json.new_warnings }}",
+            "Son Aktivite": "={{ $now.toISO() }}"
+          }
+        },
+        "options": {
+          "lookupColumn": "Email",
+          "lookupValue": "={{ $json.email }}"
+        }
+      },
+      "name": "Warning Count Güncelle",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [1120, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"combinator": "and"},
+          "conditions": [
+            {"leftValue": "={{ $json.should_deactivate }}", "rightValue": true, "operator": {"type": "boolean", "operation": "equal"}}
+          ]
+        }
+      },
+      "name": "Deaktif Edilmeli mi?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1340, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.circle.so/v1/community_members/{{ $json.circle_id }}/deactivate",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {"name": "Authorization", "value": "Token CIRCLE_API_TOKEN_PLACEHOLDER"}
+          ]
+        },
+        "options": {}
+      },
+      "name": "Circle API - Deactivate",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1560, 320]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {"__rl": true, "value": "GOOGLE_SHEET_ID_PLACEHOLDER", "mode": "id"},
+        "sheetName": {"__rl": true, "value": "Nihai AĞ Üyesi", "mode": "name"},
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Status": "Inactive"
+          }
+        },
+        "options": {
+          "lookupColumn": "Email",
+          "lookupValue": "={{ $json.email }}"
+        }
+      },
+      "name": "Status Güncelle - Inactive",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [1780, 320]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {"__rl": true, "value": "GOOGLE_SHEET_ID_PLACEHOLDER", "mode": "id"},
+        "sheetName": {"__rl": true, "value": "Deaktifler", "mode": "name"},
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Email": "={{ $json.email }}",
+            "Ad Soyad": "={{ $json.ad_soyad }}",
+            "Circle User ID": "={{ $json.circle_id }}",
+            "Deaktif Tarihi": "={{ $now.toISO() }}",
+            "Sebep": "2+ Uyarı / Kural İhlali",
+            "Warning Count": "={{ $json.new_warnings }}",
+            "Warning History": "={{ $json.violation_type + ': ' + $json.violation_details }}",
+            "Son Uyarı Tarihi": "={{ $now.toISO() }}"
+          }
+        }
+      },
+      "name": "Deaktifler Sheet'e Ekle",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [2000, 320]
+    },
+    {
+      "parameters": {
+        "fromEmail": "admin@circleapp.com",
+        "toEmail": "={{ $json.email }}",
+        "subject": "🚫 Hesabınız Deaktif Edildi - Circle",
+        "emailType": "html",
+        "message": "=<h2>Hesabınız Deaktif Edildi</h2><p>Topluluk kurallarını tekrarlayan şekilde ihlal ettiğiniz için hesabınız deaktif edilmiştir.</p><p><strong>Toplam Uyarı:</strong> {{ $json.new_warnings }}</p><p><strong>Son İhlal:</strong> {{ $json.violation_type }}</p><p>İtiraz için admin@circleapp.com adresine yazabilirsiniz.</p>",
+        "options": {}
+      },
+      "name": "Deaktif Maili",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [2220, 320]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"status\": \"deactivated\", \"warnings\": $json.new_warnings } }}"
+      },
+      "name": "Deaktif Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2440, 320]
+    },
+    {
+      "parameters": {
+        "fromEmail": "noreply@circleapp.com",
+        "toEmail": "={{ $json.email }}",
+        "subject": "⚠️ Topluluk Kuralları Uyarısı - Circle",
+        "emailType": "html",
+        "message": "=<h2>Uyarı Aldınız</h2><p>Topluluk kurallarımızı ihlal ettiğiniz tespit edilmiştir.</p><p><strong>İhlal Tipi:</strong> {{ $json.violation_type }}</p><p><strong>Uyarı Sayınız:</strong> {{ $json.new_warnings }}/2</p><p>2 uyarıda hesabınız otomatik olarak deaktif edilecektir.</p>",
+        "options": {}
+      },
+      "name": "Uyarı Maili",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1560, 480]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"status\": \"warning_sent\", \"warnings\": $json.new_warnings } }}"
+      },
+      "name": "Uyarı Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1780, 480]
+    }
+  ],
+  "connections": {
+    "Circle Uyarı Webhook": {"main": [[{"node": "Uyarı Verilerini Hazırla", "type": "main", "index": 0}]]},
+    "Uyarı Verilerini Hazırla": {"main": [[{"node": "Kullanıcıyı Bul", "type": "main", "index": 0}]]},
+    "Kullanıcıyı Bul": {"main": [[{"node": "Uyarı Sayısını Hesapla", "type": "main", "index": 0}]]},
+    "Uyarı Sayısını Hesapla": {"main": [[{"node": "Warning Count Güncelle", "type": "main", "index": 0}]]},
+    "Warning Count Güncelle": {"main": [[{"node": "Deaktif Edilmeli mi?", "type": "main", "index": 0}]]},
+    "Deaktif Edilmeli mi?": {
+      "main": [
+        [{"node": "Circle API - Deactivate", "type": "main", "index": 0}],
+        [{"node": "Uyarı Maili", "type": "main", "index": 0}]
+      ]
+    },
+    "Circle API - Deactivate": {"main": [[{"node": "Status Güncelle - Inactive", "type": "main", "index": 0}]]},
+    "Status Güncelle - Inactive": {"main": [[{"node": "Deaktifler Sheet'e Ekle", "type": "main", "index": 0}]]},
+    "Deaktifler Sheet'e Ekle": {"main": [[{"node": "Deaktif Maili", "type": "main", "index": 0}]]},
+    "Deaktif Maili": {"main": [[{"node": "Deaktif Response", "type": "main", "index": 0}]]},
+    "Uyarı Maili": {"main": [[{"node": "Uyarı Response", "type": "main", "index": 0}]]}
+  },
+  "settings": {"executionOrder": "v1"}
+}

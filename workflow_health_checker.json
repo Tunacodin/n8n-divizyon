@@ -1,0 +1,181 @@
+{
+  "name": "📊 n8n Health Checker & Dashboard Updater",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "*/10 * * * *"
+            }
+          ]
+        }
+      },
+      "name": "Her 10 Dakikada",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 400]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://83ohvlw5.rpcld.net/api/v1/workflows",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-API-KEY",
+              "value": "YOUR_API_KEY"
+            }
+          ]
+        }
+      },
+      "name": "Get All Workflows",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, 400]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://83ohvlw5.rpcld.net/api/v1/executions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-API-KEY",
+              "value": "YOUR_API_KEY"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "limit",
+              "value": "100"
+            }
+          ]
+        }
+      },
+      "name": "Get Recent Executions",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Calculate health metrics\n\nconst workflows = $input.first().json.data;\nconst executions = $input.last().json.data;\n\n// Workflow stats\nconst totalWorkflows = workflows.length;\nconst activeWorkflows = workflows.filter(w => w.active).length;\n\n// Execution stats (last 10 minutes)\nconst now = new Date();\nconst tenMinAgo = new Date(now - 10 * 60 * 1000);\n\nconst recentExecs = executions.filter(e => \n  new Date(e.startedAt) > tenMinAgo\n);\n\nconst successExecs = recentExecs.filter(e => e.finished && !e.stoppedAt);\nconst failedExecs = recentExecs.filter(e => e.stoppedAt || !e.finished);\n\nconst successRate = recentExecs.length > 0 \n  ? (successExecs.length / recentExecs.length * 100).toFixed(2)\n  : 100;\n\n// Calculate avg execution time\nconst avgTime = successExecs.length > 0\n  ? successExecs.reduce((sum, e) => {\n      const duration = new Date(e.stoppedAt) - new Date(e.startedAt);\n      return sum + duration;\n    }, 0) / successExecs.length / 1000 // seconds\n  : 0;\n\n// Per-workflow stats\nconst workflowStats = workflows.map(wf => {\n  const wfExecs = executions.filter(e => e.workflowId === wf.id);\n  const wfSuccess = wfExecs.filter(e => e.finished && !e.stoppedAt);\n  const wfFailed = wfExecs.filter(e => e.stoppedAt || !e.finished);\n  \n  return {\n    workflow_id: wf.id,\n    workflow_name: wf.name,\n    active: wf.active,\n    total_executions: wfExecs.length,\n    success_count: wfSuccess.length,\n    failed_count: wfFailed.length,\n    success_rate: wfExecs.length > 0 \n      ? (wfSuccess.length / wfExecs.length * 100).toFixed(2)\n      : 0,\n    last_execution: wfExecs.length > 0 \n      ? wfExecs[0].startedAt \n      : null\n  };\n});\n\nreturn {\n  timestamp: now.toISOString(),\n  overview: {\n    total_workflows: totalWorkflows,\n    active_workflows: activeWorkflows,\n    inactive_workflows: totalWorkflows - activeWorkflows,\n    recent_executions: recentExecs.length,\n    success_count: successExecs.length,\n    failed_count: failedExecs.length,\n    success_rate: successRate,\n    avg_execution_time: avgTime.toFixed(2)\n  },\n  workflows: workflowStats,\n  health_status: failedExecs.length > recentExecs.length * 0.1 ? 'CRITICAL' : 'HEALTHY'\n};"
+      },
+      "name": "Calculate Metrics",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 400]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "GOOGLE_SHEET_ID_PLACEHOLDER",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "n8n Health Dashboard",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Timestamp": "={{ $json.timestamp }}",
+            "Total Workflows": "={{ $json.overview.total_workflows }}",
+            "Active Workflows": "={{ $json.overview.active_workflows }}",
+            "Recent Executions": "={{ $json.overview.recent_executions }}",
+            "Success Count": "={{ $json.overview.success_count }}",
+            "Failed Count": "={{ $json.overview.failed_count }}",
+            "Success Rate %": "={{ $json.overview.success_rate }}",
+            "Avg Time (sec)": "={{ $json.overview.avg_execution_time }}",
+            "Health Status": "={{ $json.health_status }}"
+          }
+        }
+      },
+      "name": "Update Dashboard Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [1120, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "combinator": "or"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.health_status }}",
+              "rightValue": "CRITICAL",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "leftValue": "={{ $json.overview.failed_count }}",
+              "rightValue": 5,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ]
+        }
+      },
+      "name": "Critical Issue?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1340, 400]
+    },
+    {
+      "parameters": {
+        "fromEmail": "alerts@circleapp.com",
+        "toEmail": "admin@circleapp.com",
+        "subject": "🚨 n8n CRITICAL ALERT",
+        "emailType": "html",
+        "message": "=<h2 style='color: red;'>🚨 n8n Critical Alert</h2><p><strong>Status:</strong> {{ $json.health_status }}</p><p><strong>Failed Executions:</strong> {{ $json.overview.failed_count }} / {{ $json.overview.recent_executions }}</p><p><strong>Success Rate:</strong> {{ $json.overview.success_rate }}%</p><p><strong>Time:</strong> {{ $json.timestamp }}</p><p><a href='https://83ohvlw5.rpcld.net'>Check n8n Dashboard</a></p>"
+      },
+      "name": "Send Alert Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1560, 320]
+    }
+  ],
+  "connections": {
+    "Her 10 Dakikada": {
+      "main": [[{"node": "Get All Workflows", "type": "main", "index": 0}]]
+    },
+    "Get All Workflows": {
+      "main": [[{"node": "Get Recent Executions", "type": "main", "index": 0}]]
+    },
+    "Get Recent Executions": {
+      "main": [[{"node": "Calculate Metrics", "type": "main", "index": 0}]]
+    },
+    "Calculate Metrics": {
+      "main": [[{"node": "Update Dashboard Sheet", "type": "main", "index": 0}]]
+    },
+    "Update Dashboard Sheet": {
+      "main": [[{"node": "Critical Issue?", "type": "main", "index": 0}]]
+    },
+    "Critical Issue?": {
+      "main": [[{"node": "Send Alert Email", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

@@ -1,0 +1,19 @@
+# Response files from API tests
+w2_response.json
+w3_response.json
+w4_response.json
+w5_response.json
+
+# Temporary/draft files
+workflow_1_application_handler.json
+workflow_1_minimal.json
+workflow_2_test_manager.json
+workflow_3_role_assignment.json
+workflow_4_warning_system.json
+workflow_5_event_attendee.json
+workflow_5_simplified.json
+workflow_all_updates.sh
+workflows.json
+
+# macOS
+.DS_Store
