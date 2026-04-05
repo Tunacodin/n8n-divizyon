@@ -17,3 +17,7 @@ workflows.json
 
 # macOS
 .DS_Store
+
+# Google OAuth credentials — NEVER commit these
+client_secret.json
+client_secret_*.json

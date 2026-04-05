@@ -1,0 +1,479 @@
+{
+  "name": "Divizyon - Başvuru İşleme",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "documentId": {
+          "__rl": true,
+          "value": "1ldHhZ6H4NqK3ILhhL3tzbFzHLp1YrCYux5Vmg4zL8qE",
+          "mode": "list",
+          "cachedResultName": "Divizyon Açık İnovasyon Ağı | Başvuru Formu",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1ldHhZ6H4NqK3ILhhL3tzbFzHLp1YrCYux5Vmg4zL8qE/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Divizyon Açık İnovasyon Ağı | Başvuru Formu",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1ldHhZ6H4NqK3ILhhL3tzbFzHLp1YrCYux5Vmg4zL8qE/edit#gid=0"
+        },
+        "event": "rowAdded",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTrigger",
+      "typeVersion": 1,
+      "position": [-384, -48],
+      "id": "1064c377-ad39-4524-bddd-c228c240e504",
+      "name": "Google Sheets Trigger",
+      "credentials": {
+        "googleSheetsTriggerOAuth2Api": {
+          "id": "hU0JgLY6OvUrp4VH",
+          "name": "Google Sheets Trigger account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Email veya ad yoksa satırı atla (form henüz doldurulmamış olabilir)\nconst name = ($input.item.json['Adın Soyadın'] || '').trim();\nconst email = ($input.item.json['E-Posta Adresin'] || '').trim();\nif (!name || !email) {\n  return [];\n}\n\nconst rawDate = $input.item.json[\"Doğum Tarihin (GG/AA/YYYY)\"];\n\nconst aylar = {\n  \"ocak\": 0, \"subat\": 1, \"şubat\": 1, \"mart\": 2, \"nisan\": 3,\n  \"mayis\": 4, \"mayıs\": 4, \"haziran\": 5, \"temmuz\": 6,\n  \"agustos\": 7, \"ağustos\": 7, \"eylul\": 8, \"eylül\": 8,\n  \"ekim\": 9, \"kasim\": 10, \"kasım\": 10, \"aralik\": 11, \"aralık\": 11\n};\n\nconst nullResult = {\n  json: {\n    ...$input.item.json,\n    age: null,\n    birthDateParsed: null\n  }\n};\n\nif (!rawDate || rawDate.toString().trim() === \"\") {\n  return nullResult;\n}\n\nlet day, month, year;\nconst str = rawDate.toString().trim();\n\nif (str.includes(\"/\") || str.includes(\".\") || str.includes(\"-\")) {\n  const parts = str.split(/[\\/\\.\\-]/);\n  day   = parseInt(parts[0], 10);\n  month = parseInt(parts[1], 10) - 1;\n  year  = parseInt(parts[2], 10);\n\n} else if (/^\\d{8}$/.test(str)) {\n  day   = parseInt(str.substring(0, 2), 10);\n  month = parseInt(str.substring(2, 4), 10) - 1;\n  year  = parseInt(str.substring(4, 8), 10);\n\n} else {\n  const parts = str.toLowerCase().split(\" \").filter(p => p !== \"\");\n\n  if (parts.length !== 3) {\n    return nullResult;\n  }\n\n  day  = parseInt(parts[0], 10);\n  year = parseInt(parts[2], 10);\n\n  if (!isNaN(parseInt(parts[1], 10))) {\n    month = parseInt(parts[1], 10) - 1;\n  } else {\n    month = aylar[parts[1]];\n    if (month === undefined) {\n      return nullResult;\n    }\n  }\n}\n\nif (isNaN(day) || isNaN(month) || isNaN(year)) {\n  return nullResult;\n}\n\nconst birthDate = new Date(year, month, day);\nconst today = new Date();\n\nlet age = today.getFullYear() - birthDate.getFullYear();\nconst monthDiff = today.getMonth() - birthDate.getMonth();\nconst dayDiff   = today.getDate()  - birthDate.getDate();\n\nif (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) {\n  age--;\n}\n\nreturn {\n  json: {\n    ...$input.item.json,\n    age,\n    birthDateParsed: `${day}/${month + 1}/${year}`\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [96, -48],
+      "id": "fc71646a-2998-4b69-8a95-d2b45c5a3589",
+      "name": "yaş kontrolü "
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.age }}",
+                    "rightValue": 0,
+                    "operator": {
+                      "type": "number",
+                      "operation": "empty",
+                      "singleValue": true
+                    },
+                    "id": "80b46ba2-dea0-4ceb-9e55-9916391fab48"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "tarih girilmemiş"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "5c4cc10c-b23d-413c-9f0a-09c968bec597",
+                    "leftValue": "={{ $json.age }}",
+                    "rightValue": 18,
+                    "operator": {
+                      "type": "number",
+                      "operation": "gte"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "18 yaşında ya da büyük"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "e6b90a69-9c27-4fff-ab78-53e845320da4",
+                    "leftValue": "={{ $json.age }}",
+                    "rightValue": 18,
+                    "operator": {
+                      "type": "number",
+                      "operation": "lt"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "18 den küçük"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [304, -64],
+      "id": "1ee4ba56-3175-446a-b071-ab93f6a59b1a",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "a8071fe7-00c2-459d-8fdc-966e1af73c16",
+              "leftValue": "={{ $json['1)'] }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "empty", "singleValue": true }
+            },
+            {
+              "id": "a4090288-d746-400e-a06b-282f056307b1",
+              "leftValue": "={{ $json['2)'] }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "empty", "singleValue": true }
+            },
+            {
+              "id": "7bb6c51e-1adb-4725-9b2b-871353af2b3f",
+              "leftValue": "={{ $json['3)'] }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "empty", "singleValue": true }
+            },
+            {
+              "id": "58830d7f-f3ae-4087-bba4-bdeb49c5afab",
+              "leftValue": "={{ $json['4)'] }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "empty", "singleValue": true }
+            },
+            {
+              "id": "9d82f9ab-7bad-4ea2-9796-a97d123f316d",
+              "leftValue": "={{ $json['5)'] }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "empty", "singleValue": true }
+            },
+            {
+              "id": "0946e31d-1386-4e12-889a-66fb1bb0c619",
+              "leftValue": "={{ $json['6)'] }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "empty", "singleValue": true }
+            },
+            {
+              "id": "eeb8513c-add1-4dca-a2cb-8945c5aaf5fd",
+              "leftValue": "={{ $json['7)'] }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "empty", "singleValue": true }
+            },
+            {
+              "id": "eba1d7df-8440-461f-8dc5-7d5bdfc59062",
+              "leftValue": "={{ $json['8)'] }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "empty", "singleValue": true }
+            },
+            {
+              "id": "4d7e7db3-f343-4b99-b250-13735f0255c9",
+              "leftValue": "={{ $json['9)'] }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "empty", "singleValue": true }
+            },
+            {
+              "id": "1051d853-6e2c-4b08-84e2-6885070c78b4",
+              "leftValue": "={{ $json['10)'] }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "empty", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [640, -192],
+      "id": "752c8b27-8eea-4123-bc11-71ca5f3bcffe",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "content": "## Divizyon Açık İnovasyon Ağı\n\nTypeForm → Google Sheets → n8n\n\nYeni başvuru gelince yaş ve topluluk ilkeleri kontrolü yapılır.\nSonuçlar Supabase'e yazılır."
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [-320, -224],
+      "typeVersion": 1,
+      "id": "60759d29-bf38-4c9c-a78d-c58d3e817286",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Kontrol'e gidecek başvuru — tüm alanları Supabase formatına map'le\nconst d = $input.item.json;\n\nreturn {\n  json: {\n    full_name: d['Adın Soyadın'] || '',\n    email: (d['E-Posta Adresin'] || '').toLowerCase().trim(),\n    birth_date: d['Doğum Tarihin (GG/AA/YYYY)'] || '',\n    gender: d['Cinsiyetin'] || '',\n    phone: d['Telefon Numaran'] || '',\n    status: 'kontrol',\n    professional_status: d['Mevcut profesyonel durumun nedir?'] || '',\n    university: d['Hangi üniversitede öğrencisin?'] || '',\n    university_other: d['Eğer yukardaki listede üniversiteni göremiyorsan bu soruda üniversiteni belirtebilirsin.'] || '',\n    department: d['Hangi bölümde öğrencisin?'] || '',\n    education_type: d['Öğrenim türünü belirtir misin?'] || '',\n    work_detail: d['Çalıştığın iş/proje hakkında detay verebilir misin?'] || '',\n    main_role: d['Üretici Rolünü Tanımla'] || '',\n    core_values: d['Aşağıdaki değerlerden hangisi seni en çok tanımlar?'] || '',\n    community_contribution: d['Divizyon topluluğunun sana en çok nasıl katkı sağlayacağını düşünüyorsun?'] || '',\n    self_expression: d['Sıra en kritik adımda: Seni anlamak. Bu topluluğun bir parçası olarak potansiyelini nasıl hayata geçireceğini ve ekosisteme nasıl katkı sunacağını duymak istiyoruz.'] || '',\n    principle_1: d['1)'] || '',\n    principle_2: d['2)'] || '',\n    principle_3: d['3)'] || '',\n    principle_4: d['4)'] || '',\n    principle_5: d['5)'] || '',\n    principle_6: d['6)'] || '',\n    principle_7: d['7)'] || '',\n    principle_8: d['8)'] || '',\n    principle_9: d['9)'] || '',\n    principle_10: d['10)'] || '',\n    additional_notes: d['Eklemek veya belirtmek istediğin herhangi bir şey var mı?'] || '',\n\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [880, -128],
+      "id": "4ad5e532-f719-4607-b704-5ffc9586a602",
+      "name": "Kontrol Payload"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Kesin Ret (Topluluk İlkeleri) — Supabase formatı\nconst d = $input.item.json;\n\nreturn {\n  json: {\n    full_name: d['Adın Soyadın'] || '',\n    email: (d['E-Posta Adresin'] || '').toLowerCase().trim(),\n    birth_date: d['Doğum Tarihin (GG/AA/YYYY)'] || '',\n    gender: d['Cinsiyetin'] || '',\n    phone: d['Telefon Numaran'] || '',\n    status: 'kesin_ret',\n    reviewer: 'Otomasyon',\n    review_note: 'Topluluk ilkeleri kabul edilmemiş.',\n    mail_template: 'kesin-ret-topluluk',\n\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [880, -352],
+      "id": "5f8f2b86-716c-4e72-adfa-689c5ad39030",
+      "name": "Ret Topluluk Payload"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Kesin Ret (18 Yaş Altı) — Supabase formatı\nconst d = $input.item.json;\n\nreturn {\n  json: {\n    full_name: d['Adın Soyadın'] || '',\n    email: (d['E-Posta Adresin'] || '').toLowerCase().trim(),\n    birth_date: d['Doğum Tarihin (GG/AA/YYYY)'] || '',\n    gender: d['Cinsiyetin'] || '',\n    phone: d['Telefon Numaran'] || '',\n    status: 'kesin_ret',\n    reviewer: 'Otomasyon',\n    review_note: '18 Yaşından Küçük',\n    mail_template: 'kesin-ret-18yas',\n\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [640, 176],
+      "id": "ce5d66af-ret-yas-payload",
+      "name": "Ret Yaş Payload"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://jespofhjuorecaetwhww.supabase.co/rest/v1/applications?on_conflict=email",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Implc3BvZmhqdW9yZWNhZXR3aHd3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTEyNDc4MiwiZXhwIjoyMDkwNzAwNzgyfQ.RdwrZWpx1scnWRyteTk_7WhSv3vqnPtWsWXU1qQrVyM"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Implc3BvZmhqdW9yZWNhZXR3aHd3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTEyNDc4MiwiZXhwIjoyMDkwNzAwNzgyfQ.RdwrZWpx1scnWRyteTk_7WhSv3vqnPtWsWXU1qQrVyM"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation,resolution=merge-duplicates"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1088, -128],
+      "id": "a2038369-supabase-kontrol",
+      "name": "DB → Kontrol"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://jespofhjuorecaetwhww.supabase.co/rest/v1/applications?on_conflict=email",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Implc3BvZmhqdW9yZWNhZXR3aHd3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTEyNDc4MiwiZXhwIjoyMDkwNzAwNzgyfQ.RdwrZWpx1scnWRyteTk_7WhSv3vqnPtWsWXU1qQrVyM"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Implc3BvZmhqdW9yZWNhZXR3aHd3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTEyNDc4MiwiZXhwIjoyMDkwNzAwNzgyfQ.RdwrZWpx1scnWRyteTk_7WhSv3vqnPtWsWXU1qQrVyM"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation,resolution=merge-duplicates"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1088, -352],
+      "id": "40207ec3-supabase-ret-topluluk",
+      "name": "DB → Kesin Ret (Topluluk)"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://jespofhjuorecaetwhww.supabase.co/rest/v1/applications?on_conflict=email",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Implc3BvZmhqdW9yZWNhZXR3aHd3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTEyNDc4MiwiZXhwIjoyMDkwNzAwNzgyfQ.RdwrZWpx1scnWRyteTk_7WhSv3vqnPtWsWXU1qQrVyM"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Implc3BvZmhqdW9yZWNhZXR3aHd3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTEyNDc4MiwiZXhwIjoyMDkwNzAwNzgyfQ.RdwrZWpx1scnWRyteTk_7WhSv3vqnPtWsWXU1qQrVyM"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation,resolution=merge-duplicates"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [880, 176],
+      "id": "ce5d66af-supabase-ret-yas",
+      "name": "DB → Kesin Ret (Yaş)"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Google Sheets Trigger": {
+      "main": [
+        [
+          {
+            "node": "yaş kontrolü ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "yaş kontrolü ": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ret Yaş Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Ret Topluluk Payload",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Kontrol Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kontrol Payload": {
+      "main": [
+        [
+          {
+            "node": "DB → Kontrol",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ret Topluluk Payload": {
+      "main": [
+        [
+          {
+            "node": "DB → Kesin Ret (Topluluk)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ret Yaş Payload": {
+      "main": [
+        [
+          {
+            "node": "DB → Kesin Ret (Yaş)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": []
+}
