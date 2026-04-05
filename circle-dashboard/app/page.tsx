@@ -108,6 +108,11 @@ export default function DashboardPage() {
 
   useEffect(() => { fetchData() }, [])
 
+  // Tab degisince paneli kapat
+  useEffect(() => {
+    setSelectedApp(null)
+  }, [selectedStep])
+
   // selectedApp degisince formu resetle
   useEffect(() => {
     if (selectedApp) {

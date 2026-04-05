@@ -9,6 +9,7 @@ Divizyon Acik Inovasyon Agi toplulugunun uye basvurularini yoneten full-stack si
 
 ## Guvenlik Kurallari
 - **ASLA** kullaniciya sormadan HTTP istegi gonderme (webhook, API, test dahil)
+- **ASLA** Circle uyeleri uzerinde yazma/guncelleme/silme/tag atama islemi yapma — Circle API sadece okuma (GET) icin kullanilir
 - Circle Admin Token ve API key'leri aciga cikarma
 - Dis servislere (n8n, Mailchimp, Google) yapilacak her cagri icin onay al
 

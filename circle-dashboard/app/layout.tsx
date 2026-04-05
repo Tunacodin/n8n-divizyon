@@ -3,6 +3,7 @@ import { Inter } from "next/font/google"
 import "./globals.css"
 import { cn } from "@/lib/utils"
 import { Header } from "@/components/Header"
+import { SWRProvider } from "@/components/SWRProvider"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -19,10 +20,12 @@ export default function RootLayout({
   return (
     <html lang="tr">
       <body className={cn(inter.className, "min-h-screen bg-[#FAFBFC]")}>
-        <Header />
-        <main className="min-h-[calc(100vh-3.5rem)]">
-          {children}
-        </main>
+        <SWRProvider>
+          <Header />
+          <main className="min-h-[calc(100vh-3.5rem)]">
+            {children}
+          </main>
+        </SWRProvider>
       </body>
     </html>
   )

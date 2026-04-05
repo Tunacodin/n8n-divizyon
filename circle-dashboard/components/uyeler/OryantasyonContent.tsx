@@ -111,16 +111,24 @@ export default function OryantasyonContent() {
       .finally(() => setLoading(false))
   }, [])
 
+  const [pendingTaskAction, setPendingTaskAction] = useState<{ appId: string; taskType: string } | null>(null)
+  const [pendingPerson, setPendingPerson] = useState('')
+
   const toggleTask = async (appId: string, taskType: string, current: boolean) => {
+    if (!current) {
+      // Tamamlama — kişi seçimi gerekli
+      setPendingTaskAction({ appId, taskType })
+      setPendingPerson('')
+      return
+    }
+    // Geri alma
+    await submitTaskAction(appId, taskType, true, 'dashboard')
+  }
+
+  const submitTaskAction = async (appId: string, taskType: string, current: boolean, completedBy: string) => {
     const key = `${appId}-${taskType}`
     setTogglingTask(key)
-
-    let completedBy = 'dashboard'
-    if (!current && taskType === 'oryantasyon') {
-      const name = prompt('Oryantasyonu yapan kişi:')
-      if (!name) { setTogglingTask(null); return }
-      completedBy = name
-    }
+    setPendingTaskAction(null)
 
     try {
       const res = await fetch(`/api/applications/${appId}/tasks`, {
@@ -687,6 +695,35 @@ export default function OryantasyonContent() {
           </div>
         )}
       </div>
+
+      {/* Görev tamamlama — kişi seçim dialog */}
+      {pendingTaskAction && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/30" onClick={() => setPendingTaskAction(null)} />
+          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-xs p-5 mx-4">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">Kim tarafından yapıldı?</h3>
+            <select
+              value={pendingPerson}
+              onChange={(e) => setPendingPerson(e.target.value)}
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-400 outline-none mb-3"
+            >
+              <option value="">Kişi seç...</option>
+              <option value="Tuna">Tuna</option>
+              <option value="Taha">Taha</option>
+            </select>
+            <div className="flex gap-2">
+              <button onClick={() => setPendingTaskAction(null)} className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50">İptal</button>
+              <button
+                onClick={() => pendingPerson && submitTaskAction(pendingTaskAction.appId, pendingTaskAction.taskType, false, pendingPerson)}
+                disabled={!pendingPerson}
+                className="flex-1 px-3 py-2 text-sm text-white bg-indigo-500 rounded-lg hover:bg-indigo-600 disabled:opacity-50"
+              >
+                Onayla
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Üye Detay Modalı */}
       <UyeDetailModal

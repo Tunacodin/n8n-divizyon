@@ -47,6 +47,8 @@ export default function UyeDetailModal({ data, onClose, onUpdate }: UyeDetailMod
   const [loading, setLoading] = useState(true)
   const [togglingTask, setTogglingTask] = useState<string | null>(null)
   const [warningLoading, setWarningLoading] = useState(false)
+  const [pendingTask, setPendingTask] = useState<string | null>(null)
+  const [selectedPerson, setSelectedPerson] = useState('')
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Escape') onClose()
@@ -90,13 +92,19 @@ export default function UyeDetailModal({ data, onClose, onUpdate }: UyeDetailMod
   const allDone = TASK_TYPES.every((t) => getTaskStatus(t)?.completed)
 
   const toggleTask = async (taskType: string, current: boolean) => {
-    setTogglingTask(taskType)
-    let completedBy = 'dashboard'
-    if (!current && taskType === 'oryantasyon') {
-      const name = prompt('Oryantasyonu yapan kişi:')
-      if (!name) { setTogglingTask(null); return }
-      completedBy = name
+    // Tamamlama ise ve kişi seçimi gerekiyorsa dropdown göster
+    if (!current) {
+      setPendingTask(taskType)
+      setSelectedPerson('')
+      return
     }
+    // Geri alma
+    await submitTask(taskType, true, 'dashboard')
+  }
+
+  const submitTask = async (taskType: string, current: boolean, completedBy: string) => {
+    setTogglingTask(taskType)
+    setPendingTask(null)
     try {
       const res = await fetch(`/api/applications/${data.id}/tasks`, {
         method: 'POST',
@@ -241,6 +249,39 @@ export default function UyeDetailModal({ data, onClose, onUpdate }: UyeDetailMod
                         </div>
                       )
                     })}
+                  </div>
+                )}
+
+                {/* Kişi seçim dropdown'ı */}
+                {pendingTask && (
+                  <div className="mt-3 p-3 bg-indigo-50 border border-indigo-200 rounded-lg space-y-2">
+                    <p className="text-xs font-medium text-indigo-700">
+                      {TASK_LABELS[pendingTask]} — Kim tarafından yapıldı?
+                    </p>
+                    <select
+                      value={selectedPerson}
+                      onChange={(e) => setSelectedPerson(e.target.value)}
+                      className="w-full text-sm border border-indigo-200 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-400 outline-none"
+                    >
+                      <option value="">Kişi seç...</option>
+                      <option value="Tuna">Tuna</option>
+                      <option value="Taha">Taha</option>
+                    </select>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setPendingTask(null)}
+                        className="flex-1 px-3 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50"
+                      >
+                        İptal
+                      </button>
+                      <button
+                        onClick={() => selectedPerson && submitTask(pendingTask, false, selectedPerson)}
+                        disabled={!selectedPerson}
+                        className="flex-1 px-3 py-1.5 text-xs font-medium text-white bg-indigo-500 rounded-lg hover:bg-indigo-600 disabled:opacity-50"
+                      >
+                        Onayla
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
