@@ -203,13 +203,20 @@ export default function AnalizPage() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
           <ChartCard title="Üyelik Hunisi" subtitle="Başvurudan nihai üyeliğe" loading={loading} className="lg:col-span-4">
             {hasData && data.funnel.length > 0 ? (
-              <ResponsiveContainer width="100%" height={170}>
-                <BarChart data={data.funnel} layout="vertical" margin={{ left: 10, right: 10, top: 4, bottom: 4 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" horizontal={false} />
-                  <XAxis type="number" tick={{ fontSize: 10, fill: '#9CA3AF' }} />
-                  <YAxis type="category" dataKey="stage" tick={{ fontSize: 10, fill: '#6B7280' }} width={85} />
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={data.funnel} margin={{ left: 0, right: 10, top: 4, bottom: 18 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" vertical={false} />
+                  <XAxis
+                    dataKey="stage"
+                    tick={{ fontSize: 9, fill: '#6B7280' }}
+                    interval={0}
+                    angle={-25}
+                    textAnchor="end"
+                    height={44}
+                  />
+                  <YAxis tick={{ fontSize: 10, fill: '#9CA3AF' }} width={28} />
                   <Tooltip formatter={(v: number) => [num(v), 'Kişi']} contentStyle={{ fontSize: 11 }} />
-                  <Bar dataKey="count" fill={C.basvuru} radius={[0, 3, 3, 0]} />
+                  <Bar dataKey="count" fill={C.basvuru} radius={[3, 3, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -315,54 +322,99 @@ export default function AnalizPage() {
             className="lg:col-span-6"
           >
             {hasData && data.disiplinDagilimi.length > 0 ? (
-              <ResponsiveContainer width="100%" height={Math.max(170, Math.min(data.disiplinDagilimi.length, 8) * 22)}>
-                <BarChart
-                  data={data.disiplinDagilimi.slice(0, 8)}
-                  layout="vertical"
-                  margin={{ left: 0, right: 10, top: 4, bottom: 4 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" horizontal={false} />
-                  <XAxis type="number" tick={{ fontSize: 10, fill: '#9CA3AF' }} />
-                  <YAxis
-                    type="category"
-                    dataKey="disiplin"
-                    tick={{ fontSize: 10, fill: '#6B7280' }}
-                    width={150}
-                  />
-                  <Tooltip formatter={(v: number) => [num(v), 'Kişi']} contentStyle={{ fontSize: 11 }} />
-                  <Bar dataKey="count" fill={C.basvuru} radius={[0, 3, 3, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              (() => {
+                const top = data.disiplinDagilimi.slice(0, 8)
+                const max = Math.max(...top.map(d => d.count), 1)
+                const total = data.disiplinDagilimi.reduce((s, d) => s + d.count, 0)
+                return (
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide border-b border-gray-100">
+                        <th className="py-1.5 pr-2 w-6">#</th>
+                        <th className="py-1.5 pr-2">Disiplin</th>
+                        <th className="py-1.5 pr-2 text-right w-10">Kişi</th>
+                        <th className="py-1.5 pr-2 text-right w-10">%</th>
+                        <th className="py-1.5 pl-2 w-24"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {top.map((d, i) => {
+                        const pct = total > 0 ? (d.count / total) * 100 : 0
+                        const w = (d.count / max) * 100
+                        return (
+                          <tr key={d.disiplin} className="border-b border-gray-50 last:border-0">
+                            <td className="py-1.5 pr-2 text-gray-400 tabular-nums">{i + 1}</td>
+                            <td className="py-1.5 pr-2 text-gray-700 truncate max-w-[220px]" title={d.disiplin}>{d.disiplin}</td>
+                            <td className="py-1.5 pr-2 text-right font-semibold text-gray-900 tabular-nums">{num(d.count)}</td>
+                            <td className="py-1.5 pr-2 text-right text-gray-500 tabular-nums">{pct.toFixed(1)}</td>
+                            <td className="py-1.5 pl-2">
+                              <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                <div className="h-full rounded-full" style={{ width: `${w}%`, background: C.basvuru }} />
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                )
+              })()
             ) : (
               <p className="text-center text-gray-400 py-6 text-xs">Disiplin verisi yok</p>
             )}
           </ChartCard>
         </div>
 
-        {/* Bento — Row 3: Değerlendirici (full) */}
-        <ChartCard title="Değerlendirici Yükü" subtitle="Kabul / ret / bekleyen dağılımı" loading={loading}>
+        {/* Bento — Row 3: Değerlendirici (full) — tablo */}
+        <ChartCard title="Değerlendirici Yükü" subtitle="Kabul / ret / bekleyen dağılımı ve kabul oranı" loading={loading}>
           {hasData && data.degerlendirenStats.length > 0 ? (
-            <ResponsiveContainer width="100%" height={Math.max(160, Math.min(data.degerlendirenStats.length, 8) * 24)}>
-              <BarChart
-                data={data.degerlendirenStats.slice(0, 8)}
-                layout="vertical"
-                margin={{ left: 0, right: 10, top: 4, bottom: 4 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" horizontal={false} />
-                <XAxis type="number" tick={{ fontSize: 10, fill: '#9CA3AF' }} />
-                <YAxis
-                  type="category"
-                  dataKey="name"
-                  tick={{ fontSize: 10, fill: '#6B7280' }}
-                  width={120}
-                />
-                <Tooltip formatter={(v: number, name: string) => [num(v), name]} contentStyle={{ fontSize: 11 }} />
-                <Legend wrapperStyle={{ fontSize: 10 }} iconSize={8} />
-                <Bar dataKey="kabul" name="Kabul" stackId="a" fill={C.kabul} />
-                <Bar dataKey="ret" name="Ret" stackId="a" fill={C.ret} />
-                <Bar dataKey="beklemede" name="Beklemede" stackId="a" fill={C.beklemede} radius={[0, 3, 3, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide border-b border-gray-100">
+                    <th className="py-2 pr-3">Değerlendirici</th>
+                    <th className="py-2 pr-3 text-right w-14">Toplam</th>
+                    <th className="py-2 pr-3 text-right w-14">Kabul</th>
+                    <th className="py-2 pr-3 text-right w-14">Ret</th>
+                    <th className="py-2 pr-3 text-right w-16">Bekleyen</th>
+                    <th className="py-2 pr-3 text-right w-16">Kabul %</th>
+                    <th className="py-2 pl-3 w-[140px]">Oran dağılımı</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.degerlendirenStats.slice(0, 10).map((r) => {
+                    const pct = r.total > 0 ? (r.kabul / r.total) * 100 : 0
+                    const kPct = r.total > 0 ? (r.kabul / r.total) * 100 : 0
+                    const retPct = r.total > 0 ? (r.ret / r.total) * 100 : 0
+                    const bPct = r.total > 0 ? (r.beklemede / r.total) * 100 : 0
+                    return (
+                      <tr key={r.name} className="border-b border-gray-50 last:border-0">
+                        <td className="py-2 pr-3 text-gray-800 font-medium truncate max-w-[220px]" title={r.name}>{r.name}</td>
+                        <td className="py-2 pr-3 text-right font-semibold text-gray-900 tabular-nums">{num(r.total)}</td>
+                        <td className="py-2 pr-3 text-right text-gray-600 tabular-nums">{num(r.kabul)}</td>
+                        <td className="py-2 pr-3 text-right text-gray-600 tabular-nums">{num(r.ret)}</td>
+                        <td className="py-2 pr-3 text-right text-gray-600 tabular-nums">{num(r.beklemede)}</td>
+                        <td className="py-2 pr-3 text-right font-medium tabular-nums" style={{ color: C.kabul }}>
+                          {pct.toFixed(0)}
+                        </td>
+                        <td className="py-2 pl-3">
+                          <div className="flex h-1.5 rounded-full overflow-hidden bg-gray-100">
+                            {kPct > 0 && <div style={{ width: `${kPct}%`, background: C.kabul }} />}
+                            {retPct > 0 && <div style={{ width: `${retPct}%`, background: C.ret }} />}
+                            {bPct > 0 && <div style={{ width: `${bPct}%`, background: C.beklemede }} />}
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+              <div className="flex items-center gap-3 mt-3 text-[10px] text-gray-500">
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ background: C.kabul }} />Kabul</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ background: C.ret }} />Ret</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ background: C.beklemede }} />Bekleyen</span>
+              </div>
+            </div>
           ) : (
             <p className="text-center text-gray-400 py-6 text-xs">Değerlendirici verisi yok</p>
           )}
