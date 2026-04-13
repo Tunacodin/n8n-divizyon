@@ -60,7 +60,7 @@ export async function GET() {
     )
 
     const basvurudan: any[] = []
-    const etkinlikten: any[] = []
+    const circleOnly: any[] = []
 
     for (const m of circleMembers) {
       const email = (m.email || '').toLowerCase().trim()
@@ -82,9 +82,9 @@ export async function GET() {
           db_name: dbRecord?.full_name || null,
         })
       } else {
-        etkinlikten.push({
+        circleOnly.push({
           ...formatted,
-          source: 'etkinlik',
+          source: 'circle',
         })
       }
     }
@@ -93,9 +93,12 @@ export async function GET() {
       success: true,
       total_circle: circleMembers.length,
       total_basvuru: basvurudan.length,
-      total_etkinlik: etkinlikten.length,
+      total_circle_only: circleOnly.length,
       basvurudan,
-      etkinlikten,
+      circleOnly,
+      // backward compat
+      etkinlikten: circleOnly,
+      total_etkinlik: circleOnly.length,
     })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Bilinmeyen hata'

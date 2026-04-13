@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient, withAuditLog } from '@/lib/supabase'
+import { createClient, withAuditLog, PROTECTED_BLOCK_MSG } from '@/lib/supabase'
 import { sendMail } from '@/lib/resend'
 import { getTemplate } from '@/lib/mail-templates'
 
@@ -13,12 +13,31 @@ export async function POST(req: Request) {
     const body = await req.json()
     const sentBy = body.sent_by || 'system'
 
+    // KORUMA: Toplu gönderimden önce protected email'leri ele
+    const filterProtectedEmails = async (emails: string[]): Promise<Set<string>> => {
+      const lower = emails.map((e) => (e || '').toLowerCase().trim()).filter(Boolean)
+      if (lower.length === 0) return new Set()
+      const { data } = await db
+        .from('applications')
+        .select('email')
+        .in('email', lower)
+        .eq('is_protected', true)
+      return new Set((data || []).map((r: { email: string }) => r.email.toLowerCase().trim()))
+    }
+
     // Toplu gonderim
     if (body.emails && Array.isArray(body.emails)) {
       const batchId = crypto.randomUUID()
       const results: { email: string; success: boolean; error?: string }[] = []
 
+      const protectedSet = await filterProtectedEmails(body.emails.map((i: { email: string }) => i.email))
+
       for (const item of body.emails) {
+        const lower = (item.email || '').toLowerCase().trim()
+        if (protectedSet.has(lower)) {
+          results.push({ email: item.email, success: false, error: PROTECTED_BLOCK_MSG })
+          continue
+        }
         const template = getTemplate(item.template_id || body.template_id)
         if (!template) {
           results.push({ email: item.email, success: false, error: 'Template bulunamadi' })
@@ -86,6 +105,20 @@ export async function POST(req: Request) {
     }
     if (!body.template_id) {
       return NextResponse.json({ success: false, error: 'template_id zorunlu' }, { status: 400 })
+    }
+
+    // KORUMA: Email protected ise gönderim reddedilir
+    {
+      const lower = body.email.toLowerCase().trim()
+      const { data: prot } = await db
+        .from('applications')
+        .select('id')
+        .eq('email', lower)
+        .eq('is_protected', true)
+        .limit(1)
+      if (prot && prot.length > 0) {
+        return NextResponse.json({ success: false, error: PROTECTED_BLOCK_MSG }, { status: 403 })
+      }
     }
 
     const template = getTemplate(body.template_id)

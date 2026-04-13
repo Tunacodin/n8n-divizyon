@@ -17,11 +17,15 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     }
 
     // Iliskili verileri de cek
-    const [evaluations, warnings, tasks, mailLogs] = await Promise.all([
+    const [evaluations, warnings, tasks, mailLogs, inventoryTests] = await Promise.all([
       db.from('evaluations').select('*').eq('application_id', params.id).order('created_at', { ascending: false }),
-      db.from('warnings').select('*').eq('application_id', params.id).order('warning_number', { ascending: true }),
+      db.from('warnings').select('*').eq('application_id', params.id).order('warned_at', { ascending: false }),
       db.from('task_completions').select('*').eq('application_id', params.id),
       db.from('mail_logs').select('*').eq('application_id', params.id).order('sent_at', { ascending: false }),
+      db.from('inventory_tests')
+        .select('id, email, test_type, discipline, total_score, submitted_at')
+        .eq('application_id', params.id)
+        .order('submitted_at', { ascending: false }),
     ])
 
     return NextResponse.json({
@@ -32,6 +36,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
         warnings: warnings.data || [],
         tasks: tasks.data || [],
         mail_logs: mailLogs.data || [],
+        inventory_tests: inventoryTests.data || [],
       },
     })
   } catch (error: unknown) {

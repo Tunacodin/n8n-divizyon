@@ -67,8 +67,13 @@ export async function GET(req: Request) {
       .order(sort, { ascending: order === 'asc' })
       .range(offset, offset + limit - 1)
 
-    if (status && APPLICATION_STATUSES.includes(status)) {
-      query = query.eq('status', status)
+    if (status) {
+      const statuses = status.split(',').filter(s => APPLICATION_STATUSES.includes(s as ApplicationStatus))
+      if (statuses.length === 1) {
+        query = query.eq('status', statuses[0])
+      } else if (statuses.length > 1) {
+        query = query.in('status', statuses)
+      }
     }
 
     if (search) {
@@ -78,12 +83,56 @@ export async function GET(req: Request) {
     const { data, count, error } = await query
     if (error) throw error
 
+    let enrichedData = data || []
+
+    // ?with=tasks,warnings,inventory → toplu detay (N+1 yerine 3 paralel query)
+    const withParam = searchParams.get('with')
+    if (withParam && enrichedData.length > 0) {
+      const includes = new Set(withParam.split(',').map(s => s.trim()))
+      const ids = enrichedData.map((a: { id: string }) => a.id)
+
+      const [tasksRes, warningsRes, invRes] = await Promise.all([
+        includes.has('tasks')
+          ? db.from('task_completions').select('application_id,task_type,completed,completed_at,verified_by').in('application_id', ids)
+          : Promise.resolve({ data: null as null }),
+        includes.has('warnings')
+          ? db.from('warnings').select('application_id,warning_number,warned_by,reason,warned_at,form_type').in('application_id', ids)
+          : Promise.resolve({ data: null as null }),
+        includes.has('inventory')
+          ? db.from('inventory_tests').select('application_id,email,test_type,discipline,total_score,submitted_at').in('application_id', ids)
+          : Promise.resolve({ data: null as null }),
+      ])
+
+      const tasksByApp = new Map<string, Array<Record<string, unknown>>>()
+      for (const t of (tasksRes.data as Array<{application_id: string}> | null) || []) {
+        if (!tasksByApp.has(t.application_id)) tasksByApp.set(t.application_id, [])
+        tasksByApp.get(t.application_id)!.push(t)
+      }
+      const warningsByApp = new Map<string, Array<Record<string, unknown>>>()
+      for (const w of (warningsRes.data as Array<{application_id: string}> | null) || []) {
+        if (!warningsByApp.has(w.application_id)) warningsByApp.set(w.application_id, [])
+        warningsByApp.get(w.application_id)!.push(w)
+      }
+      const invByApp = new Map<string, Array<Record<string, unknown>>>()
+      for (const i of (invRes.data as Array<{application_id: string}> | null) || []) {
+        if (!invByApp.has(i.application_id)) invByApp.set(i.application_id, [])
+        invByApp.get(i.application_id)!.push(i)
+      }
+
+      enrichedData = enrichedData.map((a: { id: string } & Record<string, unknown>) => ({
+        ...a,
+        ...(includes.has('tasks') ? { tasks: tasksByApp.get(a.id) || [] } : {}),
+        ...(includes.has('warnings') ? { warnings: warningsByApp.get(a.id) || [] } : {}),
+        ...(includes.has('inventory') ? { inventory_tests: invByApp.get(a.id) || [] } : {}),
+      }))
+    }
+
     return NextResponse.json({
       success: true,
       total: count || 0,
       page,
       limit,
-      data: data || [],
+      data: enrichedData,
     })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Bilinmeyen hata'

@@ -1,9 +1,11 @@
 'use client'
 
-import { Suspense, useState, useEffect, useMemo } from 'react'
+import { Suspense, useState, useEffect, useMemo, useCallback } from 'react'
+import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { TabBar, type Tab } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
+import KesinRetContent from '@/components/basvurular/KesinRetContent'
 
 interface AppItem {
   id: string
@@ -23,6 +25,7 @@ interface AppItem {
   main_role?: string
   created_at?: string
   submitted_at?: string
+  updated_at?: string
   warning_count?: number
   [key: string]: any
 }
@@ -32,7 +35,6 @@ const STATUS_TABS: Tab[] = [
   { key: 'kontrol', label: 'Kontrol', dotColor: 'bg-yellow-400' },
   { key: 'kesin_ret', label: 'Kesin Ret', dotColor: 'bg-red-400' },
   { key: 'kesin_kabul', label: 'Kesin Kabul', dotColor: 'bg-emerald-400' },
-  { key: 'nihai_olmayan', label: 'Nihai Olmayan', dotColor: 'bg-purple-400' },
   { key: 'nihai_uye', label: 'Nihai Ağ Üyesi', dotColor: 'bg-amber-400' },
   { key: 'etkinlik', label: 'Etkinlikten Gelenler', dotColor: 'bg-cyan-400' },
   { key: 'deaktive', label: 'Deaktive', dotColor: 'bg-gray-400' },
@@ -43,7 +45,7 @@ const STATUS_LABELS: Record<string, string> = {
   kontrol: 'Kontrol',
   kesin_ret: 'Kesin Ret',
   kesin_kabul: 'Kesin Kabul',
-  nihai_olmayan: 'Nihai Olmayan',
+  nihai_olmayan: 'Kesin Kabul',
   nihai_uye: 'Nihai Ağ Üyesi',
   etkinlik: 'Etkinlik',
   deaktive: 'Deaktive',
@@ -55,7 +57,7 @@ const STATUS_BADGE: Record<string, string> = {
   kontrol: 'bg-yellow-50 text-yellow-700 border-yellow-200',
   kesin_ret: 'bg-red-50 text-red-700 border-red-200',
   kesin_kabul: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  nihai_olmayan: 'bg-purple-50 text-purple-700 border-purple-200',
+  nihai_olmayan: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   nihai_uye: 'bg-amber-50 text-amber-700 border-amber-200',
   etkinlik: 'bg-cyan-50 text-cyan-700 border-cyan-200',
   deaktive: 'bg-gray-100 text-gray-600 border-gray-200',
@@ -80,41 +82,32 @@ function FlowContent() {
   const [taskMap, setTaskMap] = useState<Record<string, Record<string, boolean>>>({})
   const [warningMap, setWarningMap] = useState<Record<string, number>>({})
 
-  useEffect(() => {
-    fetch('/api/applications?sort=created_at&order=desc&limit=2000')
-      .then(r => r.json())
-      .then(async (res) => {
-        if (!res.success) return
-        setAllApps(res.data || [])
-        // Kesin kabul + nihai olmayan için task/warning bilgilerini çek
-        const relevant = (res.data || []).filter((a: AppItem) =>
-          ['kesin_kabul', 'nihai_olmayan', 'nihai_uye'].includes(a.status || '')
-        )
-        if (relevant.length > 0) {
-          const tMap: Record<string, Record<string, boolean>> = {}
-          const wMap: Record<string, number> = {}
-          await Promise.all(
-            relevant.map(async (app: AppItem) => {
-              try {
-                const r2 = await fetch(`/api/applications/${app.id}`)
-                const detail = await r2.json()
-                if (detail.success) {
-                  tMap[app.id] = {}
-                  for (const t of detail.data.tasks || []) {
-                    if (t.completed) tMap[app.id][t.task_type] = true
-                  }
-                  wMap[app.id] = (detail.data.warnings || []).length
-                }
-              } catch { /* ignore */ }
-            })
-          )
-          setTaskMap(tMap)
-          setWarningMap(wMap)
+  const fetchAll = useCallback(async () => {
+    try {
+      // Toplu fetch — tasks+warnings include edilmiş
+      const res = await fetch('/api/applications?sort=created_at&order=desc&limit=2000&with=tasks,warnings').then(r => r.json())
+      if (!res.success) return
+      setAllApps(res.data || [])
+      const tMap: Record<string, Record<string, boolean>> = {}
+      const wMap: Record<string, number> = {}
+      for (const app of (res.data || []) as any[]) {
+        if (!['kesin_kabul', 'nihai_uye'].includes(app.status || '')) continue
+        tMap[app.id] = {}
+        for (const t of (app.tasks || [])) {
+          if (t.completed) tMap[app.id][t.task_type] = true
         }
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false))
+        wMap[app.id] = (app.warnings || []).length
+      }
+      setTaskMap(tMap)
+      setWarningMap(wMap)
+    } finally {
+      setLoading(false)
+    }
   }, [])
+
+  useEffect(() => { fetchAll() }, [fetchAll])
+
+  useRealtimeRefresh(['applications', 'task_completions', 'warnings'], fetchAll)
 
   // Tab sayılarını hesapla
   const tabsWithCounts = useMemo(() => {
@@ -127,6 +120,10 @@ function FlowContent() {
     if (counts['yas_kucuk']) {
       counts['kesin_ret'] = (counts['kesin_ret'] || 0) + (counts['yas_kucuk'] || 0)
     }
+    // nihai_olmayan'ı kesin_kabul'e ekle (birleştirildi)
+    if (counts['nihai_olmayan']) {
+      counts['kesin_kabul'] = (counts['kesin_kabul'] || 0) + (counts['nihai_olmayan'] || 0)
+    }
     return STATUS_TABS.map(t => ({ ...t, count: counts[t.key] || 0 }))
   }, [allApps])
 
@@ -134,6 +131,7 @@ function FlowContent() {
   const filtered = useMemo(() => {
     let items = allApps.filter(a => {
       if (activeTab === 'kesin_ret') return a.status === 'kesin_ret' || a.status === 'yas_kucuk'
+      if (activeTab === 'kesin_kabul') return a.status === 'kesin_kabul' || a.status === 'nihai_olmayan'
       return a.status === activeTab
     })
 
@@ -149,11 +147,29 @@ function FlowContent() {
     return items
   }, [allApps, activeTab, search])
 
+  // Aynı email ile birden fazla başvuru
+  const emailCounts = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const a of allApps) {
+      const e = (a.email || '').toLowerCase().trim()
+      if (!e) continue
+      m.set(e, (m.get(e) || 0) + 1)
+    }
+    return m
+  }, [allApps])
+
+  // İşlem yapılmış statüler (kesin_kabul, kesin_ret vb.) için updated_at kullan
+  // Henüz işlem yapılmamış statüler (kontrol, basvuru) için submitted_at kullan
+  const actionStatuses = useMemo(() => new Set(['kesin_kabul', 'kesin_ret', 'nihai_olmayan', 'nihai_uye', 'deaktive']), [])
+
   // Gün bazlı gruplama
   const groupedByDate = useMemo(() => {
+
     const map = new Map<string, AppItem[]>()
     for (const app of filtered) {
-      const dt = app.submitted_at || app.created_at || ''
+      const dt = actionStatuses.has(app.status)
+        ? (app.updated_at || app.created_at || '')
+        : (app.submitted_at || app.created_at || '')
       const dateKey = dt ? dt.slice(0, 10) : 'tarihsiz'
       if (!map.has(dateKey)) map.set(dateKey, [])
       map.get(dateKey)!.push(app)
@@ -169,11 +185,15 @@ function FlowContent() {
         const d = new Date(dateKey)
         label = d.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric', weekday: 'long' })
       }
-      apps.sort((a, b) => (b.submitted_at || b.created_at || '').localeCompare(a.submitted_at || a.created_at || ''))
+      apps.sort((a, b) => {
+        const aDate = actionStatuses.has(a.status) ? (a.updated_at || a.created_at || '') : (a.submitted_at || a.created_at || '')
+        const bDate = actionStatuses.has(b.status) ? (b.updated_at || b.created_at || '') : (b.submitted_at || b.created_at || '')
+        return bDate.localeCompare(aDate)
+      })
       groups.push({ date: dateKey, label, apps })
     }
     return groups
-  }, [filtered])
+  }, [filtered, actionStatuses])
 
   // Pagination
   const totalItems = filtered.length
@@ -187,7 +207,7 @@ function FlowContent() {
     router.replace(`/basvurular?tab=${key}`, { scroll: false })
   }
 
-  const showTaskCols = ['kesin_kabul', 'nihai_olmayan', 'nihai_uye'].includes(activeTab)
+  const showTaskCols = ['kesin_kabul', 'nihai_uye'].includes(activeTab)
 
   const TaskIcon = ({ done }: { done: boolean }) => done
     ? <span className="text-green-500 text-xs">✓</span>
@@ -195,13 +215,16 @@ function FlowContent() {
 
   return (
     <div className="min-h-screen bg-[#FAFBFC]">
-      <div className="bg-white border-b border-gray-100 px-8 py-4">
-        <h1 className="text-xl font-bold text-gray-900 mb-3">Flow</h1>
+      <div className="bg-white border-b border-gray-100 px-8 pt-6 pb-4">
+        <h1 className="text-xl font-bold text-gray-900 mb-4">Flow</h1>
         <div className="overflow-x-auto">
           <TabBar tabs={tabsWithCounts} activeTab={activeTab} onChange={handleTabChange} />
         </div>
       </div>
 
+      {activeTab === 'kesin_ret' ? (
+        <KesinRetContent />
+      ) : (
       <div className="p-6">
         {/* Search + info */}
         <div className="flex items-center gap-3 mb-4">
@@ -274,11 +297,37 @@ function FlowContent() {
                           <table className="w-full">
                             <tbody>
                               {visibleApps.map(app => {
-                                const time = (app.submitted_at || app.created_at || '').slice(11, 16)
+                                const timeSource = actionStatuses.has(app.status)
+                                  ? (app.updated_at || app.created_at || '')
+                                  : (app.submitted_at || app.created_at || '')
+                                const time = timeSource.slice(11, 16)
                                 const statusKey = app.status || 'basvuru'
                                 return (
                                   <tr key={app.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                                    <td className="px-4 py-2.5 font-medium text-gray-900 w-[200px]">{app.full_name || '—'}</td>
+                                    <td className="px-4 py-2.5 font-medium text-gray-900 w-[200px]">
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="truncate">{app.full_name || '—'}</span>
+                                        {(app as { is_protected?: boolean }).is_protected && (
+                                          <span
+                                            className="text-[9px] px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 font-semibold shrink-0"
+                                            title="Korumalı (Circle üyesi)"
+                                          >
+                                            🔒
+                                          </span>
+                                        )}
+                                        {(() => {
+                                          const dup = emailCounts.get((app.email || '').toLowerCase().trim()) || 1
+                                          return dup > 1 ? (
+                                            <span
+                                              className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-semibold shrink-0"
+                                              title={`Bu e-posta ile ${dup} başvuru var`}
+                                            >
+                                              {dup}×
+                                            </span>
+                                          ) : null
+                                        })()}
+                                      </div>
+                                    </td>
                                     <td className="px-4 py-2.5 text-gray-600 text-xs w-[220px]">{app.email || '—'}</td>
                                     <td className="px-4 py-2.5 text-gray-500 text-xs w-[130px]">{app.phone || '—'}</td>
                                     <td className="px-4 py-2.5 w-[120px]">
@@ -344,6 +393,7 @@ function FlowContent() {
           </div>
         )}
       </div>
+      )}
     </div>
   )
 }

@@ -1,0 +1,51 @@
+{
+  "name": "Circle Member Watcher — Saatlik Sync",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [ { "field": "hours", "hoursInterval": 1 } ]
+        }
+      },
+      "id": "cron-trigger",
+      "name": "Her saat",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://circle-dashboard.vercel.app/api/circle-sync",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "options": { "timeout": 60000 }
+      },
+      "id": "sync-call",
+      "name": "Dashboard /api/circle-sync",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const r = $input.first().json;\nconsole.log('Circle sync:', JSON.stringify(r, null, 2));\nreturn [{ json: { ts: new Date().toISOString(), ...r } }];"
+      },
+      "id": "log-result",
+      "name": "Log",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [720, 300]
+    }
+  ],
+  "connections": {
+    "Her saat": { "main": [[{ "node": "Dashboard /api/circle-sync", "type": "main", "index": 0 }]] },
+    "Dashboard /api/circle-sync": { "main": [[{ "node": "Log", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "tags": [ { "name": "circle" }, { "name": "sync" } ]
+}

@@ -5,7 +5,7 @@ const STATUS_LABELS: Record<string, string> = {
   kontrol: 'Kontrol Listesi',
   kesin_kabul: 'Kesin Kabul',
   kesin_ret: 'Kesin Ret',
-  nihai_olmayan: 'Nihai Olmayan Ağ Üyeleri',
+  nihai_olmayan: 'Kesin Kabul',
   yas_kucuk: '18 Yaş Altı',
   etkinlik: 'Etkinlikten Gelenler',
   deaktive: 'Deaktive',
@@ -73,14 +73,13 @@ function statusLabel(s: string): string {
 }
 
 export function describeActivity(a: Activity): { summary: string; detail?: string } {
-  const actor = a.actor === 'system' ? 'Sistem' : a.actor
   const person = a.person_name
 
   switch (a.action) {
     case 'create': {
       const status = a.new_values?.status
       return {
-        summary: `${actor}, ${person} kişisini sisteme yeni başvuru olarak ekledi.`,
+        summary: `${person} kişisini sisteme yeni başvuru olarak ekledi.`,
         detail: status ? `Durum: ${statusLabel(status)}` : undefined,
       }
     }
@@ -90,49 +89,42 @@ export function describeActivity(a: Activity): { summary: string; detail?: strin
       const to = a.new_values?.status
       const reviewer = a.new_values?.reviewer
 
-      // Özel durumlar
       if (to === 'deaktive') {
         return {
-          summary: `${actor}, ${person} kişisini deaktive etti.`,
+          summary: `${person} kişisini deaktive etti.`,
         }
       }
 
       if (to === 'kesin_ret') {
         return {
-          summary: `${actor}, ${person} kişisini ${statusLabel(from)} listesinden Kesin Ret'e taşıdı.`,
+          summary: `${person} kişisini ${statusLabel(from)} listesinden Kesin Ret'e taşıdı.`,
           detail: reviewer ? `Değerlendiren: ${reviewer}` : undefined,
         }
       }
 
       if (to === 'kesin_kabul') {
         return {
-          summary: `${actor}, ${person} kişisini ${statusLabel(from)} listesinden Kesin Kabul'e taşıdı.`,
+          summary: `${person} kişisini ${statusLabel(from)} listesinden Kesin Kabul'e taşıdı.`,
           detail: reviewer ? `Değerlendiren: ${reviewer}` : undefined,
         }
       }
 
       if (to === 'nihai_uye') {
         return {
-          summary: `${actor}, ${person} kişisini Nihai Ağ Üyesi olarak onayladı.`,
+          summary: `${person} kişisini Nihai Ağ Üyesi olarak onayladı.`,
           detail: `Önceki durum: ${statusLabel(from)}`,
-        }
-      }
-
-      if (to === 'nihai_olmayan') {
-        return {
-          summary: `${actor}, ${person} kişisini ${statusLabel(from)} listesinden Nihai Olmayan Ağ Üyeleri'ne taşıdı.`,
         }
       }
 
       if (to === 'yas_kucuk') {
         return {
-          summary: `${actor}, ${person} kişisini 18 Yaş Altı listesine taşıdı.`,
+          summary: `${person} kişisini 18 Yaş Altı listesine taşıdı.`,
           detail: `Önceki durum: ${statusLabel(from)}`,
         }
       }
 
       return {
-        summary: `${actor}, ${person} kişisini ${statusLabel(from)} → ${statusLabel(to)} olarak güncelledi.`,
+        summary: `${person} kişisini ${statusLabel(from)} → ${statusLabel(to)} olarak güncelledi.`,
         detail: reviewer ? `Değerlendiren: ${reviewer}` : undefined,
       }
     }
@@ -150,13 +142,13 @@ export function describeActivity(a: Activity): { summary: string; detail?: strin
 
       if (changes.length > 0) {
         return {
-          summary: `${actor}, ${person} kişisinin bilgilerini güncelledi.`,
+          summary: `${person} kişisinin bilgilerini güncelledi.`,
           detail: changes.join(' | '),
         }
       }
 
       return {
-        summary: `${actor}, ${person} kişisinin bilgilerini güncelledi.`,
+        summary: `${person} kişisinin bilgilerini güncelledi.`,
         detail: fields.length > 0 ? `Güncellenen alanlar: ${fields.map(fieldLabel).join(', ')}` : undefined,
       }
     }
@@ -167,7 +159,7 @@ export function describeActivity(a: Activity): { summary: string; detail?: strin
       const decisionLabel = decision === 'kabul' ? 'olumlu' : decision === 'ret' ? 'olumsuz' : decision
 
       return {
-        summary: `${actor}, ${person} için ${decisionLabel} değerlendirme yaptı.`,
+        summary: `${person} için ${decisionLabel} değerlendirme yaptı.`,
         detail: notes ? `Not: "${notes}"` : undefined,
       }
     }
@@ -177,7 +169,7 @@ export function describeActivity(a: Activity): { summary: string; detail?: strin
       const label = TASK_LABELS[taskType] || taskType
 
       return {
-        summary: `${actor}, ${person} için ${label} görevini tamamlandı olarak işaretledi.`,
+        summary: `${person} için ${label} görevini tamamlandı olarak işaretledi.`,
       }
     }
 
@@ -186,7 +178,7 @@ export function describeActivity(a: Activity): { summary: string; detail?: strin
       const label = TASK_LABELS[taskType] || taskType
 
       return {
-        summary: `${actor}, ${person} için ${label} görevini tamamlanmadı olarak geri aldı.`,
+        summary: `${person} için ${label} görevini tamamlanmadı olarak geri aldı.`,
       }
     }
 
@@ -195,7 +187,7 @@ export function describeActivity(a: Activity): { summary: string; detail?: strin
       const reason = a.new_values?.reason
 
       return {
-        summary: `${actor}, ${person} kişisine ${warningNum}. uyarıyı verdi.`,
+        summary: `${person} kişisine ${warningNum}. uyarıyı verdi.`,
         detail: reason ? `Sebep: "${reason}"` : undefined,
       }
     }
@@ -205,18 +197,17 @@ export function describeActivity(a: Activity): { summary: string; detail?: strin
       const newStatus = a.new_values?.status
 
       return {
-        summary: `${actor}, ${person} kişisini ${statusLabel(oldStatus)} durumundan ${statusLabel(newStatus)} durumuna geri aldı.`,
+        summary: `${person} kişisini ${statusLabel(oldStatus)} durumundan ${statusLabel(newStatus)} durumuna geri aldı.`,
         detail: 'Önceki kayıt snapshot\'ından geri yüklendi.',
       }
     }
 
     case 'mail_sent': {
       const template = a.new_values?.template
-      const email = a.new_values?.email
       const subject = a.new_values?.subject
 
       return {
-        summary: `${actor}, ${person} kişisine "${template || 'mail'}" gönderdi.`,
+        summary: `${person} kişisine "${template || 'mail'}" gönderdi.`,
         detail: subject ? `Konu: "${subject}"` : undefined,
       }
     }
@@ -226,13 +217,13 @@ export function describeActivity(a: Activity): { summary: string; detail?: strin
       const template = a.new_values?.template
 
       return {
-        summary: `${actor}, toplu mail gönderdi (${count} kişi — ${template || 'şablon'}).`,
+        summary: `Toplu mail gönderdi (${count} kişi — ${template || 'şablon'}).`,
       }
     }
 
     default:
       return {
-        summary: `${actor}, ${person} üzerinde "${a.action}" işlemi yaptı.`,
+        summary: `${person} üzerinde "${a.action}" işlemi yaptı.`,
       }
   }
 }

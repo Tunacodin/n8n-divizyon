@@ -5,11 +5,13 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { TabBar, type Tab } from '@/components/ui/tabs'
 import OryantasyonContent from '@/components/uyeler/OryantasyonContent'
 import NihaiAgUyesiContent from '@/components/uyeler/NihaiAgUyesiContent'
+import EtkinliktenGelenContent from '@/components/uyeler/EtkinliktenGelenContent'
 import DeaktiveContent from '@/components/uyeler/DeaktiveContent'
 
 const TABS: Tab[] = [
   { key: 'oryantasyon', label: 'Oryantasyon', dotColor: 'bg-violet-400' },
   { key: 'nihai-ag-uyesi', label: 'Nihai Ağ Üyesi', dotColor: 'bg-amber-400' },
+  { key: 'etkinlikten-gelen', label: 'Etkinlikten Gelen', dotColor: 'bg-cyan-400' },
   { key: 'deaktive', label: 'Deaktive', dotColor: 'bg-gray-400' },
 ]
 
@@ -41,6 +43,7 @@ function UyelerContent() {
             <div key={tab.key} style={{ display: activeTab === tab.key ? 'block' : 'none' }}>
               {tab.key === 'oryantasyon' && <OryantasyonContent />}
               {tab.key === 'nihai-ag-uyesi' && <NihaiAgUyesiContent />}
+              {tab.key === 'etkinlikten-gelen' && <EtkinliktenGelenContent />}
               {tab.key === 'deaktive' && <DeaktiveContent />}
             </div>
           )

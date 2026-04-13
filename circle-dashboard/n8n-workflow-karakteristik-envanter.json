@@ -1,0 +1,143 @@
+{
+  "name": "Karakteristik Envanter Testi - Typeform Sync",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "typeform-karakteristik-envanter",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-node",
+      "name": "Typeform Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [200, 400],
+      "webhookId": "typeform-karakteristik-envanter"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ─── Typeform Webhook Payload Parse ───\n// Typeform form_id: wfbPF1am (Karakteristik Envanter Testi)\n\nconst body = $input.first().json.body || $input.first().json;\nconst formResponse = body.form_response || body;\nconst answers = formResponse.answers || [];\nconst variables = formResponse.variables || [];\nconst hidden = formResponse.hidden || {};\n\n// ─── 1. Email bul ───\nlet email = '';\nfor (const ans of answers) {\n  if (ans.type === 'email' || (ans.field && ans.field.type === 'email')) {\n    email = (ans.email || '').toLowerCase().trim();\n    break;\n  }\n}\nif (!email && hidden.email) {\n  email = hidden.email.toLowerCase().trim();\n}\n\nif (!email) {\n  return [{ json: { error: true, message: 'Email bulunamadi', raw_keys: Object.keys(body) } }];\n}\n\n// ─── 1b. Ad-Soyad bul (name fallback icin) ───\nlet fullName = '';\nfor (const ans of answers) {\n  const fieldType = ans.field && ans.field.type;\n  const fieldRef = ans.field && (ans.field.ref || '');\n  const fieldTitle = ((ans.field && ans.field.title) || '').toLowerCase();\n  if (fieldType === 'short_text' && (fieldRef.includes('ad') || fieldRef.includes('name') || fieldTitle.includes('ad') || fieldTitle.includes('isim'))) {\n    fullName = (ans.text || '').trim();\n    if (fullName) break;\n  }\n}\nif (!fullName && hidden.full_name) fullName = String(hidden.full_name).trim();\n\n// ─── 2. Ilgi alanlarini bul ───\nconst disciplines = [];\nconst disciplineFields = ['Yazılım', 'Dijital Sanatlar', 'Dijital Pazarlama', 'Girişimcilik', 'Kişisel & Kariyer Gelişim'];\nfor (const ans of answers) {\n  if (ans.type === 'choices' && ans.choices && ans.choices.labels) {\n    for (const label of ans.choices.labels) {\n      if (disciplineFields.includes(label)) disciplines.push(label);\n    }\n  }\n  if (ans.type === 'choice' && ans.choice && ans.choice.label) {\n    if (disciplineFields.includes(ans.choice.label)) disciplines.push(ans.choice.label);\n  }\n}\n\n// ─── 3. Skorlari cikart (Typeform variables) ───\nconst scoreKeys = [\n  'birlestirici','caliskan','canli','challenger','cozumcu',\n  'gelecek_odakli','geleneksel','gozlemci','ilham_verici','inovatif',\n  'kendinden_emin','mantikli','pratik','sistemli','tecrubeli',\n  'titiz','tutkulu','yaratici'\n];\n\nconst scores = {};\nfor (const v of variables) {\n  if (v.type === 'number' && scoreKeys.includes(v.key)) {\n    scores[v.key] = v.number || 0;\n  }\n}\n\n// Hidden fields'tan da kontrol et (bazi formlar boyle gonderir)\nfor (const key of scoreKeys) {\n  if (scores[key] === undefined && hidden[key] !== undefined) {\n    scores[key] = Number(hidden[key]) || 0;\n  }\n}\n\nconst totalScore = Object.values(scores).reduce((sum, v) => sum + (Number(v) || 0), 0);\n\n// ─── 4. Soru-cevaplari topla ───\nconst answersMap = {};\nfor (const ans of answers) {\n  const title = (ans.field && ans.field.title) || '';\n  if (!title || ans.type === 'email') continue;\n  const value = ans.text || (ans.choice && ans.choice.label) || (ans.choices && ans.choices.labels && ans.choices.labels.join(', ')) || '';\n  if (value) answersMap[title] = value;\n}\n\nreturn [{\n  json: {\n    error: false,\n    email,\n    full_name: fullName || null,\n    test_type: 'karakteristik_envanter',\n    disciplines,\n    scores,\n    total_score: totalScore,\n    answers: answersMap,\n    network_id: hidden.network_id || null,\n    submitted_at: formResponse.submitted_at || new Date().toISOString(),\n    response_type: 'completed',\n    form_id: formResponse.form_id || 'wfbPF1am',\n  }\n}];"
+      },
+      "id": "parse-typeform",
+      "name": "Typeform Verisini Ayikla",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "email-check",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": false,
+              "operator": { "type": "boolean", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "email-check",
+      "name": "Email Gecerli mi?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [660, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.DASHBOARD_URL || 'http://localhost:3000' }}/api/inventory-tests",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ email: $json.email, full_name: $json.full_name, test_type: $json.test_type, disciplines: $json.disciplines, scores: $json.scores, total_score: $json.total_score, answers: $json.answers, network_id: $json.network_id, submitted_at: $json.submitted_at, response_type: $json.response_type }) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "call-dashboard-api",
+      "name": "Dashboard API Kaydet",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const res = $input.first().json;\nconst prevData = $('Typeform Verisini Ayikla').first().json;\n\nreturn [{\n  json: {\n    status: res.success ? 'basarili' : 'hata',\n    email: prevData.email,\n    task_updated: res.task_updated || false,\n    total_score: prevData.total_score,\n    message: res.success \n      ? `${prevData.email} icin karakteristik envanter kaydedildi. Task guncellendi: ${res.task_updated}` \n      : `HATA: ${res.error}`,\n  }\n}];"
+      },
+      "id": "log-result",
+      "name": "Sonuc",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, email: $json.email, task_updated: $json.task_updated }) }}",
+        "options": { "responseCode": 200 }
+      },
+      "id": "respond-ok",
+      "name": "200 OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: false, error: $json.message || 'Email bulunamadi' }) }}",
+        "options": { "responseCode": 400 }
+      },
+      "id": "respond-error",
+      "name": "400 Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [900, 520]
+    }
+  ],
+  "connections": {
+    "Typeform Webhook": {
+      "main": [
+        [{ "node": "Typeform Verisini Ayikla", "type": "main", "index": 0 }]
+      ]
+    },
+    "Typeform Verisini Ayikla": {
+      "main": [
+        [{ "node": "Email Gecerli mi?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Email Gecerli mi?": {
+      "main": [
+        [{ "node": "Dashboard API Kaydet", "type": "main", "index": 0 }],
+        [{ "node": "400 Error", "type": "main", "index": 0 }]
+      ]
+    },
+    "Dashboard API Kaydet": {
+      "main": [
+        [{ "node": "Sonuc", "type": "main", "index": 0 }]
+      ]
+    },
+    "Sonuc": {
+      "main": [
+        [{ "node": "200 OK", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    { "name": "envanter" },
+    { "name": "typeform" },
+    { "name": "karakteristik" }
+  ]
+}

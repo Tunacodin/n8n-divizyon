@@ -13,6 +13,29 @@ Divizyon Acik Inovasyon Agi toplulugunun uye basvurularini yoneten full-stack si
 - Circle Admin Token ve API key'leri aciga cikarma
 - Dis servislere (n8n, Mailchimp, Google) yapilacak her cagri icin onay al
 
+## ⚠️ KRITIK: Korumalı Üyeler (is_protected = TRUE)
+Circle'dan senkronize edilmiş gerçek topluluk üyeleri `applications` tablosunda **`is_protected = TRUE`** flag'iyle saklanir. Bu kayitlar **ÜRETIM DATASIDIR**, asla test verisi ile karistirilmamalidir.
+
+**Yasak işlemler — protected kayitlar üzerinde HİÇBİR durumda yapılmaz:**
+- ❌ Mail/SMS/bildirim gönderme (Resend, Mailchimp, hiçbir kanal)
+- ❌ Status değiştirme (changeStatus reddedilir)
+- ❌ Field güncelleme (updateApplication reddedilir)
+- ❌ Silme (DELETE reddedilir)
+- ❌ Test başvurusu olarak kullanma
+- ❌ Manuel "doldurdu" işareti, uyari ekleme, deaktive etme
+- ❌ Dashboard'da herhangi bir butonun aktif olmasi (UI guard zorunlu)
+
+**İzin verilen tek işlem:** Salt-okuma (SELECT) — listede gösterme, detay panel goruntuleme.
+
+**Implementation guard'lar (her yerde olmali):**
+1. `lib/supabase.ts:changeStatus` ve `updateApplication` — `is_protected=true` ise hata fırlat
+2. API routes (`/api/applications/[id]` PATCH/DELETE, `/status`, `/tasks`, `/warnings`) — protected ise 403
+3. `/api/mail/send` — protected email'e gönderim reddedilir
+4. UI: protected satırlarda butonlar disabled + "Korumalı (Circle üyesi)" rozet
+5. Test scriptleri — protected kayitlari hiç dokunmamali
+
+Yeni bir kod yazarken: applications tablosuna mutation yapan her yer **mutlaka** is_protected kontrolü yapmali. Bu kural CLAUDE.md'deki en yüksek önceliklidir.
+
 ## Dizin Yapisi
 ```
 n8n-circle/
@@ -132,6 +155,10 @@ React UI (KontrolDetailModal "Mail Gonder")
 1. Google Service Account konfigure edilmemis — direkt Sheets API kullanilmiyor, n8n proxy var.
 2. Iki ayri n8n client (`lib/n8n-client.ts` ve `lib/n8n.ts`) — ileride birlestirilebilir.
 3. Eski Mailchimp kodu (`lib/mailchimp.ts`, `app/api/mailchimp/`) hala mevcut — artik kullanilmiyor, temizlenebilir.
+
+## UI / Tasarim Kurallari
+- **Header (Navbar)**: Dark tema (`bg-[#1E1E2E]`), buyuk boyut — `h-20`, `px-10`, nav linkleri `text-base`, `gap-2`, logo `h-7`, avatar `w-9 h-9`, ikon `w-6 h-6`
+- Navbar kucultulemez, her zaman bu boyutlarda kalmali
 
 ## Gelistirme Notlari
 - `npm run dev` ile calistir

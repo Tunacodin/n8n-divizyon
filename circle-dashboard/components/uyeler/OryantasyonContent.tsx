@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 // DB field names used directly
 import { Badge } from '@/components/ui/badge'
-import { ExclamationTriangleIcon, XMarkIcon, ClockIcon, CheckCircleIcon, BellAlertIcon } from '@heroicons/react/24/outline'
+import { ExclamationTriangleIcon, XMarkIcon, ClockIcon, CheckCircleIcon, BellAlertIcon, FunnelIcon, ChevronDownIcon } from '@heroicons/react/24/outline'
 import { CheckCircleIcon as CheckCircleSolid } from '@heroicons/react/24/solid'
 import UyeDetailModal from '@/components/oryantasyon/UyeDetailModal'
+import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh'
 
 const PER_PAGE = 15
 
@@ -54,6 +55,14 @@ function getSureStatus(days: number | null): { label: string; color: string; bgC
 
 type TaskInfo = { completed: boolean; completed_by?: string; completed_at?: string }
 type TaskMap = Record<string, Record<string, TaskInfo>>
+type InventoryRow = { email: string; test_type: string; discipline: string | null }
+type InventoryMap = Record<string, { disciplines: string[]; emailMismatch: boolean }>
+
+const DISCIPLINE_LABEL: Record<string, string> = {
+  kreatif_yapim: 'Kreatif Yapım',
+  dijital_deneyim: 'Dijital Deneyim',
+  dijital_urun: 'Dijital Ürün',
+}
 
 export default function OryantasyonContent() {
   const [data, setData] = useState<Record<string, any>[]>([])
@@ -65,76 +74,114 @@ export default function OryantasyonContent() {
   const [takipFilter, setTakipFilter] = useState<TakipFilter>('tumu')
   const [taskMap, setTaskMap] = useState<TaskMap>({})
   const [warningsMap, setWarningsMap] = useState<Record<string, { count: number; lastWarningAt: string | null }>>({})
+  const [inventoryMap, setInventoryMap] = useState<InventoryMap>({})
   const [togglingTask, setTogglingTask] = useState<string | null>(null)
   const [warningLoading, setWarningLoading] = useState<string | null>(null)
   const [deactivateLoading, setDeactivateLoading] = useState<string | null>(null)
+  const [promoteLoading, setPromoteLoading] = useState<string | null>(null)
+  const [pendingPromote, setPendingPromote] = useState<{ appId: string; name: string } | null>(null)
+  const [promotePerson, setPromotePerson] = useState('')
+  const [promoteNote, setPromoteNote] = useState('')
+  const [pendingDeactivate, setPendingDeactivate] = useState<{ appId: string; name: string } | null>(null)
+  const [deactivatePerson, setDeactivatePerson] = useState('')
+  const [deactivateNote, setDeactivateNote] = useState('')
   const [selectedUye, setSelectedUye] = useState<Record<string, any> | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [filterOpen, setFilterOpen] = useState(false)
+  const filterRef = useRef<HTMLDivElement>(null)
+
+  const loadData = useCallback(async () => {
+    try {
+      // Tek toplu çağrı — N+1 yok
+      const res = await fetch('/api/applications?status=kesin_kabul,nihai_olmayan&with=tasks,warnings,inventory&limit=1000').then(r => r.json())
+      if (!res.success) return
+      setData(res.data || [])
+      const tMap: TaskMap = {}
+      const wMap: Record<string, { count: number; lastWarningAt: string | null }> = {}
+      const iMap: InventoryMap = {}
+      for (const app of (res.data || []) as Record<string, any>[]) {
+        tMap[app.id] = {}
+        for (const t of (app.tasks || [])) {
+          tMap[app.id][t.task_type] = {
+            completed: !!t.completed,
+            completed_by: t.verified_by,
+            completed_at: t.completed_at,
+          }
+        }
+        const warnings = app.warnings || []
+        // En yeni uyarıyı bul
+        const sortedW = [...warnings].sort((a: any, b: any) =>
+          String(b.warned_at || '').localeCompare(String(a.warned_at || ''))
+        )
+        const lastW = sortedW[0] || null
+        wMap[app.id] = {
+          count: warnings.length,
+          lastWarningAt: lastW?.warned_at || null,
+        }
+        const invTests: InventoryRow[] = app.inventory_tests || []
+        const disciplines = Array.from(new Set(
+          invTests.filter((i) => i.test_type === 'disipliner_envanter' && i.discipline).map((i) => i.discipline as string)
+        ))
+        const appEmail = String(app.email || '').toLowerCase().trim()
+        const emailMismatch = invTests.some(
+          (i) => !!i.email && i.email.toLowerCase().trim() !== appEmail
+        )
+        iMap[app.id] = { disciplines, emailMismatch }
+      }
+      setTaskMap(tMap)
+      setWarningsMap(wMap)
+      setInventoryMap(iMap)
+    } catch { /* ignore */ }
+  }, [])
 
   useEffect(() => {
-    fetch('/api/applications?status=nihai_olmayan')
-      .then((r) => r.json())
-      .then(async (res) => {
-        if (!res.success) return
-        setData(res.data || [])
-        // Her application icin task_completions + warnings cek
-        const tMap: TaskMap = {}
-        const wMap: Record<string, { count: number; lastWarningAt: string | null }> = {}
-        await Promise.all(
-          (res.data || []).map(async (app: Record<string, any>) => {
-            try {
-              const r2 = await fetch(`/api/applications/${app.id}`)
-              const detail = await r2.json()
-              if (detail.success) {
-                tMap[app.id] = {}
-                for (const t of detail.data.tasks || []) {
-                  tMap[app.id][t.task_type] = {
-                    completed: !!t.completed,
-                    completed_by: t.completed_by,
-                    completed_at: t.completed_at,
-                  }
-                }
-                const warnings = detail.data.warnings || []
-                const lastW = warnings.length > 0 ? warnings[warnings.length - 1] : null
-                wMap[app.id] = {
-                  count: warnings.length,
-                  lastWarningAt: lastW?.created_at || null,
-                }
-              }
-            } catch { /* ignore */ }
-          })
-        )
-        setTaskMap(tMap)
-        setWarningsMap(wMap)
-      })
-      .catch(() => {})
+    loadData().catch(()=>{})
       .finally(() => setLoading(false))
-  }, [])
+  }, [loadData])
+
+  useRealtimeRefresh(['applications', 'task_completions', 'inventory_tests', 'warnings'], loadData)
 
   const [pendingTaskAction, setPendingTaskAction] = useState<{ appId: string; taskType: string } | null>(null)
   const [pendingPerson, setPendingPerson] = useState('')
+  const [pendingDiscipline, setPendingDiscipline] = useState<string>('')
 
   const toggleTask = async (appId: string, taskType: string, current: boolean) => {
     if (!current) {
-      // Tamamlama — kişi seçimi gerekli
       setPendingTaskAction({ appId, taskType })
       setPendingPerson('')
+      setPendingDiscipline('')
       return
     }
-    // Geri alma
     await submitTaskAction(appId, taskType, true, 'dashboard')
   }
 
-  const submitTaskAction = async (appId: string, taskType: string, current: boolean, completedBy: string) => {
+  const submitTaskAction = async (
+    appId: string,
+    taskType: string,
+    current: boolean,
+    completedBy: string,
+    discipline?: string
+  ) => {
     const key = `${appId}-${taskType}`
     setTogglingTask(key)
     setPendingTaskAction(null)
 
     try {
+      const payload: Record<string, unknown> = {
+        task_type: taskType,
+        completed: !current,
+        completed_by: completedBy,
+      }
+      if (!current) {
+        payload.source = 'admin_manual'
+        if (taskType === 'disipliner_envanter' && discipline) {
+          payload.discipline = discipline
+        }
+      }
       const res = await fetch(`/api/applications/${appId}/tasks`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ task_type: taskType, completed: !current, completed_by: completedBy }),
+        body: JSON.stringify(payload),
       })
       const result = await res.json()
       if (result.success) {
@@ -144,36 +191,64 @@ export default function OryantasyonContent() {
             ...(prev[appId] || {}),
             [taskType]: {
               completed: !current,
-              completed_by: !current ? completedBy : undefined,
+              completed_by: !current ? `admin_manual:${completedBy}` : undefined,
               completed_at: !current ? new Date().toISOString() : undefined,
             },
           },
         }))
+        if (!current && taskType === 'disipliner_envanter' && discipline) {
+          setInventoryMap((prev) => {
+            const curr = prev[appId] || { disciplines: [], emailMismatch: false }
+            if (curr.disciplines.includes(discipline)) return prev
+            return {
+              ...prev,
+              [appId]: { ...curr, disciplines: [...curr.disciplines, discipline] },
+            }
+          })
+        }
       }
     } catch { /* ignore */ }
     setTogglingTask(null)
   }
 
-  const addWarning = async (appId: string, name: string) => {
-    const reason = prompt(`${name} için uyarı sebebi (Circle'dan mesaj atıldı):`, 'Haftalık kontrol — eksik görevler hakkında Circle üzerinden bilgilendirildi.')
-    if (!reason) return
+  const [pendingWarning, setPendingWarning] = useState<{ appId: string; name: string } | null>(null)
+  const [pendingWarnedBy, setPendingWarnedBy] = useState('')
+  const [pendingFormType, setPendingFormType] = useState<string>('')
+  const [pendingWarnReason, setPendingWarnReason] = useState('')
 
-    const warnedBy = prompt('Uyarıyı veren kişi:')
-    if (!warnedBy) return
+  const addWarning = (appId: string, name: string) => {
+    setPendingWarning({ appId, name })
+    setPendingWarnedBy('')
+    setPendingFormType('')
+    setPendingWarnReason("Haftalık kontrol — eksik görevler hakkında Circle üzerinden bilgilendirildi.")
+  }
 
+  const submitWarning = async () => {
+    if (!pendingWarning || !pendingWarnedBy) return
+    const appId = pendingWarning.appId
     setWarningLoading(appId)
+    const warnedBy = pendingWarnedBy
+    const formType = pendingFormType || null
+    const reason = pendingWarnReason || null
+    setPendingWarning(null)
     try {
       const res = await fetch(`/api/applications/${appId}/warnings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ warned_by: warnedBy, reason }),
+        body: JSON.stringify({ warned_by: warnedBy, reason, form_type: formType }),
       })
       const result = await res.json()
       if (result.success) {
-        // warning_count'u local state'te guncelle
         setData((prev) =>
           prev.map((d) => d.id === appId ? { ...d, warning_count: (d.warning_count || 0) + 1 } : d)
         )
+        setWarningsMap((prev) => ({
+          ...prev,
+          [appId]: {
+            count: (prev[appId]?.count || 0) + 1,
+            lastWarningAt: new Date().toISOString(),
+          },
+        }))
       }
     } catch { /* ignore */ }
     setWarningLoading(null)
@@ -194,17 +269,58 @@ export default function OryantasyonContent() {
     return daysSinceLastWarning >= 14
   }
 
-  const handleDeactivate = async (appId: string, name: string) => {
-    if (!confirm(`${name} kişisi 2 uyarıya rağmen 2 hafta içinde görevlerini tamamlamadı.\n\nDeaktive ağ üyelerine taşınsın mı?`)) return
+  const handlePromoteToNihaiUye = (appId: string, name: string) => {
+    setPendingPromote({ appId, name })
+    setPromotePerson('')
+    setPromoteNote('')
+  }
+
+  const submitPromote = async () => {
+    if (!pendingPromote || !promotePerson.trim() || !promoteNote.trim()) return
+    const appId = pendingPromote.appId
+    setPromoteLoading(appId)
+    setPendingPromote(null)
+    try {
+      const res = await fetch(`/api/applications/${appId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to_status: 'nihai_uye',
+          changed_by: promotePerson,
+          reason: promoteNote,
+          extra_updates: { reviewer: promotePerson, review_note: promoteNote },
+        }),
+      })
+      const result = await res.json()
+      if (result.success) {
+        setData((prev) => prev.filter((d) => d.id !== appId))
+      } else {
+        alert(result.error || 'Taşıma başarısız')
+      }
+    } catch { alert('Bağlantı hatası') }
+    setPromoteLoading(null)
+  }
+
+  const handleDeactivate = (appId: string, name: string) => {
+    setPendingDeactivate({ appId, name })
+    setDeactivatePerson('')
+    setDeactivateNote('2 uyarı sonrası 2 hafta içinde görevler tamamlanmadı')
+  }
+
+  const submitDeactivate = async () => {
+    if (!pendingDeactivate || !deactivatePerson.trim() || !deactivateNote.trim()) return
+    const appId = pendingDeactivate.appId
     setDeactivateLoading(appId)
+    setPendingDeactivate(null)
     try {
       const res = await fetch(`/api/applications/${appId}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           to_status: 'deaktive',
-          changed_by: 'dashboard',
-          reason: '2 uyarı sonrası 2 hafta içinde görevler tamamlanmadı',
+          changed_by: deactivatePerson,
+          reason: deactivateNote,
+          extra_updates: { reviewer: deactivatePerson, review_note: deactivateNote },
         }),
       })
       const result = await res.json()
@@ -244,7 +360,8 @@ export default function OryantasyonContent() {
 
   const enriched = useMemo(() => {
     return data.map((row) => {
-      const tasinmaTarihi = row.submitted_at ? new Date(row.submitted_at) : null
+      const approvedRaw = row.approved_at || row.submitted_at
+      const tasinmaTarihi = approvedRaw ? new Date(approvedRaw) : null
       const uyariSayisi = getUyariSayisi(row)
       const gun = daysSince(tasinmaTarihi)
       const takip = getTakipDurum(row.id, uyariSayisi)
@@ -307,6 +424,15 @@ export default function OryantasyonContent() {
 
   useEffect(() => { setPage(1) }, [uyariFilter, sureFilter, takipFilter, search])
 
+  // Filtre dropdown dışına tıklayınca kapat
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (filterRef.current && !filterRef.current.contains(e.target as Node)) setFilterOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
   const counts = useMemo(() => {
     let karDone = 0, disDone = 0, oryDone = 0, allDone = 0
     for (const row of enriched) {
@@ -333,99 +459,13 @@ export default function OryantasyonContent() {
     }
   }, [enriched, taskMap])
 
+  const activeFilterCount = (uyariFilter !== 'tumu' ? 1 : 0) + (sureFilter !== 'tumu' ? 1 : 0) + (takipFilter !== 'tumu' ? 1 : 0)
+
   return (
     <div className="min-h-screen bg-[#FAFBFC]">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-100 px-8 py-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Oryantasyon</h1>
-            <p className="text-sm text-gray-500 mt-1">Nihai olmayan ağ üyelerinin oryantasyon süreci takibi</p>
-          </div>
-          <div className="flex items-center gap-3">
-            {counts.kritik > 0 && (
-              <div className="flex items-center gap-2 px-3 py-2 bg-red-50 rounded-lg border border-red-100">
-                <ExclamationTriangleIcon className="w-4 h-4 text-red-500" />
-                <span className="text-sm font-medium text-red-700">{counts.kritik} kritik (21+ gün)</span>
-              </div>
-            )}
-            <Badge className="bg-purple-50 text-purple-700 border-purple-200 text-sm px-3 py-1">
-              {data.length} kişi
-            </Badge>
-          </div>
-        </div>
-      </div>
-
-      <div className="p-8">
-        {/* KPI Strip */}
-        <div className="grid grid-cols-4 gap-4 mb-6">
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Toplam</p>
-            <p className="text-2xl font-bold text-gray-900">{counts.tumu}</p>
-            <p className="text-xs text-gray-400 mt-0.5">oryantasyonda</p>
-          </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <div className="flex items-center gap-2 mb-1">
-              <div className="w-2 h-2 rounded-full bg-red-500" />
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">2 Uyarı</p>
-            </div>
-            <p className="text-2xl font-bold text-red-600">{counts.u2}</p>
-            <p className="text-xs text-gray-400 mt-0.5">son aşamada</p>
-          </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <div className="flex items-center gap-2 mb-1">
-              <div className="w-2 h-2 rounded-full bg-orange-400" />
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">21+ Gün</p>
-            </div>
-            <p className="text-2xl font-bold text-orange-600">{counts.kritik}</p>
-            <p className="text-xs text-gray-400 mt-0.5">kritik süre</p>
-          </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <div className="flex items-center gap-2 mb-1">
-              <CheckCircleIcon className="w-3.5 h-3.5 text-green-500" />
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Tümü Tamam</p>
-            </div>
-            <p className="text-2xl font-bold text-green-600">{counts.allDone}</p>
-            <p className="text-xs text-gray-400 mt-0.5">nihai üyeye hazır</p>
-          </div>
-        </div>
-
-        {/* Task Tamamlanma Özeti */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
-          <div className="bg-white rounded-xl border border-gray-200 p-3 flex items-center justify-between">
-            <div>
-              <p className="text-xs text-gray-500">Kar. Envanter</p>
-              <p className="text-lg font-bold text-gray-900">{counts.karDone}<span className="text-sm font-normal text-gray-400">/{counts.tumu}</span></p>
-            </div>
-            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-blue-50">
-              <span className="text-sm font-bold text-blue-600">{counts.tumu ? Math.round(counts.karDone / counts.tumu * 100) : 0}%</span>
-            </div>
-          </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-3 flex items-center justify-between">
-            <div>
-              <p className="text-xs text-gray-500">Dis. Envanter</p>
-              <p className="text-lg font-bold text-gray-900">{counts.disDone}<span className="text-sm font-normal text-gray-400">/{counts.tumu}</span></p>
-            </div>
-            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-indigo-50">
-              <span className="text-sm font-bold text-indigo-600">{counts.tumu ? Math.round(counts.disDone / counts.tumu * 100) : 0}%</span>
-            </div>
-          </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-3 flex items-center justify-between">
-            <div>
-              <p className="text-xs text-gray-500">Oryantasyon</p>
-              <p className="text-lg font-bold text-gray-900">{counts.oryDone}<span className="text-sm font-normal text-gray-400">/{counts.tumu}</span></p>
-            </div>
-            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-purple-50">
-              <span className="text-sm font-bold text-purple-600">{counts.tumu ? Math.round(counts.oryDone / counts.tumu * 100) : 0}%</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Data Quality Notice */}
-{/* Bilgi notu kaldırıldı — task takibi artık Supabase üzerinden */}
-
-        {/* Filters */}
-        <div className="flex flex-wrap gap-3 items-center mb-4">
+      <div className="p-6">
+        {/* Compact toolbar */}
+        <div className="flex items-center gap-3 mb-4">
           <input
             type="text"
             placeholder="Ad soyad veya e-posta ara..."
@@ -434,70 +474,109 @@ export default function OryantasyonContent() {
             className="px-4 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none min-w-[220px]"
           />
 
-          {/* Uyarı filter */}
-          <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
-            {(['tumu', '0', '1', '2'] as UyariFilter[]).map((f) => {
-              const label = f === 'tumu' ? 'Tümü' : `${f} Uyarı`
-              const cnt = f === 'tumu' ? counts.tumu : f === '0' ? counts.u0 : f === '1' ? counts.u1 : counts.u2
-              return (
-                <button
-                  key={f}
-                  onClick={() => setUyariFilter(f)}
-                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 ${uyariFilter === f ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-                >
-                  {f !== 'tumu' && <span className={`w-1.5 h-1.5 rounded-full ${getUyariColor(+f).dot}`} />}
-                  {label}
-                  <span className={`text-xs px-1 py-0.5 rounded-full ${uyariFilter === f ? 'bg-purple-100 text-purple-700' : 'bg-gray-200 text-gray-500'}`}>{cnt}</span>
-                </button>
-              )
-            })}
-          </div>
-
-          {/* Süre filter */}
-          <select
-            value={sureFilter}
-            onChange={(e) => setSureFilter(e.target.value as SureFilter)}
-            className="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-purple-500 outline-none"
-          >
-            <option value="tumu">Süre (Tümü)</option>
-            <option value="kritik">Kritik (21+ gün)</option>
-            <option value="uyari">Uyarı (14–21 gün)</option>
-            <option value="normal">Normal (0–14 gün)</option>
-          </select>
-
-          {/* Takip filter */}
-          <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
-            {([
-              { key: 'tumu' as TakipFilter, label: 'Tümü', cnt: counts.tumu },
-              { key: 'kontrol_gerekli' as TakipFilter, label: 'Kontrol Gerekli', cnt: counts.kontrolGerekli },
-              { key: 'bekleniyor' as TakipFilter, label: 'Bekleniyor', cnt: counts.bekleniyor },
-              { key: 'tamamlandi' as TakipFilter, label: 'Tamamlandı', cnt: counts.tamamlandi },
-            ]).map(({ key, label, cnt }) => (
-              <button
-                key={key}
-                onClick={() => setTakipFilter(key)}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 ${takipFilter === key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-              >
-                {key === 'kontrol_gerekli' && <span className="w-1.5 h-1.5 rounded-full bg-red-400" />}
-                {key === 'bekleniyor' && <span className="w-1.5 h-1.5 rounded-full bg-yellow-400" />}
-                {key === 'tamamlandi' && <span className="w-1.5 h-1.5 rounded-full bg-green-400" />}
-                {label}
-                <span className={`text-xs px-1 py-0.5 rounded-full ${takipFilter === key ? 'bg-purple-100 text-purple-700' : 'bg-gray-200 text-gray-500'}`}>{cnt}</span>
-              </button>
-            ))}
-          </div>
-
-          {(uyariFilter !== 'tumu' || sureFilter !== 'tumu' || takipFilter !== 'tumu' || search) && (
+          {/* Filter dropdown */}
+          <div ref={filterRef} className="relative">
             <button
-              onClick={() => { setUyariFilter('tumu'); setSureFilter('tumu'); setTakipFilter('tumu'); setSearch('') }}
-              className="flex items-center gap-1 px-3 py-2 text-sm text-purple-600 hover:text-purple-700 hover:bg-purple-50 rounded-lg transition-colors"
+              onClick={() => setFilterOpen(!filterOpen)}
+              className={`flex items-center gap-2 px-3 py-2 text-sm border rounded-lg transition-colors ${
+                activeFilterCount > 0
+                  ? 'border-purple-300 bg-purple-50 text-purple-700'
+                  : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+              }`}
             >
-              <XMarkIcon className="w-4 h-4" />
-              Temizle
+              <FunnelIcon className="w-4 h-4" />
+              Filtrele
+              {activeFilterCount > 0 && (
+                <span className="bg-purple-600 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">{activeFilterCount}</span>
+              )}
+              <ChevronDownIcon className={`w-3.5 h-3.5 transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
             </button>
-          )}
 
-          <span className="text-sm text-gray-400 ml-auto">{filtered.length} kayıt</span>
+            {filterOpen && (
+              <div className="absolute left-0 top-full mt-1 w-72 bg-white rounded-xl border border-gray-200 shadow-lg z-30 p-4 space-y-4">
+                {/* Uyarı */}
+                <div>
+                  <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5 block">Uyarı Sayısı</label>
+                  <div className="flex gap-1">
+                    {(['tumu', '0', '1', '2'] as UyariFilter[]).map((f) => {
+                      const label = f === 'tumu' ? 'Tümü' : f
+                      const cnt = f === 'tumu' ? counts.tumu : f === '0' ? counts.u0 : f === '1' ? counts.u1 : counts.u2
+                      return (
+                        <button key={f} onClick={() => setUyariFilter(f)}
+                          className={`flex-1 px-2 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                            uyariFilter === f ? 'bg-purple-100 text-purple-700' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
+                          }`}
+                        >
+                          {label} <span className="opacity-60">({cnt})</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* Süre */}
+                <div>
+                  <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5 block">Geçen Süre</label>
+                  <select
+                    value={sureFilter}
+                    onChange={(e) => setSureFilter(e.target.value as SureFilter)}
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-purple-500 outline-none"
+                  >
+                    <option value="tumu">Tümü</option>
+                    <option value="kritik">Kritik (21+ gün)</option>
+                    <option value="uyari">Uyarı (14–21 gün)</option>
+                    <option value="normal">Normal (0–14 gün)</option>
+                  </select>
+                </div>
+
+                {/* Takip */}
+                <div>
+                  <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5 block">Haftalık Takip</label>
+                  <div className="flex flex-col gap-1">
+                    {([
+                      { key: 'tumu' as TakipFilter, label: 'Tümü', cnt: counts.tumu, dot: '' },
+                      { key: 'kontrol_gerekli' as TakipFilter, label: 'Kontrol Gerekli', cnt: counts.kontrolGerekli, dot: 'bg-red-400' },
+                      { key: 'bekleniyor' as TakipFilter, label: 'Bekleniyor', cnt: counts.bekleniyor, dot: 'bg-yellow-400' },
+                      { key: 'tamamlandi' as TakipFilter, label: 'Tamamlandı', cnt: counts.tamamlandi, dot: 'bg-green-400' },
+                    ]).map(({ key, label, cnt, dot }) => (
+                      <button key={key} onClick={() => setTakipFilter(key)}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-colors text-left ${
+                          takipFilter === key ? 'bg-purple-100 text-purple-700' : 'text-gray-500 hover:bg-gray-50'
+                        }`}
+                      >
+                        {dot && <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />}
+                        {label}
+                        <span className="ml-auto opacity-60">{cnt}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {activeFilterCount > 0 && (
+                  <button
+                    onClick={() => { setUyariFilter('tumu'); setSureFilter('tumu'); setTakipFilter('tumu') }}
+                    className="w-full flex items-center justify-center gap-1 px-3 py-2 text-xs text-purple-600 hover:bg-purple-50 rounded-lg transition-colors border border-purple-200"
+                  >
+                    <XMarkIcon className="w-3.5 h-3.5" />
+                    Filtreleri Temizle
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Quick stats inline */}
+          <div className="flex items-center gap-3 ml-auto text-xs text-gray-500">
+            {counts.kritik > 0 && (
+              <span className="flex items-center gap-1 text-red-600 font-medium">
+                <ExclamationTriangleIcon className="w-3.5 h-3.5" />
+                {counts.kritik} kritik
+              </span>
+            )}
+            <span>{counts.karDone}/{counts.tumu} envanter</span>
+            <span>{counts.oryDone}/{counts.tumu} oryantasyon</span>
+            <span className="text-gray-400">{filtered.length} kayıt</span>
+          </div>
         </div>
 
         {/* Table */}
@@ -532,6 +611,7 @@ export default function OryantasyonContent() {
                     paged.map((row, i) => {
                       const name = (row.full_name || '') || '-'
                       const email = (row.email || '') || '-'
+                      const isProtected = !!(row as { is_protected?: boolean }).is_protected
                       const tasks = taskMap[row.id] || {}
                       const uyariColors = getUyariColor(row._uyariSayisi)
                       const sureStatus = getSureStatus(row._gun)
@@ -550,7 +630,21 @@ export default function OryantasyonContent() {
                           row._takip.durum === 'tamamlandi' ? 'bg-green-50/30' :
                           sureStatus.bgColor
                         }`}>
-                          <td className="px-4 py-3 font-medium text-gray-900">{name}</td>
+                          <td className="px-4 py-3 font-medium text-gray-900">
+                            <div className="flex items-center gap-1.5">
+                              {name}
+                              {isProtected && (
+                                <span title="Korumalı (Circle üyesi) — değiştirilemez" className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 font-semibold">
+                                  🔒
+                                </span>
+                              )}
+                              {inventoryMap[row.id]?.emailMismatch && (
+                                <span title="Envanter testindeki e-posta farklı — ad-soyad ile eşleştirildi" className="inline-flex items-center text-amber-600">
+                                  <ExclamationTriangleIcon className="w-3.5 h-3.5" />
+                                </span>
+                              )}
+                            </div>
+                          </td>
                           <td className="px-4 py-3 text-gray-600 text-xs">{email}</td>
                           <td className="px-4 py-3 text-gray-600 text-xs">{tasinmaTarihiStr}</td>
                           <td className="px-4 py-3">
@@ -572,17 +666,21 @@ export default function OryantasyonContent() {
                             const taskInfo = tasks[taskType]
                             const done = !!taskInfo?.completed
                             const isToggling = togglingTask === `${row.id}-${taskType}`
+                            const verifiedRaw = taskInfo?.completed_by || ''
+                            const isManual = verifiedRaw.startsWith('admin_manual:')
+                            const verifiedShort = isManual ? verifiedRaw.replace('admin_manual:', '') : verifiedRaw
+                            const disciplines = taskType === 'disipliner_envanter' ? (inventoryMap[row.id]?.disciplines || []) : []
                             const tooltip = done
-                              ? `${taskInfo?.completed_by || '?'} tarafından tamamlandı${taskInfo?.completed_at ? ` (${new Date(taskInfo.completed_at).toLocaleDateString('tr-TR')})` : ''}`
+                              ? `${verifiedShort || '?'}${isManual ? ' (manuel)' : ''}${taskInfo?.completed_at ? ` — ${new Date(taskInfo.completed_at).toLocaleDateString('tr-TR')}` : ''}${disciplines.length ? ` — ${disciplines.map((d) => DISCIPLINE_LABEL[d] ?? d).join(', ')}` : ''}`
                               : 'Tamamla'
                             return (
                               <td key={taskType} className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
                                 <div className="flex flex-col items-center gap-0.5">
                                   <button
                                     onClick={() => toggleTask(row.id, taskType, done)}
-                                    disabled={isToggling}
-                                    className="inline-flex items-center justify-center disabled:opacity-50"
-                                    title={tooltip}
+                                    disabled={isToggling || isProtected}
+                                    className="inline-flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed"
+                                    title={isProtected ? 'Korumalı kayıt — değiştirilemez' : tooltip}
                                   >
                                     {isToggling ? (
                                       <svg className="animate-spin h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -590,13 +688,18 @@ export default function OryantasyonContent() {
                                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                                       </svg>
                                     ) : done ? (
-                                      <CheckCircleSolid className="w-5 h-5 text-green-500 hover:text-green-600 transition-colors" />
+                                      <CheckCircleSolid className={`w-5 h-5 transition-colors ${isManual ? 'text-amber-500 hover:text-amber-600' : 'text-green-500 hover:text-green-600'}`} />
                                     ) : (
                                       <CheckCircleIcon className="w-5 h-5 text-gray-300 hover:text-gray-400 transition-colors" />
                                     )}
                                   </button>
-                                  {done && taskInfo?.completed_by && (
-                                    <span className="text-[10px] text-gray-400 leading-tight">{taskInfo.completed_by}</span>
+                                  {taskType === 'disipliner_envanter' && disciplines.length > 0 && (
+                                    <span className="text-[10px] text-gray-500 leading-tight">
+                                      {disciplines.map((d) => DISCIPLINE_LABEL[d] ?? d).join(', ')}
+                                    </span>
+                                  )}
+                                  {done && verifiedShort && !(taskType === 'disipliner_envanter' && disciplines.length > 0) && (
+                                    <span className="text-[10px] text-gray-400 leading-tight">{verifiedShort}</span>
                                   )}
                                 </div>
                               </td>
@@ -624,7 +727,28 @@ export default function OryantasyonContent() {
                             )}
                           </td>
                           <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
-                            {isDeactivateEligible(row.id) ? (
+                            {isProtected ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-purple-50 text-purple-600 border border-purple-200" title="Korumalı kayıt — aksiyon devre dışı">
+                                🔒 Korumalı
+                              </span>
+                            ) : row._takip.durum === 'tamamlandi' ? (
+                              <button
+                                onClick={() => handlePromoteToNihaiUye(row.id, name)}
+                                disabled={promoteLoading === row.id}
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-emerald-100 text-emerald-700 border border-emerald-300 hover:bg-emerald-200 transition-colors disabled:opacity-50"
+                                title="3 görev tamam — nihai ağ üyesine taşı"
+                              >
+                                {promoteLoading === row.id ? (
+                                  <svg className="animate-spin h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                  </svg>
+                                ) : (
+                                  <CheckCircleSolid className="w-3.5 h-3.5" />
+                                )}
+                                Nihai Üye'ye Taşı
+                              </button>
+                            ) : isDeactivateEligible(row.id) ? (
                               <button
                                 onClick={() => handleDeactivate(row.id, name)}
                                 disabled={deactivateLoading === row.id}
@@ -696,12 +820,14 @@ export default function OryantasyonContent() {
         )}
       </div>
 
-      {/* Görev tamamlama — kişi seçim dialog */}
+      {/* Görev tamamlama — kişi (+ disipliner için discipline) seçim dialog */}
       {pendingTaskAction && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/30" onClick={() => setPendingTaskAction(null)} />
           <div className="relative bg-white rounded-xl shadow-xl w-full max-w-xs p-5 mx-4">
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">Kim tarafından yapıldı?</h3>
+            <h3 className="text-sm font-semibold text-gray-900 mb-1">Manuel olarak tamamlandı</h3>
+            <p className="text-xs text-gray-500 mb-3">Bu işaret audit log'a "admin_manual" olarak yazılır.</p>
+            <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Kim işaretliyor?</label>
             <select
               value={pendingPerson}
               onChange={(e) => setPendingPerson(e.target.value)}
@@ -711,14 +837,176 @@ export default function OryantasyonContent() {
               <option value="Tuna">Tuna</option>
               <option value="Taha">Taha</option>
             </select>
+            {pendingTaskAction.taskType === 'disipliner_envanter' && (
+              <>
+                <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Hangi disiplin?</label>
+                <select
+                  value={pendingDiscipline}
+                  onChange={(e) => setPendingDiscipline(e.target.value)}
+                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-400 outline-none mb-3"
+                >
+                  <option value="">Disiplin seç...</option>
+                  <option value="kreatif_yapim">Kreatif Yapım</option>
+                  <option value="dijital_deneyim">Dijital Deneyim</option>
+                  <option value="dijital_urun">Dijital Ürün</option>
+                </select>
+              </>
+            )}
             <div className="flex gap-2">
               <button onClick={() => setPendingTaskAction(null)} className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50">İptal</button>
               <button
-                onClick={() => pendingPerson && submitTaskAction(pendingTaskAction.appId, pendingTaskAction.taskType, false, pendingPerson)}
-                disabled={!pendingPerson}
+                onClick={() => {
+                  if (!pendingPerson) return
+                  if (pendingTaskAction.taskType === 'disipliner_envanter' && !pendingDiscipline) return
+                  submitTaskAction(
+                    pendingTaskAction.appId,
+                    pendingTaskAction.taskType,
+                    false,
+                    pendingPerson,
+                    pendingDiscipline || undefined,
+                  )
+                }}
+                disabled={!pendingPerson || (pendingTaskAction.taskType === 'disipliner_envanter' && !pendingDiscipline)}
                 className="flex-1 px-3 py-2 text-sm text-white bg-indigo-500 rounded-lg hover:bg-indigo-600 disabled:opacity-50"
               >
                 Onayla
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Uyarı dialog */}
+      {pendingWarning && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/30" onClick={() => setPendingWarning(null)} />
+          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-sm p-5 mx-4">
+            <h3 className="text-sm font-semibold text-gray-900 mb-1">Uyarı kaydı ekle</h3>
+            <p className="text-xs text-gray-500 mb-3">{pendingWarning.name} için Circle üzerinden atılan mesajı kaydeder.</p>
+            <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Hangi form için?</label>
+            <select
+              value={pendingFormType}
+              onChange={(e) => setPendingFormType(e.target.value)}
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-amber-400 outline-none mb-3"
+            >
+              <option value="">Genel uyarı</option>
+              <option value="karakteristik_envanter">Karakteristik envanter</option>
+              <option value="disipliner_envanter">Disipliner envanter</option>
+            </select>
+            <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Kim uyardı?</label>
+            <select
+              value={pendingWarnedBy}
+              onChange={(e) => setPendingWarnedBy(e.target.value)}
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-amber-400 outline-none mb-3"
+            >
+              <option value="">Kişi seç...</option>
+              <option value="Tuna">Tuna</option>
+              <option value="Taha">Taha</option>
+            </select>
+            <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Sebep / not</label>
+            <textarea
+              value={pendingWarnReason}
+              onChange={(e) => setPendingWarnReason(e.target.value)}
+              rows={3}
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-amber-400 outline-none mb-3 resize-none"
+            />
+            <div className="flex gap-2">
+              <button onClick={() => setPendingWarning(null)} className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50">İptal</button>
+              <button
+                onClick={submitWarning}
+                disabled={!pendingWarnedBy}
+                className="flex-1 px-3 py-2 text-sm text-white bg-amber-500 rounded-lg hover:bg-amber-600 disabled:opacity-50"
+              >
+                Kaydet
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Nihai Üye'ye taşı onay dialog */}
+      {pendingPromote && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/30" onClick={() => setPendingPromote(null)} />
+          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-sm p-5 mx-4">
+            <h3 className="text-sm font-semibold text-gray-900 mb-1">Nihai Üye'ye Taşı</h3>
+            <p className="text-xs text-gray-500 mb-3">{pendingPromote.name} 3 görevi tamamladı. Nihai Ağ Üyesi'ne taşınacak.</p>
+            <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">
+              Onaylayan kişi <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={promotePerson}
+              onChange={(e) => setPromotePerson(e.target.value)}
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-emerald-400 outline-none mb-3"
+            >
+              <option value="">Kişi seç...</option>
+              <option value="Tuna">Tuna</option>
+              <option value="Taha">Taha</option>
+            </select>
+            <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">
+              Not <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              value={promoteNote}
+              onChange={(e) => setPromoteNote(e.target.value)}
+              rows={3}
+              placeholder="Taşıma sebebi / not..."
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-emerald-400 outline-none mb-3 resize-none"
+            />
+            <div className="flex gap-2">
+              <button onClick={() => setPendingPromote(null)} className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50">İptal</button>
+              <button
+                onClick={submitPromote}
+                disabled={!promotePerson.trim() || !promoteNote.trim()}
+                title={(!promotePerson.trim() || !promoteNote.trim()) ? 'Onaylayan ve not zorunlu' : ''}
+                className="flex-1 px-3 py-2 text-sm text-white bg-emerald-500 rounded-lg hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Taşı
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Deaktive Et onay dialog */}
+      {pendingDeactivate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/30" onClick={() => setPendingDeactivate(null)} />
+          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-sm p-5 mx-4">
+            <h3 className="text-sm font-semibold text-gray-900 mb-1">Deaktive Et</h3>
+            <p className="text-xs text-gray-500 mb-3">
+              {pendingDeactivate.name} 2 uyarıya rağmen 2 hafta içinde görevlerini tamamlamadı.
+            </p>
+            <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">
+              Onaylayan kişi <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={deactivatePerson}
+              onChange={(e) => setDeactivatePerson(e.target.value)}
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-red-400 outline-none mb-3"
+            >
+              <option value="">Kişi seç...</option>
+              <option value="Tuna">Tuna</option>
+              <option value="Taha">Taha</option>
+            </select>
+            <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">
+              Not <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              value={deactivateNote}
+              onChange={(e) => setDeactivateNote(e.target.value)}
+              rows={3}
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-red-400 outline-none mb-3 resize-none"
+            />
+            <div className="flex gap-2">
+              <button onClick={() => setPendingDeactivate(null)} className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50">İptal</button>
+              <button
+                onClick={submitDeactivate}
+                disabled={!deactivatePerson.trim() || !deactivateNote.trim()}
+                title={(!deactivatePerson.trim() || !deactivateNote.trim()) ? 'Onaylayan ve not zorunlu' : ''}
+                className="flex-1 px-3 py-2 text-sm text-white bg-red-500 rounded-lg hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Deaktive Et
               </button>
             </div>
           </div>

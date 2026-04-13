@@ -43,11 +43,11 @@ export async function GET() {
       })
     }
 
-    // 3. Oryantasyonu yapılmamış üyeler (nihai_olmayan statüsünde, oryantasyon task'ı tamamlanmamış)
+    // 3. Oryantasyonu yapılmamış üyeler (kesin_kabul statüsünde, oryantasyon task'ı tamamlanmamış)
     const { data: nihaiOlmayanlar } = await db
       .from('applications')
       .select('id')
-      .eq('status', 'nihai_olmayan')
+      .in('status', ['kesin_kabul', 'nihai_olmayan'])
 
     if (nihaiOlmayanlar && nihaiOlmayanlar.length > 0) {
       const ids = nihaiOlmayanlar.map(a => a.id)
@@ -71,7 +71,7 @@ export async function GET() {
       }
     }
 
-    // 4. Uyarılması gereken kişiler (nihai_olmayan, son uyarıdan 7+ gün geçmiş, görevler eksik)
+    // 4. Uyarılması gereken kişiler (kesin_kabul, son uyarıdan 7+ gün geçmiş, görevler eksik)
     if (nihaiOlmayanlar && nihaiOlmayanlar.length > 0) {
       const ids = nihaiOlmayanlar.map(a => a.id)
       const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString()

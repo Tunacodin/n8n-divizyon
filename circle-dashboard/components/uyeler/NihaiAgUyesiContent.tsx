@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
+import { UyeDetailDrawer } from './UyeDetailDrawer'
 // DB field names used directly
 import {
   MagnifyingGlassIcon,
@@ -85,8 +86,21 @@ function matchesTagFilter(tag: string, filterKey: string): boolean {
   return config.keywords.some(kw => lower.includes(kw))
 }
 
-export default function NihaiAgUyesiContent() {
+type ContentProps = {
+  endpoint?: string          // '/api/applications?...' — default nihai_uye
+  emptyMessage?: string
+  // Etkinlikten Gelen tab için: "başvuru yaptı mı?" kolonunu göster (email bazlı)
+  showApplicationCheck?: boolean
+}
+
+export default function NihaiAgUyesiContent({
+  endpoint = '/api/applications?status=nihai_uye&limit=1000',
+  emptyMessage,
+  showApplicationCheck = false,
+}: ContentProps = {}) {
   const [data, setData] = useState<NihaiItem[]>([])
+  const [appliedEmails, setAppliedEmails] = useState<Set<string>>(new Set())
+  const [selected, setSelected] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [activeTab, setActiveTab] = useState<TabFilter>('all')
@@ -95,14 +109,28 @@ export default function NihaiAgUyesiContent() {
 
   useEffect(() => {
     fetchData()
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [endpoint])
 
   const fetchData = async () => {
     try {
-      const response = await fetch('/api/applications?status=nihai_uye')
+      const response = await fetch(endpoint)
       const result = await response.json()
       if (result.success) {
         setData(result.data || [])
+      }
+      // Etkinlikten Gelen tab'ı için: başvurudan gelen (is_protected=false) application'ların email'lerini al
+      if (showApplicationCheck) {
+        const appliedRes = await fetch('/api/applications?limit=2000').then((r) => r.json())
+        if (appliedRes.success) {
+          const emails = new Set<string>(
+            (appliedRes.data || [])
+              .filter((a: any) => !a.is_protected)
+              .map((a: any) => String(a.email || '').toLowerCase().trim())
+              .filter(Boolean)
+          )
+          setAppliedEmails(emails)
+        }
       }
     } catch (error) {
       console.error('Error fetching data:', error)
@@ -119,8 +147,13 @@ export default function NihaiAgUyesiContent() {
   const tagDistribution = useMemo(() => {
     const dist: Record<string, number> = {}
     data.forEach(item => {
-      const tag = getField(item, 'Atanan Tag') || getField(item, 'Tag') || 'Belirsiz'
-      dist[tag] = (dist[tag] || 0) + 1
+      const tagsArr: string[] = Array.isArray((item as any).tags) ? (item as any).tags : []
+      if (tagsArr.length > 0) {
+        for (const t of tagsArr) dist[t] = (dist[t] || 0) + 1
+      } else {
+        const fallback = (item as any).main_role || getField(item, 'Atanan Tag') || getField(item, 'Tag') || 'Belirsiz'
+        dist[fallback] = (dist[fallback] || 0) + 1
+      }
     })
     return dist
   }, [data])
@@ -131,19 +164,36 @@ export default function NihaiAgUyesiContent() {
     if (searchTerm) {
       const term = searchTerm.toLowerCase()
       items = items.filter(item => {
-        const name = getField(item, 'Adın Soyadın') || getField(item, 'Ad Soyad') || getField(item, 'İsim')
-        const email = getField(item, 'E-Posta Adresin') || getField(item, 'E-Posta') || getField(item, 'Mail')
-        const tag = getField(item, 'Atanan Tag') || getField(item, 'Tag')
-        return name.toLowerCase().includes(term) || email.toLowerCase().includes(term) || tag.toLowerCase().includes(term)
+        const name = (item as any).full_name || getField(item, 'Adın Soyadın') || getField(item, 'Ad Soyad') || getField(item, 'İsim') || ''
+        const email = (item as any).email || getField(item, 'E-Posta Adresin') || getField(item, 'E-Posta') || getField(item, 'Mail') || ''
+        const tagsArr: string[] = Array.isArray((item as any).tags) ? (item as any).tags : []
+        const anyTag = (item as any).main_role || getField(item, 'Atanan Tag') || getField(item, 'Tag') || ''
+        const tagsText = tagsArr.concat([anyTag]).join(' ').toLowerCase()
+        return name.toLowerCase().includes(term) || email.toLowerCase().includes(term) || tagsText.includes(term)
       })
     }
 
     if (activeTab !== 'all') {
       items = items.filter(item => {
-        const tag = getField(item, 'Atanan Tag') || getField(item, 'Tag')
-        return matchesTagFilter(tag, activeTab)
+        const tagsArr: string[] = Array.isArray((item as any).tags) ? (item as any).tags : []
+        if (tagsArr.some((t) => matchesTagFilter(t, activeTab))) return true
+        const fallback = (item as any).main_role || getField(item, 'Atanan Tag') || getField(item, 'Tag') || ''
+        return matchesTagFilter(fallback, activeTab)
       })
     }
+
+    // Sırala: en son aktif olanlar üstte
+    // Öncelik: last_seen_at (topluluk aktivitesi), sonra submitted_at (ağa katılım)
+    items = [...items].sort((a, b) => {
+      const la = String((a as any).last_seen_at || '')
+      const lb = String((b as any).last_seen_at || '')
+      if (la && lb) return lb.localeCompare(la)
+      if (la && !lb) return -1
+      if (!la && lb) return 1
+      const sa = String((a as any).submitted_at || (a as any).created_at || '')
+      const sb = String((b as any).submitted_at || (b as any).created_at || '')
+      return sb.localeCompare(sa)
+    })
 
     return items
   }, [data, searchTerm, activeTab])
@@ -156,8 +206,10 @@ export default function NihaiAgUyesiContent() {
 
   const countByTag = (filterKey: string) => {
     return data.filter(item => {
-      const tag = getField(item, 'Atanan Tag') || getField(item, 'Tag')
-      return matchesTagFilter(tag, filterKey)
+      const tagsArr: string[] = Array.isArray((item as any).tags) ? (item as any).tags : []
+      if (tagsArr.some((t) => matchesTagFilter(t, filterKey))) return true
+      const fallback = (item as any).main_role || getField(item, 'Atanan Tag') || getField(item, 'Tag') || ''
+      return matchesTagFilter(fallback, filterKey)
     }).length
   }
 
@@ -329,9 +381,7 @@ export default function NihaiAgUyesiContent() {
                     <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-3">E-Posta</th>
                     <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-3">Telefon</th>
                     <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-3">Atanan Tag</th>
-                    <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-3">En Yüksek Skor</th>
                     <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-3">Nereden Geldi</th>
-                    <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-3">Süreç</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -355,29 +405,76 @@ export default function NihaiAgUyesiContent() {
                     </tr>
                   ) : (
                     paginatedData.map((item, idx) => {
-                      const name = getField(item, 'Adın Soyadın') || getField(item, 'Ad Soyad') || getField(item, 'İsim') || '—'
-                      const email = getField(item, 'E-Posta Adresin') || getField(item, 'E-Posta') || getField(item, 'Mail') || '—'
-                      const telefon = getField(item, 'Telefon Numaran') || getField(item, 'Telefon Numarası') || getField(item, 'Telefon') || '—'
-                      const tag = getField(item, 'Atanan Tag') || getField(item, 'Tag') || '—'
+                      const name = (item as any).full_name || getField(item, 'Adın Soyadın') || getField(item, 'Ad Soyad') || getField(item, 'İsim') || '—'
+                      const email = (item as any).email || getField(item, 'E-Posta Adresin') || getField(item, 'E-Posta') || getField(item, 'Mail') || '—'
+                      const telefon = (item as any).phone || (item as any).circle_phone || getField(item, 'Telefon Numaran') || getField(item, 'Telefon Numarası') || getField(item, 'Telefon') || '—'
+                      // applications.tags (TEXT[]) — Circle'dan senkronize edilmiş
+                      const itemTags: string[] = Array.isArray((item as any).tags) ? (item as any).tags : []
+                      const tag = itemTags[0] || (item as any).main_role || getField(item, 'Atanan Tag') || getField(item, 'Tag') || '—'
                       const skor = getField(item, 'En Yüksek Skor') || getField(item, 'Score') || '—'
-                      const nereden = getField(item, 'Nereden Geldi') || '—'
-                      const toplamGun = getField(item, 'Toplam Süreç Gün') || getField(item, 'Toplam Surec Gun') || ''
-                      const tagAtamaTarihi = getField(item, 'Tag Atama Tarihi') || ''
+                      // Nereden Geldi:
+                      //   circle_pre_panel → '—' (panel öncesi eski veri, takip edilmiyor)
+                      //   circle_event → 'Etkinlik'
+                      //   circle_existing_match / null (form kaynaklı) → 'Başvuru'
+                      const ps = (item as any).protected_source
+                      const nereden = ps === 'circle_pre_panel' ? '—'
+                        : ps === 'circle_event' ? 'Etkinlik'
+                        : 'Başvuru'
+                      // Toplam süreç: approved_at + 14 (nihai_uye geçiş tarihine kadar) — approximated
+                      const approvedAt = (item as any).approved_at
+                      const updatedAt = (item as any).updated_at
+                      const toplamGun = approvedAt && updatedAt
+                        ? String(Math.max(0, Math.floor((new Date(updatedAt).getTime() - new Date(approvedAt).getTime()) / 86400000)))
+                        : (getField(item, 'Toplam Süreç Gün') || getField(item, 'Toplam Surec Gun') || '')
+                      const tagAtamaTarihi = (item as any).updated_at
+                        ? new Date((item as any).updated_at).toLocaleDateString('tr-TR', { day: '2-digit', month: 'short', year: 'numeric' })
+                        : (getField(item, 'Tag Atama Tarihi') || '')
 
                       const tagColors = getTagConfigByName(tag)
                       const initials = name.split(' ').map((p: string) => p.charAt(0)).join('').toUpperCase().slice(0, 2)
 
+                      const avatarUrl: string | undefined = (item as any).avatar_url
+
                       return (
                         <tr
                           key={idx}
-                          className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors"
+                          onClick={() => setSelected(item)}
+                          className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors cursor-pointer"
                         >
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center text-xs font-semibold text-amber-700">
-                                {initials}
-                              </div>
+                              {avatarUrl ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={avatarUrl} alt={name} className="w-8 h-8 rounded-full object-cover border border-gray-100" />
+                              ) : (
+                                <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center text-xs font-semibold text-amber-700">
+                                  {initials}
+                                </div>
+                              )}
                               <span className="text-sm font-medium text-gray-900">{name}</span>
+                              {(item as any).is_protected && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 font-semibold" title="Korumalı (Circle üyesi)">
+                                  🔒
+                                </span>
+                              )}
+                              {(item as any).protected_source === 'circle_event' && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-cyan-100 text-cyan-700 font-medium" title="Etkinlik üzerinden ağa katılmış">
+                                  Etkinlikten
+                                </span>
+                              )}
+                              {showApplicationCheck && (() => {
+                                const lower = String(email || '').toLowerCase().trim()
+                                const applied = lower && appliedEmails.has(lower)
+                                return applied ? (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 font-medium" title="Başvuru formu doldurulmuş">
+                                    ✓ Başvurdu
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium" title="Henüz başvuru yapmamış">
+                                    ⏳ Başvuru yok
+                                  </span>
+                                )
+                              })()}
                             </div>
                           </td>
                           <td className="px-6 py-4">
@@ -387,7 +484,28 @@ export default function NihaiAgUyesiContent() {
                             <span className="text-sm text-gray-600">{telefon}</span>
                           </td>
                           <td className="px-6 py-4">
-                            {tag !== '—' ? (
+                            {itemTags.length > 0 ? (
+                              <div className="flex flex-wrap gap-1 max-w-[340px]">
+                                {itemTags.slice(0, 4).map((t) => {
+                                  const cfg = getTagConfigByName(t)
+                                  return (
+                                    <span key={t}
+                                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${cfg.bg} ${cfg.text}`}
+                                      title={t}
+                                    >
+                                      <span className={`w-1 h-1 rounded-full ${cfg.dot}`} />
+                                      {t.length > 20 ? t.slice(0, 20) + '…' : t}
+                                    </span>
+                                  )
+                                })}
+                                {itemTags.length > 4 && (
+                                  <span className="text-[10px] text-gray-500 px-2 py-0.5"
+                                    title={itemTags.slice(4).join(', ')}>
+                                    +{itemTags.length - 4}
+                                  </span>
+                                )}
+                              </div>
+                            ) : tag !== '—' ? (
                               <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${tagColors.bg} ${tagColors.text}`}>
                                 <span className={`w-1.5 h-1.5 rounded-full ${tagColors.dot}`} />
                                 {tag}
@@ -397,26 +515,14 @@ export default function NihaiAgUyesiContent() {
                             )}
                           </td>
                           <td className="px-6 py-4">
-                            <span className="text-sm font-medium text-gray-900">{skor}</span>
-                          </td>
-                          <td className="px-6 py-4">
                             {nereden !== '—' ? (
                               <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                                nereden.toLowerCase().includes('etkinlik')
+                                nereden === 'Etkinlik'
                                   ? 'bg-cyan-100 text-cyan-700'
                                   : 'bg-blue-100 text-blue-700'
                               }`}>
                                 {nereden}
                               </span>
-                            ) : (
-                              <span className="text-xs text-gray-400">—</span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4">
-                            {toplamGun ? (
-                              <span className="text-sm text-gray-600">{toplamGun} gün</span>
-                            ) : tagAtamaTarihi ? (
-                              <span className="text-xs text-gray-400">{tagAtamaTarihi}</span>
                             ) : (
                               <span className="text-xs text-gray-400">—</span>
                             )}
@@ -442,19 +548,38 @@ export default function NihaiAgUyesiContent() {
                     >
                       <ChevronLeftIcon className="w-4 h-4 text-gray-600" />
                     </button>
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                      <button
-                        key={page}
-                        onClick={() => setCurrentPage(page)}
-                        className={`w-8 h-8 rounded-md text-xs font-medium transition-colors ${
-                          currentPage === page
-                            ? 'bg-amber-600 text-white'
-                            : 'text-gray-600 hover:bg-gray-200'
-                        }`}
-                      >
-                        {page}
-                      </button>
-                    ))}
+                    {(() => {
+                      // Compact pagination: 1 … (cur-1) cur (cur+1) … last
+                      const pages: (number | 'dots')[] = []
+                      const window = 1 // current etrafındaki ±
+                      const push = (p: number | 'dots') => {
+                        if (p !== 'dots' && (pages as number[]).includes(p as number)) return
+                        if (p === 'dots' && pages[pages.length - 1] === 'dots') return
+                        pages.push(p)
+                      }
+                      push(1)
+                      if (currentPage - window > 2) push('dots')
+                      for (let p = Math.max(2, currentPage - window); p <= Math.min(totalPages - 1, currentPage + window); p++) push(p)
+                      if (currentPage + window < totalPages - 1) push('dots')
+                      if (totalPages > 1) push(totalPages)
+                      return pages.map((p, i) =>
+                        p === 'dots' ? (
+                          <span key={`d${i}`} className="px-1 text-xs text-gray-400 select-none">…</span>
+                        ) : (
+                          <button
+                            key={p}
+                            onClick={() => setCurrentPage(p as number)}
+                            className={`w-8 h-8 rounded-md text-xs font-medium transition-colors ${
+                              currentPage === p
+                                ? 'bg-amber-600 text-white'
+                                : 'text-gray-600 hover:bg-gray-200'
+                            }`}
+                          >
+                            {p}
+                          </button>
+                        )
+                      )
+                    })()}
                     <button
                       onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                       disabled={currentPage === totalPages}
@@ -469,6 +594,8 @@ export default function NihaiAgUyesiContent() {
           </div>
         )}
       </div>
+
+      <UyeDetailDrawer member={selected} onClose={() => setSelected(null)} />
     </div>
   )
 }

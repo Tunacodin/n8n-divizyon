@@ -22,6 +22,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       changedBy: body.changed_by,
       reason: body.reason,
       extraUpdates: body.extra_updates,
+      force: !!body.force,
     })
 
     if (!result.success) {

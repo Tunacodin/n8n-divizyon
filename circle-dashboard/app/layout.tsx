@@ -22,7 +22,7 @@ export default function RootLayout({
       <body className={cn(inter.className, "min-h-screen bg-[#FAFBFC]")}>
         <SWRProvider>
           <Header />
-          <main className="min-h-[calc(100vh-3.5rem)]">
+          <main className="min-h-[calc(100vh-5rem)]">
             {children}
           </main>
         </SWRProvider>

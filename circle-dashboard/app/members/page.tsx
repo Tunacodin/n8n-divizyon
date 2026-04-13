@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from 'react'
 import useSWR from 'swr'
 import { Badge } from '@/components/ui/badge'
 
-type SourceFilter = 'tumu' | 'basvuru' | 'etkinlik'
+type SourceFilter = 'tumu' | 'basvuru' | 'circle'
 
 interface MemberItem {
   circle_id: number
@@ -13,7 +13,7 @@ interface MemberItem {
   avatar_url: string | null
   joined_at: string
   last_seen_at: string | null
-  source: 'basvuru' | 'etkinlik'
+  source: 'basvuru' | 'circle'
   db_status?: string | null
   db_name?: string | null
 }
@@ -44,10 +44,10 @@ const STATUS_LABELS: Record<string, string> = {
   kontrol: 'Kontrol',
   kesin_kabul: 'Kesin Kabul',
   kesin_ret: 'Kesin Ret',
-  nihai_olmayan: 'Nihai Olmayan',
+  nihai_olmayan: 'Kesin Kabul',
   nihai_uye: 'Nihai Üye',
   deaktive: 'Deaktive',
-  etkinlik: 'Etkinlik',
+  circle: 'Circle',
 }
 
 function Avatar({ name, avatarUrl, id }: { name: string; avatarUrl: string | null; id: number }) {
@@ -72,16 +72,16 @@ export default function MembersPage() {
   const PER_PAGE = 20
 
   const basvurudan: MemberItem[] = res?.basvurudan || []
-  const etkinlikten: MemberItem[] = res?.etkinlikten || []
+  const circleOnly: MemberItem[] = res?.circleOnly || res?.etkinlikten || []
   const error = fetchError ? 'Bağlantı hatası' : (!res?.success && res ? (res.error || 'Veri alınamadı') : null)
 
-  const allMembers = useMemo(() => [...basvurudan, ...etkinlikten], [basvurudan, etkinlikten])
+  const allMembers = useMemo(() => [...basvurudan, ...circleOnly], [basvurudan, circleOnly])
 
   const filtered = useMemo(() => {
     let items = [...allMembers]
 
     if (sourceFilter === 'basvuru') items = items.filter(m => m.source === 'basvuru')
-    else if (sourceFilter === 'etkinlik') items = items.filter(m => m.source === 'etkinlik')
+    else if (sourceFilter === 'circle') items = items.filter(m => m.source === 'circle')
 
     if (search.trim()) {
       const q = search.toLowerCase()
@@ -132,10 +132,10 @@ export default function MembersPage() {
           <div className="bg-white rounded-xl border border-gray-200 p-4">
             <div className="flex items-center gap-2 mb-1">
               <div className="w-2 h-2 rounded-full bg-cyan-400" />
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Etkinlikten Gelen</p>
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Sadece Circle</p>
             </div>
-            <p className="text-2xl font-bold text-cyan-600">{etkinlikten.length}</p>
-            <p className="text-xs text-gray-400 mt-0.5">QR ile geçici katılım</p>
+            <p className="text-2xl font-bold text-cyan-600">{circleOnly.length}</p>
+            <p className="text-xs text-gray-400 mt-0.5">DB'de başvurusu yok</p>
           </div>
         </div>
 
@@ -153,7 +153,7 @@ export default function MembersPage() {
             {([
               { key: 'tumu' as SourceFilter, label: 'Tümü', cnt: allMembers.length },
               { key: 'basvuru' as SourceFilter, label: 'Başvurudan', cnt: basvurudan.length },
-              { key: 'etkinlik' as SourceFilter, label: 'Etkinlikten', cnt: etkinlikten.length },
+              { key: 'circle' as SourceFilter, label: 'Circle', cnt: circleOnly.length },
             ]).map(({ key, label, cnt }) => (
               <button
                 key={key}
@@ -163,7 +163,7 @@ export default function MembersPage() {
                 }`}
               >
                 {key === 'basvuru' && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />}
-                {key === 'etkinlik' && <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />}
+                {key === 'circle' && <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />}
                 {label}
                 <span className={`text-xs px-1.5 py-0.5 rounded-full ${sourceFilter === key ? 'bg-blue-100 text-blue-700' : 'bg-gray-200 text-gray-500'}`}>{cnt}</span>
               </button>
@@ -212,7 +212,7 @@ export default function MembersPage() {
                         {m.source === 'basvuru' ? (
                           <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200">Başvurudan</Badge>
                         ) : (
-                          <Badge className="bg-cyan-50 text-cyan-700 border-cyan-200">Etkinlikten</Badge>
+                          <Badge className="bg-cyan-50 text-cyan-700 border-cyan-200">Circle</Badge>
                         )}
                       </td>
                       <td className="px-4 py-3">

@@ -1,203 +1,186 @@
 import { NextResponse } from 'next/server'
-import { createClient, APPLICATION_STATUSES, type ApplicationStatus } from '@/lib/supabase'
-import {
-  buildTimeSeries,
-  buildCumulativeTimeSeries,
-  computePipelineDuration,
-} from '@/lib/analytics-utils'
+import { createClient } from '@/lib/supabase'
+import { startOfMonth, format, differenceInDays } from 'date-fns'
 
 export const revalidate = 120
 
-// DB field → Turkce field mapper (analytics-utils uyumu icin)
-function toAnalyticsFormat(row: Record<string, unknown>): Record<string, unknown> {
-  return {
-    ...row,
-    'E-Posta Adresin': row.email,
-    'Adın Soyadın': row.full_name,
-    'Timestamp': row.submitted_at,
-    'timestamp': row.submitted_at,
-    'Değerlendiren': row.reviewer,
-    'Not': row.review_note,
-    'Onay Durumu': row.approval_status,
-    'Üretici Rolünü Tanımla': row.main_role,
-    'Uyarı Sayısı': row.warning_count,
-    sheet: row.status === 'yas_kucuk' ? '18 Yaş Altı' : undefined,
-  }
+type AppRow = {
+  id: string
+  status: string
+  email: string | null
+  main_role: string | null
+  reviewer: string | null
+  review_note: string | null
+  approval_status: string | null
+  submitted_at: string | null
+  approved_at: string | null
+  is_protected: boolean | null
+}
+
+type TaskRow = {
+  application_id: string
+  task_type: 'karakteristik_envanter' | 'disipliner_envanter' | 'oryantasyon'
+  completed: boolean | null
 }
 
 export async function GET() {
   const db = createClient()
 
   try {
-    // Tek sorguda tum veriyi cek
-    const { data: allApps, error } = await db
-      .from('applications')
-      .select('*')
-      .order('submitted_at', { ascending: false })
+    const [{ data: apps, error: e1 }, { data: tasks, error: e2 }] = await Promise.all([
+      db.from('applications')
+        .select('id,status,email,main_role,reviewer,review_note,approval_status,submitted_at,approved_at,is_protected')
+        // Circle'dan senkronize edilen üyeler (is_protected=true) istatistiklere dahil değil.
+        // Analiz yalnızca TypeForm → n8n ile gelen gerçek başvuru akışını baz alır.
+        .or('is_protected.is.null,is_protected.eq.false'),
+      db.from('task_completions')
+        .select('application_id,task_type,completed'),
+    ])
+    if (e1) throw e1
+    if (e2) throw e2
 
-    if (error) throw error
+    const rows = (apps ?? []) as AppRow[]
+    const taskRows = (tasks ?? []) as TaskRow[]
 
-    // Status bazli grupla
-    const byStatus: Record<string, Record<string, unknown>[]> = {}
-    for (const s of APPLICATION_STATUSES) byStatus[s] = []
-    for (const app of allApps || []) {
-      const s = app.status as ApplicationStatus
-      if (byStatus[s]) byStatus[s].push(toAnalyticsFormat(app))
+    // ─── Funnel (5 basamak) ───
+    const basvuru = rows.filter(r => r.status === 'basvuru')
+    const kontrol = rows.filter(r => r.status === 'kontrol')
+    const kabul = rows.filter(r => r.status === 'kesin_kabul')
+    const ret = rows.filter(r => r.status === 'kesin_ret' || r.status === 'yas_kucuk')
+    const nihaiUye = rows.filter(r => r.status === 'nihai_uye')
+    const allKabul = [...kabul, ...nihaiUye] // kabul edilmiş herkes
+
+    const funnel = [
+      { stage: 'Başvuru', count: rows.length },
+      { stage: 'Kontrol', count: kontrol.length + allKabul.length + ret.length },
+      { stage: 'Kesin Kabul', count: allKabul.length },
+      { stage: 'Oryantasyon', count: countTask(taskRows, 'oryantasyon') },
+      { stage: 'Nihai Üye', count: nihaiUye.length },
+    ]
+
+    // ─── Başvuru Trendi (aylık) ───
+    const monthMap: Record<string, number> = {}
+    for (const r of rows) {
+      if (!r.submitted_at) continue
+      const d = new Date(r.submitted_at)
+      if (isNaN(d.getTime())) continue
+      const key = format(startOfMonth(d), 'yyyy-MM-01')
+      monthMap[key] = (monthMap[key] ?? 0) + 1
     }
+    const basvuruTimeSeries = Object.entries(monthMap)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, count]) => ({ date, count }))
 
-    const nb = byStatus.basvuru
-    const nk = byStatus.kontrol
-    const ny = byStatus.yas_kucuk
-    const nr = byStatus.kesin_ret
-    const nno = byStatus.nihai_olmayan
-    const nkk = byStatus.kesin_kabul
-    const ne = byStatus.etkinlik
-    const nd = byStatus.deaktive
-    const nnu = byStatus.nihai_uye
-
-    // Funnel
-    const funnelSnapshot: Record<string, number> = {}
-    for (const s of APPLICATION_STATUSES) {
-      funnelSnapshot[s] = byStatus[s].length
-    }
-
-    // Time series
-    const basvuruTimeSeries = buildTimeSeries(nb, 'Timestamp')
-    const kabulTimeSeries = buildTimeSeries(nkk, 'Timestamp')
-    const retTimeSeries = buildTimeSeries([...nr, ...ny], 'Timestamp')
-    const deaktiveTimeSeries = buildTimeSeries(nd, 'Timestamp')
-
-    // Ret sebebi
-    const retCounts = { '18yas': 0, toplulukIlkeleri: 0, diger: 0 }
-    for (const row of [...nr, ...ny]) {
-      if (row.status === 'yas_kucuk') { retCounts['18yas']++; continue }
-      const not = String(row['Not'] ?? '').toLowerCase()
-      if (not.includes('topluluk')) retCounts.toplulukIlkeleri++
+    // ─── Ret Sebepleri ───
+    const retCounts = { yas: 0, topluluk: 0, diger: 0 }
+    for (const r of ret) {
+      if (r.status === 'yas_kucuk') { retCounts.yas++; continue }
+      const not = String(r.review_note ?? '').toLowerCase()
+      if (not.includes('topluluk')) retCounts.topluluk++
       else retCounts.diger++
     }
     const retSebebi = [
-      { name: '18 Yaş', value: retCounts['18yas'] },
-      { name: 'Topluluk İlkeleri', value: retCounts.toplulukIlkeleri },
+      { name: '18 Yaş Altı', value: retCounts.yas },
+      { name: 'Topluluk İlkeleri', value: retCounts.topluluk },
       { name: 'Diğer', value: retCounts.diger },
     ].filter(x => x.value > 0)
 
-    // Uyari dagilimi (DB'den direkt)
-    const uyariDagilimi = (() => {
-      const counts: Record<string, number> = { '0': 0, '1': 0, '2': 0 }
-      for (const row of nno) {
-        const n = Math.min(Number(row.warning_count) || 0, 2)
-        counts[String(n)] = (counts[String(n)] ?? 0) + 1
-      }
-      return [
-        { uyari: '0 Uyarı', count: counts['0'] },
-        { uyari: '1 Uyarı', count: counts['1'] },
-        { uyari: '2 Uyarı', count: counts['2'] },
-      ]
-    })()
+    // ─── Disiplin Dağılımı (top 10) ───
+    const disCount: Record<string, number> = {}
+    for (const r of rows) {
+      const v = (r.main_role ?? '').trim()
+      if (!v) continue
+      const first = v.split(/[,\n]/)[0].trim()
+      if (first) disCount[first] = (disCount[first] ?? 0) + 1
+    }
+    const disiplinDagilimi = Object.entries(disCount)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 10)
+      .map(([disiplin, count]) => ({ disiplin, count }))
 
-    // Disiplin dagilimi (main_role'den)
-    const disiplinDagilimi = (() => {
-      const counts: Record<string, number> = {}
-      for (const row of nb) {
-        const val = String(row.main_role ?? '').trim()
-        if (val) counts[val] = (counts[val] ?? 0) + 1
-      }
-      return Object.entries(counts)
-        .sort(([, a], [, b]) => b - a)
-        .slice(0, 15)
-        .map(([disiplin, count]) => ({ disiplin, count }))
-    })()
-
-    // Ret disiplin dagilimi
-    const retDisiplinDagilimi = (() => {
-      const counts: Record<string, number> = {}
-      for (const row of [...nr, ...ny]) {
-        const val = String(row.main_role ?? '').trim() || 'Belirtilmemiş'
-        counts[val] = (counts[val] ?? 0) + 1
-      }
-      return Object.entries(counts)
-        .sort(([, a], [, b]) => b - a)
-        .slice(0, 12)
-        .map(([disiplin, count]) => ({ disiplin, count }))
-    })()
-
-    // Degerlendiren stats
-    const degerlendirenStats = (() => {
-      const map = new Map<string, { kabul: number; ret: number; beklemede: number }>()
-      const upsert = (name: string, type: string) => {
-        const key = name || 'Atanmamış'
-        if (!map.has(key)) map.set(key, { kabul: 0, ret: 0, beklemede: 0 })
-        const entry = map.get(key)!
-        if (type === 'kabul') entry.kabul++
-        else if (type === 'ret') entry.ret++
-        else entry.beklemede++
-      }
-      for (const row of nk) {
-        const d = String(row.reviewer ?? '').trim()
-        const o = String(row.approval_status ?? '').toLowerCase()
-        if (d || o) upsert(d, o.includes('kabul') ? 'kabul' : o.includes('ret') ? 'ret' : 'beklemede')
-      }
-      for (const row of nr) upsert(String(row.reviewer ?? '').trim(), 'ret')
-      for (const row of nkk) upsert(String(row.reviewer ?? '').trim(), 'kabul')
-      return Array.from(map.entries())
-        .map(([name, v]) => ({ name, ...v, total: v.kabul + v.ret + v.beklemede }))
-        .sort((a, b) => b.total - a.total)
-        .slice(0, 12)
-    })()
-
-    // Nihai uye zaman dagilimi
-    const nihaiUyeZamanDagilimi = buildCumulativeTimeSeries(buildTimeSeries(nnu, 'Timestamp'))
-
-    // Deaktive sebepleri
-    const deaktiveSebepleri = (() => {
-      const counts: Record<string, number> = {}
-      for (const row of nd) {
-        const not = String(row.review_note ?? '').toLowerCase()
-        let sebep = 'Diğer'
-        if (not.includes('envanter')) sebep = 'Envanter Eksik'
-        else if (not.includes('başvuru')) sebep = 'Başvuru Yapmadı'
-        counts[sebep] = (counts[sebep] ?? 0) + 1
-      }
-      return Object.entries(counts)
-        .sort(([, a], [, b]) => b - a)
-        .map(([sebep, count]) => ({ sebep, count }))
-    })()
-
-    // Conversion rates
-    const totalBasvuru = nb.length || 1
-    const conversionRates = {
-      basvuruToKabul: nkk.length / totalBasvuru,
-      basvuruToNihai: nnu.length / totalBasvuru,
-      etkinlikToUye: ne.length > 0 ? nnu.length / ne.length : 0,
-      retRate: (nr.length + ny.length) / totalBasvuru,
-      deaktiveRate: (nd.length + nnu.length) > 0 ? nd.length / (nd.length + nnu.length) : 0,
+    // ─── Envanter Tamamlama (kabul sonrası) ───
+    const karSet = new Set<string>()
+    const disSet = new Set<string>()
+    for (const t of taskRows) {
+      if (!t.completed) continue
+      if (t.task_type === 'karakteristik_envanter') karSet.add(t.application_id)
+      else if (t.task_type === 'disipliner_envanter') disSet.add(t.application_id)
+    }
+    let ikisiTamam = 0, sadeceKar = 0, sadeceDis = 0, hicbiri = 0
+    for (const a of allKabul) {
+      const k = karSet.has(a.id)
+      const d = disSet.has(a.id)
+      if (k && d) ikisiTamam++
+      else if (k) sadeceKar++
+      else if (d) sadeceDis++
+      else hicbiri++
+    }
+    const envanterTamamlama = {
+      toplamKabul: allKabul.length,
+      ikisiTamam,
+      sadeceKarakteristik: sadeceKar,
+      sadeceDisipliner: sadeceDis,
+      hicbiri,
     }
 
-    // Pipeline duration
-    const { avgDays: avgPipelineDays, buckets: pipelineDurationBuckets } =
-      computePipelineDuration(nb, nkk)
+    // ─── Değerlendirici Yükü ───
+    const revMap = new Map<string, { kabul: number; ret: number; beklemede: number }>()
+    const upsert = (name: string, type: 'kabul' | 'ret' | 'beklemede') => {
+      const key = (name || '').trim() || 'Atanmamış'
+      if (!revMap.has(key)) revMap.set(key, { kabul: 0, ret: 0, beklemede: 0 })
+      revMap.get(key)![type]++
+    }
+    for (const r of kontrol) {
+      const o = String(r.approval_status ?? '').toLowerCase()
+      upsert(r.reviewer ?? '', o.includes('kabul') ? 'kabul' : o.includes('ret') ? 'ret' : 'beklemede')
+    }
+    for (const r of ret) upsert(r.reviewer ?? '', 'ret')
+    for (const r of allKabul) upsert(r.reviewer ?? '', 'kabul')
+    const degerlendirenStats = Array.from(revMap.entries())
+      .map(([name, v]) => ({ name, ...v, total: v.kabul + v.ret + v.beklemede }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 10)
+
+    // ─── KPI: Envanter Deadline Yaklaşan ───
+    // approved_at'ten 10-14 gün geçmiş VE iki envanter de tamam değilse risk altında
+    const now = new Date()
+    let envanterDeadlineYaklasan = 0
+    for (const a of allKabul) {
+      if (!a.approved_at) continue
+      const days = differenceInDays(now, new Date(a.approved_at))
+      if (days < 10 || days > 14) continue
+      if (karSet.has(a.id) && disSet.has(a.id)) continue
+      envanterDeadlineYaklasan++
+    }
+
+    const kpi = {
+      totalBasvuru: rows.length,
+      kontrolBekleyen: kontrol.length,
+      nihaiUye: nihaiUye.length,
+      envanterDeadlineYaklasan,
+    }
 
     return NextResponse.json({
-      funnelSnapshot,
+      kpi,
+      funnel,
       basvuruTimeSeries,
-      kabulTimeSeries,
-      retTimeSeries,
-      deaktiveTimeSeries,
       retSebebi,
-      uyariDagilimi,
       disiplinDagilimi,
-      retDisiplinDagilimi,
+      envanterTamamlama,
       degerlendirenStats,
-      nihaiUyeZamanDagilimi,
-      deaktiveSebepleri,
-      conversionRates,
-      avgPipelineDays,
-      pipelineDurationBuckets,
       generatedAt: new Date().toISOString(),
     })
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Bilinmeyen hata'
-    console.error('Analytics error:', message)
-    return NextResponse.json({ error: message }, { status: 500 })
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Bilinmeyen hata'
+    console.error('Analytics error:', msg)
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
+}
+
+function countTask(tasks: TaskRow[], type: TaskRow['task_type']): number {
+  const s = new Set<string>()
+  for (const t of tasks) {
+    if (t.task_type === type && t.completed) s.add(t.application_id)
+  }
+  return s.size
 }

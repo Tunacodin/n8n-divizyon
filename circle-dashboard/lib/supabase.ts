@@ -16,7 +16,6 @@ export const APPLICATION_STATUSES = [
   'kontrol',
   'kesin_kabul',
   'kesin_ret',
-  'nihai_olmayan',
   'yas_kucuk',
   'etkinlik',
   'deaktive',
@@ -30,7 +29,6 @@ export const STATUS_LABELS: Record<ApplicationStatus, string> = {
   kontrol: 'Kontrol',
   kesin_kabul: 'Kesin Kabul',
   kesin_ret: 'Kesin Ret',
-  nihai_olmayan: 'Nihai Olmayan',
   yas_kucuk: '18 Yaş Altı',
   etkinlik: 'Etkinlikten Gelenler',
   deaktive: 'Deaktive',
@@ -42,11 +40,28 @@ export const STATUS_COLORS: Record<ApplicationStatus, string> = {
   kontrol: '#EAB308',
   kesin_kabul: '#22C55E',
   kesin_ret: '#EF4444',
-  nihai_olmayan: '#A855F7',
   yas_kucuk: '#F97316',
   etkinlik: '#06B6D4',
   deaktive: '#6B7280',
   nihai_uye: '#D97706',
+}
+
+// ─── KORUMALI KAYITLAR (is_protected) ───
+// Circle'dan senkronize edilmiş gerçek üyeler — mutation YASAK.
+// Hata mesajı standart, frontend tanıyabilsin diye sabit string.
+export const PROTECTED_BLOCK_MSG =
+  'Bu kayıt korumalı (Circle üyesi). Üzerinde mail/status/update/delete işlemi yapılamaz.'
+
+export async function isProtectedApplication(
+  db: ReturnType<typeof createClient>,
+  applicationId: string,
+): Promise<boolean> {
+  const { data } = await db
+    .from('applications')
+    .select('is_protected')
+    .eq('id', applicationId)
+    .maybeSingle()
+  return !!(data && (data as { is_protected?: boolean }).is_protected)
 }
 
 // ─── Audit Log Helper ───
@@ -111,6 +126,7 @@ export async function changeStatus(
     changedBy: string
     reason?: string
     extraUpdates?: Record<string, unknown>
+    force?: boolean  // Eksik task uyarısını bypass et (admin override)
   }
 ) {
   // 1. Mevcut basvuruyu al
@@ -124,6 +140,11 @@ export async function changeStatus(
     return { success: false, error: 'Başvuru bulunamadı' }
   }
 
+  // KORUMA: is_protected ise mutation reddedilir
+  if ((app as { is_protected?: boolean }).is_protected) {
+    return { success: false, error: PROTECTED_BLOCK_MSG }
+  }
+
   const fromStatus = app.status
 
   // 2. İs kurali: kesin_kabul/kesin_ret icin degerlendiren zorunlu
@@ -134,8 +155,8 @@ export async function changeStatus(
     }
   }
 
-  // 2b. İs kurali: nihai_uye icin 3 task zorunlu
-  if (params.toStatus === 'nihai_uye') {
+  // 2b. İs kurali: nihai_uye icin 3 task zorunlu (force=true bypass eder)
+  if (params.toStatus === 'nihai_uye' && !params.force) {
     const { data: tasks } = await db
       .from('task_completions')
       .select('task_type, completed')
@@ -199,7 +220,27 @@ export async function changeStatus(
     newValues: { status: params.toStatus, ...params.extraUpdates },
   })
 
-  return { success: true, fromStatus, toStatus: params.toStatus }
+  // 7. Nihai üye'ye geçince otomatik tag atama (karakter + ağ dengesi)
+  let autoTag: { assigned: string | null; reason: string } | null = null
+  if (params.toStatus === 'nihai_uye' && fromStatus !== 'nihai_uye') {
+    try {
+      const { autoAssignCharacterTag } = await import('./character-tags')
+      autoTag = await autoAssignCharacterTag(db, params.applicationId)
+      if (autoTag.assigned) {
+        await withAuditLog(db, {
+          entityType: 'application',
+          entityId: params.applicationId,
+          action: 'auto_tag_assigned',
+          actor: 'system',
+          newValues: { tag: autoTag.assigned, reason: autoTag.reason },
+        })
+      }
+    } catch (e) {
+      console.error('autoAssignCharacterTag error:', e)
+    }
+  }
+
+  return { success: true, fromStatus, toStatus: params.toStatus, autoTag }
 }
 
 // ─── Application Guncelleme ───
@@ -221,6 +262,11 @@ export async function updateApplication(
 
   if (fetchError || !app) {
     return { success: false, error: 'Başvuru bulunamadı' }
+  }
+
+  // KORUMA: is_protected ise mutation reddedilir
+  if ((app as { is_protected?: boolean }).is_protected) {
+    return { success: false, error: PROTECTED_BLOCK_MSG }
   }
 
   // 2. Snapshot
@@ -282,6 +328,11 @@ export async function rollbackApplication(
     .select('*')
     .eq('id', applicationId)
     .single()
+
+  // KORUMA: protected kayıt rollback edilemez
+  if (currentApp && (currentApp as { is_protected?: boolean }).is_protected) {
+    return { success: false, error: PROTECTED_BLOCK_MSG }
+  }
 
   // Snapshot'tan restore et (id, created_at haric)
   const { id: _id, created_at: _ca, ...restoreData } = snapshotData

@@ -1,0 +1,151 @@
+{
+  "name": "Envanter Testi Typeform → Dashboard Sync",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "start-node",
+      "name": "Start",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [200, 400]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "typeform-envanter",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-node",
+      "name": "Typeform Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [200, 600],
+      "webhookId": "typeform-envanter"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Typeform webhook payload'dan veri cikart\nconst body = $input.first().json.body || $input.first().json;\n\n// Typeform form_response icinden email bul\nconst formResponse = body.form_response || body;\nconst answers = formResponse.answers || [];\nconst definition = formResponse.definition || {};\nconst formTitle = (definition.title || body.form_id || '').toLowerCase();\n\n// Email'i bul (Typeform'da email field)\nlet email = '';\nfor (const ans of answers) {\n  if (ans.type === 'email' || (ans.field && ans.field.type === 'email')) {\n    email = (ans.email || ans.text || '').toLowerCase().trim();\n    break;\n  }\n}\n\n// Fallback: hidden fields'tan email\nif (!email && formResponse.hidden) {\n  email = (formResponse.hidden.email || '').toLowerCase().trim();\n}\n\nif (!email) {\n  return [{ json: { error: 'Email bulunamadi', raw: body } }];\n}\n\n// Ad-Soyad bul (name fallback icin)\nlet fullName = '';\nfor (const ans of answers) {\n  const fieldType = ans.field && ans.field.type;\n  const fieldRef = (ans.field && ans.field.ref) || '';\n  const fieldTitle = ((ans.field && ans.field.title) || '').toLowerCase();\n  if (fieldType === 'short_text' && (fieldRef.includes('ad') || fieldRef.includes('name') || fieldTitle.includes('ad') || fieldTitle.includes('isim'))) {\n    fullName = (ans.text || '').trim();\n    if (fullName) break;\n  }\n}\nif (!fullName && formResponse.hidden && formResponse.hidden.full_name) {\n  fullName = String(formResponse.hidden.full_name).trim();\n}\n\n// Form tipini belirle\n// Karekteristik envanter: skor kolonlari varsa veya form adinda 'karekteristik/karakteristik' geciyorsa\n// Disipliner envanter: yazilim/dijital sanatlar alanlari varsa\nlet testType = 'karakteristik_envanter';\nlet discipline = null;\n\n// Form ID veya title'a gore karar ver\n// Bu degerleri kendi Typeform form ID'lerinize gore guncelleyin\nconst FORM_MAP = {\n  // Karakteristik Envanter Testi (herkese zorunlu)\n  'wfbPF1am': { testType: 'karakteristik_envanter', discipline: null },\n  // Dijital Deneyim (UX/UI, etkilesim, AR/VR)\n  'uPRgDzXs': { testType: 'disipliner_envanter', discipline: 'dijital_deneyim' },\n  // Kreatif Yapim (grafik, illustrasyon, 3D, video, muzik)\n  'c4R5Eidf': { testType: 'disipliner_envanter', discipline: 'kreatif_yapim' },\n  // Dijital Urun (front/back-end, mobil, AI, DevOps)\n  'KlpIjj9G': { testType: 'disipliner_envanter', discipline: 'dijital_urun' },\n};\n\nconst formId = body.form_response?.form_id || body.form_id || '';\nif (FORM_MAP[formId]) {\n  testType = FORM_MAP[formId].testType;\n  discipline = FORM_MAP[formId].discipline;\n}\n\n// Network ID\nconst networkId = formResponse.hidden?.network_id || formResponse.network_id || null;\n\n// Skorlari cikart (karekteristik envanter icin)\nlet scores = {};\nlet totalScore = 0;\n\nif (testType === 'karakteristik_envanter') {\n  // Typeform variables/calculated fields'tan skorlari al\n  const variables = formResponse.variables || [];\n  for (const v of variables) {\n    if (v.type === 'number') {\n      scores[v.key] = v.number;\n    }\n  }\n  // Hidden fields'tan skorlar\n  if (formResponse.hidden) {\n    const scoreKeys = ['birlestirici','caliskan','canli','challenger','cozumcu','gelecek_odakli','geleneksel','gozlemci','ilham_verici','inovatif','kendinden_emin','mantikli','pratik','sistemli','tecrubeli','titiz','tutkulu','yaratici'];\n    for (const key of scoreKeys) {\n      if (formResponse.hidden[key] !== undefined) {\n        scores[key] = Number(formResponse.hidden[key]) || 0;\n      }\n    }\n  }\n  totalScore = Object.values(scores).reduce((sum, v) => sum + (Number(v) || 0), 0);\n}\n\n// Disipliner envanter icin cevaplari topla\nlet answersData = {};\nif (testType === 'disipliner_envanter') {\n  for (const ans of answers) {\n    const fieldTitle = ans.field?.title || ans.field?.id || '';\n    const value = ans.text || ans.choice?.label || (ans.choices?.labels || []).join(', ') || ans.email || '';\n    if (fieldTitle) answersData[fieldTitle] = value;\n  }\n}\n\nreturn [{\n  json: {\n    email,\n    full_name: fullName || null,\n    test_type: testType,\n    discipline,\n    network_id: networkId,\n    scores,\n    total_score: totalScore,\n    answers: testType === 'karakteristik_envanter' ? {} : answersData,\n    submitted_at: formResponse.submitted_at || new Date().toISOString(),\n    response_type: formResponse.response_type || 'completed',\n  }\n}];"
+      },
+      "id": "parse-typeform",
+      "name": "Parse Typeform Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 600]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "email-check",
+              "leftValue": "={{ $json.email }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEmpty" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "email-check",
+      "name": "Email Var mi?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [660, 600]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.DASHBOARD_URL || 'http://localhost:3000' }}/api/inventory-tests",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "timeout": 10000,
+          "allowUnauthorizedCerts": false
+        }
+      },
+      "id": "call-dashboard-api",
+      "name": "Dashboard API - Envanter Kaydet",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [880, 500]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst apiResponse = input;\n\nif (apiResponse.success) {\n  return [{\n    json: {\n      status: 'ok',\n      message: `Envanter testi kaydedildi: ${input.email || 'unknown'}`,\n      task_updated: apiResponse.task_updated || false,\n    }\n  }];\n} else {\n  return [{\n    json: {\n      status: 'error',\n      message: apiResponse.error || 'API hatasi',\n      email: input.email,\n    }\n  }];\n}"
+      },
+      "id": "log-result",
+      "name": "Sonuc Log",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1100, 500]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ received: true, email: $json.email }) }}",
+        "options": { "responseCode": 200 }
+      },
+      "id": "respond-ok",
+      "name": "Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1320, 500]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ error: 'Email bulunamadi' }) }}",
+        "options": { "responseCode": 400 }
+      },
+      "id": "respond-error",
+      "name": "Respond Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [880, 740]
+    }
+  ],
+  "connections": {
+    "Typeform Webhook": {
+      "main": [
+        [{ "node": "Parse Typeform Data", "type": "main", "index": 0 }]
+      ]
+    },
+    "Parse Typeform Data": {
+      "main": [
+        [{ "node": "Email Var mi?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Email Var mi?": {
+      "main": [
+        [{ "node": "Dashboard API - Envanter Kaydet", "type": "main", "index": 0 }],
+        [{ "node": "Respond Error", "type": "main", "index": 0 }]
+      ]
+    },
+    "Dashboard API - Envanter Kaydet": {
+      "main": [
+        [{ "node": "Sonuc Log", "type": "main", "index": 0 }]
+      ]
+    },
+    "Sonuc Log": {
+      "main": [
+        [{ "node": "Respond OK", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    { "name": "envanter" },
+    { "name": "typeform" }
+  ]
+}

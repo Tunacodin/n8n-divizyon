@@ -333,21 +333,8 @@ export default function KesinRetContent() {
   ]
 
   return (
-    <div className="min-h-screen bg-[#FAFBFC]">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-100 px-8 py-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Kesin Ret</h1>
-            <p className="text-sm text-gray-500 mt-1">Reddedilen basvurular (otomasyon ve manuel)</p>
-          </div>
-          <Badge className="bg-red-50 text-red-700 border-red-200 text-sm px-3 py-1">
-            {data.length} kayit
-          </Badge>
-        </div>
-      </div>
-
-      <div className="p-8">
+    <div className="bg-[#FAFBFC]">
+      <div className="p-6">
         {/* Tabs */}
         <div className="flex gap-1 mb-4 bg-gray-100 rounded-lg p-1 w-fit">
           {tabs.map((tab) => (

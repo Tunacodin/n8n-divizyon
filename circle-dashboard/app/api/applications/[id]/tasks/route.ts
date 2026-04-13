@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient, withAuditLog } from '@/lib/supabase'
+import { createClient, withAuditLog, PROTECTED_BLOCK_MSG } from '@/lib/supabase'
 // Task completion endpoint - verified_by column used
 
 const VALID_TASK_TYPES = [
@@ -10,14 +10,24 @@ const VALID_TASK_TYPES = [
 
 type TaskType = (typeof VALID_TASK_TYPES)[number]
 
+const VALID_DISCIPLINES = ['kreatif_yapim', 'dijital_deneyim', 'dijital_urun'] as const
+
 // POST /api/applications/[id]/tasks
-// Body: { task_type: 'oryantasyon' | 'karakteristik_envanter' | 'disipliner_envanter', completed: boolean, completed_by?: string }
+// Body: { task_type, completed?, completed_by?, discipline?, manual_note?, source? }
+// source: 'admin_manual' | 'dashboard' | 'typeform' (audit icin etiket)
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   const db = createClient()
 
   try {
     const body = await req.json()
-    const { task_type, completed = true, completed_by = 'dashboard' } = body
+    const {
+      task_type,
+      completed = true,
+      completed_by = 'dashboard',
+      discipline,
+      manual_note,
+      source,
+    } = body
 
     if (!task_type || !VALID_TASK_TYPES.includes(task_type as TaskType)) {
       return NextResponse.json(
@@ -26,10 +36,18 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       )
     }
 
-    // Application var mı kontrol
+    if (task_type === 'disipliner_envanter' && completed && discipline) {
+      if (!VALID_DISCIPLINES.includes(discipline)) {
+        return NextResponse.json(
+          { success: false, error: `Gecersiz discipline. Gecerli: ${VALID_DISCIPLINES.join(', ')}` },
+          { status: 400 }
+        )
+      }
+    }
+
     const { data: app, error: appError } = await db
       .from('applications')
-      .select('id, full_name')
+      .select('id, full_name, is_protected')
       .eq('id', params.id)
       .single()
 
@@ -37,7 +55,14 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       return NextResponse.json({ success: false, error: 'Başvuru bulunamadı' }, { status: 404 })
     }
 
-    // Mevcut task var mi kontrol et
+    if ((app as { is_protected?: boolean }).is_protected) {
+      return NextResponse.json({ success: false, error: PROTECTED_BLOCK_MSG }, { status: 403 })
+    }
+
+    const verifiedBy = source === 'admin_manual'
+      ? `admin_manual:${completed_by}`
+      : completed_by
+
     const { data: existing } = await db
       .from('task_completions')
       .select('id')
@@ -49,13 +74,12 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     let error
 
     if (existing) {
-      // Update
       const result = await db
         .from('task_completions')
         .update({
           completed,
           completed_at: completed ? new Date().toISOString() : null,
-          verified_by: completed ? completed_by : null,
+          verified_by: completed ? verifiedBy : null,
         })
         .eq('id', existing.id)
         .select()
@@ -63,7 +87,6 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       data = result.data
       error = result.error
     } else {
-      // Insert
       const result = await db
         .from('task_completions')
         .insert({
@@ -71,7 +94,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
           task_type,
           completed,
           completed_at: completed ? new Date().toISOString() : null,
-          verified_by: completed ? completed_by : null,
+          verified_by: completed ? verifiedBy : null,
         })
         .select()
         .single()
@@ -84,9 +107,16 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     await withAuditLog(db, {
       entityType: 'application',
       entityId: params.id,
-      action: completed ? 'task_completed' : 'task_uncompleted',
-      actor: completed_by,
-      newValues: { task_type, completed },
+      action: completed
+        ? (source === 'admin_manual' ? 'task_manual_mark' : 'task_completed')
+        : 'task_uncompleted',
+      actor: verifiedBy,
+      newValues: {
+        task_type,
+        completed,
+        discipline: discipline ?? null,
+        manual_note: manual_note ?? null,
+      },
     })
 
     return NextResponse.json({ success: true, data }, { status: 201 })

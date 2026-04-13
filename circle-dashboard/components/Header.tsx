@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 
 interface Notification {
@@ -14,38 +14,83 @@ interface Notification {
 
 const navItems = [
   { label: 'Dashboard', href: '/' },
-  { label: 'Flow', href: '/basvurular' },
   { label: 'Ağ Üyeleri', href: '/uyeler' },
-  { label: 'Circle Üyeleri', href: '/members' },
+  { label: 'Aktiviteler', href: '/aktivite' },
   { label: 'Analiz', href: '/analiz' },
-  { label: 'Aktivite Logu', href: '/aktivite' },
+  { label: 'Workflowlar', href: '/workflows' },
 ]
 
 const severityStyles = {
-  error: { dot: 'bg-red-500', bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200', icon: '!' },
-  warning: { dot: 'bg-amber-500', bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200', icon: '⚠' },
-  info: { dot: 'bg-blue-500', bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200', icon: 'i' },
+  error:   { bar: 'bg-red-500',   iconBg: 'bg-red-50',   iconColor: 'text-red-600',   count: 'bg-red-50 text-red-700 border-red-200' },
+  warning: { bar: 'bg-amber-500', iconBg: 'bg-amber-50', iconColor: 'text-amber-600', count: 'bg-amber-50 text-amber-700 border-amber-200' },
+  info:    { bar: 'bg-blue-500',  iconBg: 'bg-blue-50',  iconColor: 'text-blue-600',  count: 'bg-blue-50 text-blue-700 border-blue-200' },
+}
+
+const SEVERITY_ORDER = { error: 0, warning: 1, info: 2 } as const
+
+const notificationLinks: Record<string, string> = {
+  mail_bekleyen: '/basvurular?tab=kesin_ret',
+  kontrol_bekleyen: '/basvurular?tab=kontrol',
+  oryantasyon_bekleyen: '/uyeler?tab=oryantasyon',
+  uyari_gerekli: '/uyeler?tab=oryantasyon',
+}
+
+const notificationMeta: Record<string, { title: string; label: string }> = {
+  mail_bekleyen:        { title: 'Red maili gönderilmedi',       label: 'Kesin Ret' },
+  kontrol_bekleyen:     { title: '1+ gündür kontrol bekliyor',   label: 'Kontrol' },
+  oryantasyon_bekleyen: { title: 'Oryantasyon yapılmadı',        label: 'Oryantasyon' },
+  uyari_gerekli:        { title: 'Haftalık uyarı gerekli',       label: 'Ağ Üyeleri' },
+}
+
+function SeverityIcon({ severity, className }: { severity: 'error' | 'warning' | 'info'; className?: string }) {
+  if (severity === 'error') {
+    return (
+      <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m0 3.75h.007M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    )
+  }
+  if (severity === 'warning') {
+    return (
+      <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+      </svg>
+    )
+  }
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+    </svg>
+  )
 }
 
 export function Header() {
   const pathname = usePathname()
+  const router = useRouter()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [open, setOpen] = useState(false)
+  const [lastFetch, setLastFetch] = useState<Date | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
   const isActive = (href: string) =>
     href === '/' ? pathname === '/' : pathname.startsWith(href)
 
+  const fetchNotifications = async () => {
+    setRefreshing(true)
+    try {
+      const res = await fetch('/api/notifications').then(r => r.json())
+      if (res.success) setNotifications(res.notifications || [])
+      setLastFetch(new Date())
+    } catch {
+      // sessiz başarısızlık — bildirim zaten yan bileşen
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
   // Bildirimleri çek — her 60 saniyede bir
   useEffect(() => {
-    const fetchNotifications = () => {
-      fetch('/api/notifications')
-        .then(r => r.json())
-        .then(res => {
-          if (res.success) setNotifications(res.notifications || [])
-        })
-        .catch(() => {})
-    }
     fetchNotifications()
     const interval = setInterval(fetchNotifications, 60000)
     return () => clearInterval(interval)
@@ -62,20 +107,20 @@ export function Header() {
 
   const totalCount = notifications.reduce((s, n) => s + n.count, 0)
   const hasError = notifications.some(n => n.severity === 'error')
+  const sortedNotifications = [...notifications].sort(
+    (a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity],
+  )
 
   return (
-    <header className="sticky top-0 z-40 bg-white border-b border-gray-200/60">
-      <div className="flex items-center h-14 px-6 gap-6">
+    <header className="sticky top-0 z-40 bg-[#1E1E2E] border-b border-gray-800">
+      <div className="flex items-center h-20 px-10 gap-10">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2.5 shrink-0">
-          <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center">
-            <span className="text-white text-xs font-bold">D</span>
-          </div>
-          <span className="text-sm font-semibold text-gray-900 hidden sm:block">Divizyon</span>
+        <Link href="/" className="flex items-center shrink-0">
+          <img src="/logo-light@2x.png" alt="Divizyon" className="h-7" />
         </Link>
 
         {/* Nav */}
-        <nav className="flex items-center gap-0.5">
+        <nav className="flex items-center gap-2">
           {navItems.map((item) => {
             const active = isActive(item.href)
             return (
@@ -83,10 +128,10 @@ export function Header() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  'px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                  'px-4 py-2.5 rounded-lg text-base font-medium transition-colors',
                   active
-                    ? 'bg-indigo-50 text-indigo-600'
-                    : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
+                    ? 'bg-white/10 text-white'
+                    : 'text-gray-400 hover:text-white hover:bg-white/5'
                 )}
               >
                 {item.label}
@@ -96,17 +141,17 @@ export function Header() {
         </nav>
 
         {/* Right side */}
-        <div className="ml-auto flex items-center gap-3">
+        <div className="ml-auto flex items-center gap-4">
           {/* Bildirim zili */}
           <div ref={ref} className="relative">
             <button
               onClick={() => setOpen(!open)}
               className={cn(
                 'relative p-2 rounded-lg transition-colors',
-                open ? 'bg-gray-100' : 'hover:bg-gray-50'
+                open ? 'bg-white/10' : 'hover:bg-white/5'
               )}
             >
-              <svg className="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+              <svg className="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
               </svg>
               {totalCount > 0 && (
@@ -121,56 +166,122 @@ export function Header() {
 
             {/* Dropdown */}
             {open && (
-              <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl border border-gray-200 shadow-lg overflow-hidden z-50">
+              <div className="absolute right-0 top-full mt-2 w-[380px] bg-white rounded-xl border border-gray-200 shadow-xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                {/* Header */}
                 <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-gray-900">Bildirimler</h3>
-                  {notifications.length > 0 && (
-                    <span className="text-[11px] text-gray-400">{notifications.length} bildirim</span>
-                  )}
+                  <div className="flex items-baseline gap-2">
+                    <h3 className="text-sm font-semibold text-gray-900">Bildirimler</h3>
+                    {totalCount > 0 && (
+                      <span className="text-[11px] text-gray-400">
+                        {totalCount} acil iş
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); fetchNotifications() }}
+                    disabled={refreshing}
+                    title="Yenile"
+                    className="p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                  >
+                    <svg
+                      className={cn('w-3.5 h-3.5', refreshing && 'animate-spin')}
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                    </svg>
+                  </button>
                 </div>
 
-                {notifications.length === 0 ? (
-                  <div className="px-4 py-8 text-center">
-                    <p className="text-sm text-gray-400">Bildirim yok</p>
-                    <p className="text-xs text-gray-300 mt-1">Her şey yolunda!</p>
+                {/* Body */}
+                {sortedNotifications.length === 0 ? (
+                  <div className="px-4 py-10 text-center">
+                    <div className="mx-auto w-10 h-10 rounded-full bg-green-50 flex items-center justify-center mb-2">
+                      <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                      </svg>
+                    </div>
+                    <p className="text-sm font-medium text-gray-700">Bildirim yok</p>
+                    <p className="text-xs text-gray-400 mt-0.5">Her şey yolunda</p>
                   </div>
                 ) : (
-                  <div className="max-h-80 overflow-y-auto divide-y divide-gray-50">
-                    {notifications.map((n) => {
+                  <div className="max-h-[420px] overflow-y-auto">
+                    {sortedNotifications.map((n) => {
                       const s = severityStyles[n.severity]
+                      const link = notificationLinks[n.type]
+                      const meta = notificationMeta[n.type]
+                      const title = meta?.title ?? n.message
+                      const label = meta?.label
+
                       return (
-                        <div key={n.type} className={cn('px-4 py-3', s.bg)}>
-                          <div className="flex items-start gap-2.5">
-                            <div className={cn('w-2 h-2 rounded-full mt-1.5 shrink-0', s.dot)} />
-                            <div className="flex-1 min-w-0">
-                              <p className={cn('text-sm font-medium', s.text)}>{n.message}</p>
-                              <p className="text-[11px] text-gray-400 mt-0.5">
-                                {n.type === 'mail_bekleyen' && 'Başvurular → Kesin Ret'}
-                                {n.type === 'kontrol_bekleyen' && 'Dashboard → Kontrol'}
-                                {n.type === 'oryantasyon_bekleyen' && 'Ağ Üyeleri → Oryantasyon'}
-                                {n.type === 'uyari_gerekli' && 'Ağ Üyeleri → Oryantasyon'}
-                              </p>
-                            </div>
-                            <span className={cn('text-xs font-bold shrink-0 px-1.5 py-0.5 rounded-full', s.bg, s.text, s.border, 'border')}>
-                              {n.count}
-                            </span>
+                        <button
+                          key={n.type}
+                          onClick={() => {
+                            if (link) {
+                              router.push(link)
+                              setOpen(false)
+                            }
+                          }}
+                          className={cn(
+                            'group relative w-full text-left flex items-start gap-3 pl-4 pr-3 py-3 border-b border-gray-50 last:border-b-0 transition-colors',
+                            link ? 'hover:bg-gray-50 cursor-pointer' : 'cursor-default'
+                          )}
+                        >
+                          {/* Sol severity bar */}
+                          <span className={cn('absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full', s.bar)} />
+
+                          {/* Severity icon */}
+                          <div className={cn('mt-0.5 w-8 h-8 rounded-lg flex items-center justify-center shrink-0', s.iconBg)}>
+                            <SeverityIcon severity={n.severity} className={cn('w-4 h-4', s.iconColor)} />
                           </div>
-                        </div>
+
+                          {/* İçerik */}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900 leading-snug">{title}</p>
+                            <div className="flex items-center gap-1.5 mt-1 text-[11px] text-gray-400">
+                              {label && <span>{label}</span>}
+                              {label && link && <span className="text-gray-300">·</span>}
+                              {link && (
+                                <span className="inline-flex items-center gap-0.5 text-gray-500 group-hover:text-gray-900 transition-colors">
+                                  İncele
+                                  <svg className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                                  </svg>
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Count pill */}
+                          <span
+                            className={cn(
+                              'shrink-0 self-center min-w-[26px] h-[22px] px-1.5 text-[11px] font-semibold rounded-full border flex items-center justify-center',
+                              s.count,
+                            )}
+                          >
+                            {n.count}
+                          </span>
+                        </button>
                       )
                     })}
+                  </div>
+                )}
+
+                {/* Footer */}
+                {lastFetch && (
+                  <div className="px-4 py-2 border-t border-gray-100 bg-gray-50/50 flex items-center justify-between">
+                    <span className="text-[10px] text-gray-400">
+                      Son güncellenme: {lastFetch.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                    <span className="text-[10px] text-gray-300">60 sn'de bir yenilenir</span>
                   </div>
                 )}
               </div>
             )}
           </div>
 
-          {/* User */}
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 bg-gradient-to-br from-cyan-400 to-blue-500 rounded-full flex items-center justify-center">
-              <span className="text-[10px] font-bold text-white">DZ</span>
-            </div>
-            <span className="text-xs font-medium text-gray-600 hidden sm:block">Admin</span>
-          </div>
         </div>
       </div>
     </header>

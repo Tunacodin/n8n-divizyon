@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
+import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh'
 
 interface Breakdown {
   [key: string]: { count: number; label: string; color: string }
@@ -41,7 +42,6 @@ const PIPELINE_STEPS = [
   { key: 'kesin_ret', label: 'Kesin Ret', color: '#EF4444', bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200', ring: 'ring-red-400' },
   { key: 'kontrol', label: 'Kontrol', color: '#EAB308', bg: 'bg-yellow-50', text: 'text-yellow-700', border: 'border-yellow-200', ring: 'ring-yellow-400' },
   { key: 'kesin_kabul', label: 'Kesin Kabul', color: '#22C55E', bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', ring: 'ring-emerald-400' },
-  { key: 'nihai_olmayan', label: 'Nihai Olmayan', color: '#A855F7', bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-200', ring: 'ring-purple-400' },
   { key: 'nihai_uye', label: 'Nihai Uye', color: '#D97706', bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200', ring: 'ring-amber-400' },
 ]
 
@@ -60,9 +60,8 @@ function getQuickActions(status: string) {
     { label: 'Kesin Kabul', toStatus: 'kesin_kabul', color: 'bg-emerald-500 hover:bg-emerald-600' },
     { label: 'Kesin Ret', toStatus: 'kesin_ret', color: 'bg-red-500 hover:bg-red-600' },
   ]
-  if (status === 'kesin_kabul') return [{ label: 'Nihai Olmayan', toStatus: 'nihai_olmayan', color: 'bg-purple-500 hover:bg-purple-600' }]
-  if (status === 'nihai_olmayan') return [
-    { label: 'Nihai Uye', toStatus: 'nihai_uye', color: 'bg-amber-500 hover:bg-amber-600' },
+  if (status === 'kesin_kabul') return [
+    { label: 'Nihai Üye', toStatus: 'nihai_uye', color: 'bg-amber-500 hover:bg-amber-600' },
     { label: 'Deaktive Et', toStatus: 'deaktive', color: 'bg-gray-500 hover:bg-gray-600' },
   ]
   if (status === 'etkinlik') return [{ label: 'Kontrole Al', toStatus: 'kontrol', color: 'bg-yellow-500 hover:bg-yellow-600' }]
@@ -91,13 +90,18 @@ function QABlock({ label, value }: { label: string; value: string | undefined | 
 }
 
 export default function DashboardPage() {
-  const [breakdown, setBreakdown] = useState<Breakdown | null>(null)
+  // breakdown artık allApps'ten türetiliyor (useMemo) — senkron garantisi
   const [allApps, setAllApps] = useState<AppItem[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedStep, setSelectedStep] = useState<string | null>(null)
   const [selectedApp, setSelectedApp] = useState<AppItem | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
   const [toast, setToast] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [forceConfirm, setForceConfirm] = useState<{
+    app: AppItem
+    toStatus: string
+    missing: string[]
+  } | null>(null)
 
   // Degerlendirme formu
   const [reviewer, setReviewer] = useState('')
@@ -108,10 +112,22 @@ export default function DashboardPage() {
 
   useEffect(() => { fetchData() }, [])
 
+  // Supabase Realtime: applications/task_completions/inventory_tests değiştiğinde anlık refresh
+  useRealtimeRefresh(['applications', 'task_completions', 'inventory_tests'], () => { fetchData() })
+
   // Tab degisince paneli kapat
   useEffect(() => {
     setSelectedApp(null)
   }, [selectedStep])
+
+  // ESC ile paneli kapat
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSelectedApp(null)
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [])
 
   // selectedApp degisince formu resetle
   useEffect(() => {
@@ -125,26 +141,52 @@ export default function DashboardPage() {
 
   const fetchData = async () => {
     try {
-      const [statsRes, appsRes, tplRes] = await Promise.all([
-        fetch('/api/applications/stats'),
+      const [appsRes, tplRes] = await Promise.all([
         fetch('/api/applications?sort=submitted_at&order=desc&limit=500'),
         fetch('/api/mail/templates'),
       ])
-      const s = await statsRes.json()
       const a = await appsRes.json()
       const t = await tplRes.json()
-      if (s.success) setBreakdown(s.breakdown)
       if (a.success) setAllApps(a.data || [])
       if (t.success) setMailTemplates(t.data || [])
     } catch (e) { console.error(e) }
     finally { setLoading(false) }
   }
 
-  const totalCount = breakdown ? Object.values(breakdown).reduce((s, v) => s + v.count, 0) : 0
+  // breakdown → allApps'ten türet (senkron garantisi, tek kaynak)
+  // Korumalı Circle üyeleri dashboard pipeline'ında gösterilmez — onları dışla
+  const breakdown = useMemo(() => {
+    const b: Record<string, { label: string; color: string; count: number }> = {}
+    for (const s of ALL_STATUSES) {
+      b[s.key] = { label: s.label, color: s.color, count: 0 }
+    }
+    for (const a of allApps) {
+      if ((a as any).is_protected) continue // Circle üyeleri dashboard pipeline dışı
+      const s = a.status
+      if (s && b[s]) b[s].count++
+    }
+    return b
+  }, [allApps])
+
+  const totalCount = Object.values(breakdown).reduce((s, v) => s + v.count, 0)
+
+  // Aynı email ile birden fazla başvuru varsa count hesapla
+  const emailCounts = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const a of allApps) {
+      const e = (a.email || '').toLowerCase().trim()
+      if (!e) continue
+      m.set(e, (m.get(e) || 0) + 1)
+    }
+    return m
+  }, [allApps])
 
   const filteredApps = useMemo(() => {
     if (!selectedStep) return []
-    let items = allApps.filter(a => a.status === selectedStep)
+    let items = allApps.filter(a => {
+      if (selectedStep === 'kesin_kabul') return a.status === 'kesin_kabul' || a.status === 'nihai_olmayan'
+      return a.status === selectedStep
+    })
     // Kesin ret: sadece mail bekleyenleri göster (mail gönderilmişler Başvurular > Kesin Ret tab'ında)
     if (selectedStep === 'kesin_ret' || selectedStep === 'yas_kucuk') {
       items = items.filter(a => !a.mail_sent)
@@ -179,10 +221,10 @@ export default function DashboardPage() {
     return groups
   }, [filteredApps])
 
-  const handleAction = async (app: AppItem, toStatus: string) => {
-    // Kesin kabul/ret icin reviewer zorunlu
-    if (['kesin_kabul', 'kesin_ret', 'yas_kucuk'].includes(toStatus) && !reviewer.trim()) {
-      setToast({ type: 'error', text: 'Degerlendiren secilmeli' })
+  const handleAction = async (app: AppItem, toStatus: string, force = false) => {
+    // Tüm status geçişleri için değerlendiren + not zorunlu
+    if (!reviewer.trim() || !reviewNote.trim()) {
+      setToast({ type: 'error', text: 'Değerlendiren ve not zorunlu' })
       setTimeout(() => setToast(null), 2500)
       return
     }
@@ -200,9 +242,17 @@ export default function DashboardPage() {
             reviewer: reviewer.trim() || undefined,
             review_note: reviewNote.trim() || undefined,
           },
+          force,
         }),
       })
       const r = await res.json()
+
+      // Nihai üye + eksik task → modal ile onay
+      if (!r.success && toStatus === 'nihai_uye' && r.missing_tasks && !force) {
+        setForceConfirm({ app, toStatus, missing: r.missing_tasks as string[] })
+        setActionLoading(false)
+        return
+      }
 
       if (!r.success) {
         setToast({ type: 'error', text: r.error || 'Hata' })
@@ -238,15 +288,10 @@ export default function DashboardPage() {
 
       const lbl = ALL_STATUSES.find(s => s.key === toStatus)?.label || toStatus
       const mailMsg = selectedTemplateId ? ' + mail gonderildi' : ''
-      setToast({ type: 'success', text: `${app.full_name} → ${lbl}${mailMsg}` })
+      const tagMsg = r.autoTag?.assigned ? ` + tag: ${r.autoTag.assigned}` : ''
+      setToast({ type: 'success', text: `${app.full_name} → ${lbl}${mailMsg}${tagMsg}` })
       setAllApps(prev => prev.map(a => a.id === app.id ? { ...a, status: toStatus, reviewer: reviewer.trim(), review_note: reviewNote.trim() } : a))
-      setBreakdown(prev => {
-        if (!prev) return prev
-        const n = { ...prev }
-        if (n[app.status]) n[app.status] = { ...n[app.status], count: n[app.status].count - 1 }
-        if (n[toStatus]) n[toStatus] = { ...n[toStatus], count: n[toStatus].count + 1 }
-        return n
-      })
+      // breakdown allApps'ten useMemo ile türetiliyor — ayrıca set etmeye gerek yok
       setSelectedApp(null)
       setTimeout(() => setToast(null), 3000)
     } catch { setToast({ type: 'error', text: 'Baglanti hatasi' }) }
@@ -273,8 +318,9 @@ export default function DashboardPage() {
   }
 
   const sel = selectedApp
-  const selStep = sel ? ALL_STATUSES.find(s => s.key === sel.status) : null
-  const selActions = sel ? getQuickActions(sel.status) : []
+  const selDisplayStatus = sel?.status === 'nihai_olmayan' ? 'kesin_kabul' : sel?.status
+  const selStep = sel ? ALL_STATUSES.find(s => s.key === selDisplayStatus) : null
+  const selActions = sel ? getQuickActions(selDisplayStatus || '') : []
   const selNote = (sel?.review_note || '').toLowerCase()
   const selFlag = (selNote.includes('18') && (selNote.includes('yas') || selNote.includes('yaş')))
     ? '18yas' : (selNote.includes('topluluk') && selNote.includes('ilke')) ? 'topluluk' : null
@@ -317,7 +363,9 @@ export default function DashboardPage() {
         <div className="bg-white rounded-xl border border-gray-200 p-4">
           <div className="flex items-stretch gap-0">
             {PIPELINE_STEPS.map((step, i) => {
-              const rawCount = breakdown?.[step.key]?.count ?? 0
+              let rawCount = breakdown?.[step.key]?.count ?? 0
+              // kesin_kabul: nihai_olmayan'ı da dahil et
+              if (step.key === 'kesin_kabul') rawCount += breakdown?.['nihai_olmayan']?.count ?? 0
               // Kesin ret: sadece mail bekleyenleri say
               const count = (step.key === 'kesin_ret' || step.key === 'yas_kucuk')
                 ? allApps.filter(a => a.status === step.key && !a.mail_sent).length
@@ -398,7 +446,8 @@ export default function DashboardPage() {
                 </div>
                 {/* Kayıtlar */}
                 {group.apps.map(app => {
-                  const step = ALL_STATUSES.find(s => s.key === app.status)
+                  const displayStatus = app.status === 'nihai_olmayan' ? 'kesin_kabul' : app.status
+                  const step = ALL_STATUSES.find(s => s.key === displayStatus)
                   const initials = app.full_name.split(' ').map(p => p.charAt(0)).join('').toUpperCase().slice(0, 2)
                   const isActive = sel?.id === app.id
                   const note = (app.review_note || '').toLowerCase()
@@ -406,6 +455,8 @@ export default function DashboardPage() {
                     : (note.includes('topluluk') && note.includes('ilke')) ? 'topluluk' : null
                   const time = String(app.submitted_at || '').slice(11, 16)
 
+                  const dupCount = emailCounts.get((app.email || '').toLowerCase().trim()) || 1
+                  const isProtected = (app as { is_protected?: boolean }).is_protected
                   return (
                     <button key={app.id} onClick={() => setSelectedApp(isActive ? null : app)}
                       className={`w-full text-left px-4 py-2.5 flex items-center gap-2.5 transition-colors border-b border-gray-50 ${isActive ? 'bg-indigo-50' : 'hover:bg-gray-50'}`}>
@@ -415,6 +466,22 @@ export default function DashboardPage() {
                         <p className="text-[11px] text-gray-400 truncate">{app.email}</p>
                       </div>
                       {time && <span className="text-[10px] text-gray-400 shrink-0">{time}</span>}
+                      {isProtected && (
+                        <span
+                          className="text-[9px] px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 shrink-0 font-semibold"
+                          title="Korumalı (Circle üyesi) — değiştirilemez"
+                        >
+                          🔒
+                        </span>
+                      )}
+                      {dupCount > 1 && (
+                        <span
+                          className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 shrink-0 font-semibold"
+                          title={`Bu e-posta ile ${dupCount} başvuru var`}
+                        >
+                          {dupCount}×
+                        </span>
+                      )}
                       {flag === '18yas' && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-600 shrink-0">18Y</span>}
                       {flag === 'topluluk' && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 shrink-0">IHL</span>}
                       <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full shrink-0 ${step?.bg} ${step?.text}`}>{step?.label}</span>
@@ -428,7 +495,10 @@ export default function DashboardPage() {
 
         {/* Right: Detail Side Panel */}
         {sel && (
-          <div className="w-[400px] shrink-0 bg-white rounded-xl border border-gray-200 flex flex-col min-h-0">
+          <>
+          {/* Backdrop */}
+          <div className="fixed inset-0 top-[5rem] z-20 bg-black/10" onClick={() => setSelectedApp(null)} />
+          <div className="fixed right-0 top-[5rem] bottom-0 w-[400px] bg-white border-l border-gray-200 flex flex-col z-30 animate-slide-in-right shadow-xl">
             {/* Panel header */}
             <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
@@ -455,9 +525,54 @@ export default function DashboardPage() {
               </div>
             )}
 
+            {/* Duplicate e-posta uyarısı */}
+            {sel.email && (emailCounts.get(sel.email.toLowerCase().trim()) || 1) > 1 && (
+              <div className="px-4 py-2 border-b border-gray-100 bg-amber-50">
+                <p className="text-xs font-medium text-amber-800 mb-1">
+                  Bu e-posta ile {emailCounts.get(sel.email.toLowerCase().trim())} başvuru mevcut
+                </p>
+                <div className="space-y-1">
+                  {allApps
+                    .filter(a => a.id !== sel.id && (a.email || '').toLowerCase().trim() === (sel.email || '').toLowerCase().trim())
+                    .slice(0, 5)
+                    .map(other => {
+                      const otherStep = ALL_STATUSES.find(s => s.key === (other.status === 'nihai_olmayan' ? 'kesin_kabul' : other.status))
+                      const when = String(other.submitted_at || (other as any).created_at || '').slice(0, 16).replace('T', ' ')
+                      return (
+                        <button
+                          key={other.id}
+                          onClick={() => setSelectedApp(other)}
+                          className="w-full text-left flex items-center gap-2 px-2 py-1 rounded hover:bg-amber-100/70 transition-colors"
+                        >
+                          <span className="text-[10px] text-amber-900 truncate flex-1">
+                            {other.full_name}
+                          </span>
+                          <span className="text-[10px] text-amber-700/70 shrink-0">{when}</span>
+                          <span
+                            className="text-[9px] px-1.5 py-0.5 rounded-full font-medium shrink-0"
+                            style={{ backgroundColor: otherStep?.color + '22', color: otherStep?.color }}
+                          >
+                            {otherStep?.label}
+                          </span>
+                        </button>
+                      )
+                    })}
+                </div>
+              </div>
+            )}
+
             {/* Degerlendirme + Islem */}
             <div className="px-4 py-3 border-b border-gray-100 space-y-2.5 shrink-0">
-              {sel.status === 'kesin_ret' || sel.status === 'yas_kucuk' ? (
+              {(sel as { is_protected?: boolean }).is_protected ? (
+                <div className="bg-purple-50 border border-purple-200 rounded-lg px-3 py-2.5 text-purple-800">
+                  <div className="flex items-center gap-2 text-sm font-semibold">
+                    🔒 Korumalı kayıt (Circle üyesi)
+                  </div>
+                  <p className="text-xs text-purple-700/80 mt-1">
+                    Bu kayıt gerçek topluluk üyesidir. Mail gönderme, status değiştirme, güncelleme ve silme işlemleri devre dışıdır.
+                  </p>
+                </div>
+              ) : sel.status === 'kesin_ret' || sel.status === 'yas_kucuk' ? (
                 <>
                   {/* Kesin ret: mail gonder */}
                   {!sel.mail_sent ? (
@@ -520,36 +635,62 @@ export default function DashboardPage() {
               ) : (
                 <>
                   {/* Kontrol/diger: degerlendirme formu */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="text-[10px] font-medium text-gray-400 block mb-0.5">Degerlendiren</label>
-                      <select value={reviewer} onChange={e => setReviewer(e.target.value)}
-                        className="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:ring-1 focus:ring-indigo-300 outline-none">
-                        <option value="">Sec...</option>
-                        <option value="Tuna">Tuna</option>
-                        <option value="Taha">Taha</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-medium text-gray-400 block mb-0.5">Not</label>
-                      <input type="text" value={reviewNote} onChange={e => setReviewNote(e.target.value)} placeholder="Degerlendirme notu..."
-                        className="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:ring-1 focus:ring-indigo-300 outline-none" />
-                    </div>
-                  </div>
+                  {(() => {
+                    const reviewReady = reviewer.trim().length > 0 && reviewNote.trim().length > 0
+                    return (
+                      <>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="text-[10px] font-medium text-gray-400 block mb-0.5">
+                              Değerlendiren <span className="text-red-500">*</span>
+                            </label>
+                            <select value={reviewer} onChange={e => setReviewer(e.target.value)}
+                              className={`w-full text-xs border rounded-lg px-2 py-1.5 bg-white focus:ring-1 focus:ring-indigo-300 outline-none ${
+                                !reviewer.trim() ? 'border-amber-300 bg-amber-50' : 'border-gray-200'
+                              }`}>
+                              <option value="">Seç...</option>
+                              <option value="Tuna">Tuna</option>
+                              <option value="Taha">Taha</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-medium text-gray-400 block mb-0.5">
+                              Not <span className="text-red-500">*</span>
+                            </label>
+                            <input type="text" value={reviewNote} onChange={e => setReviewNote(e.target.value)} placeholder="Değerlendirme notu..."
+                              className={`w-full text-xs border rounded-lg px-2 py-1.5 bg-white focus:ring-1 focus:ring-indigo-300 outline-none ${
+                                !reviewNote.trim() ? 'border-amber-300 bg-amber-50' : 'border-gray-200'
+                              }`} />
+                          </div>
+                        </div>
 
-                  {/* Action butonlari */}
-                  <div className="flex flex-wrap gap-1.5 pt-1">
-                    {selActions.map(a => (
-                      <button key={a.toStatus} onClick={() => handleAction(sel, a.toStatus)} disabled={actionLoading}
-                        className={`px-3 py-2 text-[11px] font-medium text-white rounded-lg transition-colors disabled:opacity-50 ${a.color}`}>
-                        {actionLoading ? '...' : a.label}
-                      </button>
-                    ))}
-                    <button onClick={() => handleRollback(sel)} disabled={actionLoading}
-                      className="px-3 py-2 text-[11px] font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 ml-auto">
-                      Geri Al
-                    </button>
-                  </div>
+                        {!reviewReady && (
+                          <p className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1 mt-1">
+                            Status geçişi için değerlendiren ve not zorunludur.
+                          </p>
+                        )}
+
+                        {/* Action butonlari */}
+                        <div className="flex flex-wrap gap-1.5 pt-1">
+                          {selActions.map(a => (
+                            <button
+                              key={a.toStatus}
+                              onClick={() => handleAction(sel, a.toStatus)}
+                              disabled={actionLoading || !reviewReady}
+                              title={!reviewReady ? 'Değerlendiren ve not doldurulmalı' : ''}
+                              className={`px-3 py-2 text-[11px] font-medium text-white rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${a.color}`}
+                            >
+                              {actionLoading ? '...' : a.label}
+                            </button>
+                          ))}
+                          <button onClick={() => handleRollback(sel)} disabled={actionLoading}
+                            className="px-3 py-2 text-[11px] font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 ml-auto">
+                            Geri Al
+                          </button>
+                        </div>
+                      </>
+                    )
+                  })()}
                 </>
               )}
             </div>
@@ -683,8 +824,67 @@ export default function DashboardPage() {
               </div>}
             </div>
           </div>
+          </>
         )}
       </div>
+
+      {/* Nihai Üye'ye zorla taşıma onay modal'ı */}
+      {forceConfirm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setForceConfirm(null)} />
+          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+                <svg className="w-5 h-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126z" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-sm font-semibold text-gray-900">Eksik görevler var</h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  <span className="font-medium">{forceConfirm.app.full_name}</span> henüz şu görevleri tamamlamadı:
+                </p>
+              </div>
+            </div>
+
+            <ul className="space-y-1 mb-4 pl-4 list-disc text-xs text-gray-700">
+              {forceConfirm.missing.map(t => {
+                const labels: Record<string, string> = {
+                  karakteristik_envanter: 'Karakteristik Envanter',
+                  disipliner_envanter: 'Disipliner Envanter',
+                  oryantasyon: 'Oryantasyon',
+                }
+                return <li key={t}>{labels[t] || t}</li>
+              })}
+            </ul>
+
+            <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4">
+              <p className="text-xs text-amber-800">
+                Normalde kullanıcı oryantasyon + envanter testleri tamamlamalı. Yine de Nihai Ağ Üyesi'ne taşımak istediğinize emin misiniz?
+              </p>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => setForceConfirm(null)}
+                className="flex-1 px-3 py-2 text-sm border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50"
+              >
+                İptal
+              </button>
+              <button
+                onClick={async () => {
+                  const fc = forceConfirm
+                  setForceConfirm(null)
+                  await handleAction(fc.app, fc.toStatus, true)
+                }}
+                className="flex-1 px-3 py-2 text-sm text-white bg-amber-500 rounded-lg hover:bg-amber-600 font-medium"
+              >
+                Yine de Taşı
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

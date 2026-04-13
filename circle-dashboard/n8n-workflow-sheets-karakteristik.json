@@ -1,0 +1,111 @@
+{
+  "name": "Envanter — Karakteristik (Sheets Sync)",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            { "mode": "everyMinute" }
+          ]
+        },
+        "documentId": {
+          "__rl": true,
+          "value": "1U3Xq0VS1sdefxCGnQVlkQqhgt2RhtsJj7hbet6-Gc0w",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 772389401,
+          "mode": "id"
+        },
+        "event": "rowAdded",
+        "options": {}
+      },
+      "id": "sheets-trigger",
+      "name": "Yeni Satir (Karakteristik)",
+      "type": "n8n-nodes-base.googleSheetsTrigger",
+      "typeVersion": 1,
+      "position": [200, 300],
+      "credentials": {
+        "googleSheetsTriggerOAuth2Api": {
+          "id": "YOUR_GOOGLE_SHEETS_CREDENTIAL_ID",
+          "name": "Google Sheets Trigger"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ─── Karakteristik Envanter — Sheets satirini /api/inventory-tests payload'una cevir ───\nconst row = $input.first().json;\n\n// Email\nconst email = String(row['E-Posta Adresin'] || '').toLowerCase().trim();\nif (!email) {\n  return [{ json: { error: true, message: 'Email bulunamadi', raw_keys: Object.keys(row) } }];\n}\n\n// Ad-soyad (sheet'te yoksa null kalir; ileride kolon eklenirse otomatik yakalanir)\nconst fullName =\n  row['Ad Soyad'] || row['Adin Soyadin'] || row['Ad-Soyad'] || row['Ad'] || row['Full Name'] || null;\n\n// Ilgi alanlari — karakteristik formunun ilk secim kolonlari\nconst interestColumns = ['Yazılım','Dijital Sanatlar','Dijital Pazarlama','Girişimcilik','Kişisel & Kariyer Gelişim'];\nconst disciplinesInterest = [];\nfor (const col of interestColumns) {\n  const v = row[col];\n  if (v !== undefined && v !== null && String(v).trim() !== '' && String(v).trim().toLowerCase() !== 'false') {\n    disciplinesInterest.push(col);\n  }\n}\n\n// Meta alanlari ayikla\nconst metaKeys = ['#','E-Posta Adresin','Response Type','Start Date (UTC)','Stage Date (UTC)','Submit Date (UTC)','Network ID','Tags','Ending'];\nconst answers = {};\nfor (const [k, v] of Object.entries(row)) {\n  if (metaKeys.includes(k)) continue;\n  if (interestColumns.includes(k)) continue;\n  if (v === null || v === undefined || String(v).trim() === '') continue;\n  answers[k] = v;\n}\n\nconst submittedAt = row['Submit Date (UTC)'] || row['Submit Date'] || new Date().toISOString();\n\nreturn [{\n  json: {\n    error: false,\n    email,\n    full_name: fullName ? String(fullName).trim() : null,\n    test_type: 'karakteristik_envanter',\n    disciplines: disciplinesInterest,\n    answers,\n    network_id: row['Network ID'] || null,\n    tags: row['Tags'] || null,\n    response_type: row['Response Type'] || 'completed',\n    submitted_at: submittedAt,\n  }\n}];"
+      },
+      "id": "parse-sheet",
+      "name": "Satiri Ayikla",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "err-check",
+              "leftValue": "={{ $json.error }}",
+              "rightValue": false,
+              "operator": { "type": "boolean", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "email-check",
+      "name": "Email Var mi?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [660, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.DASHBOARD_URL }}/api/inventory-tests",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ email: $json.email, full_name: $json.full_name, test_type: $json.test_type, disciplines: $json.disciplines, answers: $json.answers, network_id: $json.network_id, tags: $json.tags, response_type: $json.response_type, submitted_at: $json.submitted_at }) }}",
+        "options": { "timeout": 15000 }
+      },
+      "id": "call-api",
+      "name": "Dashboard API Kaydet",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [880, 220]
+    },
+    {
+      "parameters": {
+        "jsCode": "const res = $input.first().json;\nreturn [{ json: { status: res.success ? 'ok' : 'hata', task_updated: res.task_updated || false, match_warning: res.match_warning || false, email: $('Satiri Ayikla').first().json.email, error: res.error || null } }];"
+      },
+      "id": "log-result",
+      "name": "Sonuc",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1100, 220]
+    }
+  ],
+  "connections": {
+    "Yeni Satir (Karakteristik)": { "main": [[{ "node": "Satiri Ayikla", "type": "main", "index": 0 }]] },
+    "Satiri Ayikla": { "main": [[{ "node": "Email Var mi?", "type": "main", "index": 0 }]] },
+    "Email Var mi?": { "main": [[{ "node": "Dashboard API Kaydet", "type": "main", "index": 0 }], []] },
+    "Dashboard API Kaydet": { "main": [[{ "node": "Sonuc", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "tags": [
+    { "name": "envanter" },
+    { "name": "karakteristik" },
+    { "name": "sheets-trigger" }
+  ]
+}
