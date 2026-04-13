@@ -46,9 +46,19 @@ export async function GET(req: Request) {
       })
     }
 
+    // Son sync zamanı: Circle-sync her kayıt için updated_at'i yeniler,
+    // dolayısıyla is_protected kayıtlarının max(updated_at) değeri son kontrol zamanıdır.
+    let lastSyncedAt: string | null = null
+    for (const r of protectedRows ?? []) {
+      const u = (r as { updated_at?: string }).updated_at
+      if (u && (!lastSyncedAt || u > lastSyncedAt)) lastSyncedAt = u
+    }
+
     return NextResponse.json({
       success: true,
       total: items.length,
+      totalCircleMembers: (protectedRows ?? []).length,
+      lastSyncedAt,
       data: items,
     })
   } catch (err: unknown) {

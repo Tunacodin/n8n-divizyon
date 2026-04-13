@@ -30,6 +30,22 @@ function mapSource(raw: unknown): Exclude<SourceKey, 'all'> {
   return 'other'
 }
 
+function formatRelative(iso: string | null): string {
+  if (!iso) return 'henüz çalışmadı'
+  const then = new Date(iso).getTime()
+  if (isNaN(then)) return 'bilinmiyor'
+  const diff = Math.max(0, Date.now() - then)
+  const mins = Math.floor(diff / 60_000)
+  if (mins < 1) return 'az önce'
+  if (mins < 60) return `${mins} dk önce`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours} sa önce`
+  const days = Math.floor(hours / 24)
+  if (days < 30) return `${days} gün önce`
+  const months = Math.floor(days / 30)
+  return `${months} ay önce`
+}
+
 function fmtDate(raw: unknown): string {
   if (!raw) return '—'
   try {
@@ -43,6 +59,8 @@ function fmtDate(raw: unknown): string {
 
 export default function EtkinliktenGelenContent() {
   const [data, setData] = useState<Member[]>([])
+  const [totalCircle, setTotalCircle] = useState<number | null>(null)
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null)
   const [selected, setSelected] = useState<Member | null>(null)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -54,7 +72,11 @@ export default function EtkinliktenGelenContent() {
     fetch('/api/applications/etkinlikten-gelen')
       .then((r) => r.json())
       .then((res) => {
-        if (res.success) setData(res.data ?? [])
+        if (res.success) {
+          setData(res.data ?? [])
+          setTotalCircle(res.totalCircleMembers ?? null)
+          setLastSyncedAt(res.lastSyncedAt ?? null)
+        }
       })
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -101,12 +123,29 @@ export default function EtkinliktenGelenContent() {
     <div className="min-h-screen bg-[#FAFBFC]">
       {/* Header */}
       <div className="bg-white border-b border-gray-100 px-8 py-6">
-        <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-start justify-between flex-wrap gap-3">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Etkinlikten Gelen Üyeler</h1>
             <p className="text-sm text-gray-500 mt-1">
               Circle'da kayıtlı olan ama n8n başvuru formuna düşmemiş üyeler
             </p>
+            <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
+              <span className="inline-flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
+                Son kontrol: <span className="font-medium text-gray-700">{formatRelative(lastSyncedAt)}</span>
+                {lastSyncedAt && (
+                  <span className="text-gray-400">
+                    ({new Date(lastSyncedAt).toLocaleString('tr-TR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })})
+                  </span>
+                )}
+              </span>
+              {totalCircle !== null && (
+                <>
+                  <span className="text-gray-300">·</span>
+                  <span>Circle'da toplam <span className="font-medium text-gray-700">{totalCircle}</span> üye</span>
+                </>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <span className="px-3 py-1.5 rounded-full text-sm font-medium bg-cyan-100 text-cyan-700">
