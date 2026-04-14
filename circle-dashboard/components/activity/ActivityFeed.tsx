@@ -214,8 +214,16 @@ export function ActivityFeed() {
             onClick={loadMore}
             className="px-5 py-2.5 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
           >
-            Daha fazla yükle
+            Daha fazla yükle ({total - activities.length} kayıt daha var)
           </button>
+        </div>
+      )}
+
+      {!loading && !hasMore && activities.length > 0 && (
+        <div className="flex justify-center pt-6">
+          <span className="text-xs text-gray-400">
+            Tüm kayıtlar gösteriliyor ({activities.length}/{total})
+          </span>
         </div>
       )}
     </div>

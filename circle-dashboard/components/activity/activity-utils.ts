@@ -38,7 +38,15 @@ export function getActivityMeta(action: string): ActivityMeta {
     case 'evaluation_added':
       return { icon: '📋', color: 'text-purple-700', bgColor: 'bg-purple-50', borderColor: 'border-purple-200' }
     case 'task_completed':
+    case 'task_manual_mark':
       return { icon: '✅', color: 'text-emerald-700', bgColor: 'bg-emerald-50', borderColor: 'border-emerald-200' }
+    case 'auto_tag_assigned':
+      return { icon: '🏷️', color: 'text-pink-700', bgColor: 'bg-pink-50', borderColor: 'border-pink-200' }
+    case 'inventory_email_mismatch':
+      return { icon: '📧', color: 'text-amber-700', bgColor: 'bg-amber-50', borderColor: 'border-amber-200' }
+    case 'karakteristik_envanter_completed':
+    case 'disipliner_envanter_completed':
+      return { icon: '📊', color: 'text-teal-700', bgColor: 'bg-teal-50', borderColor: 'border-teal-200' }
     case 'task_uncompleted':
       return { icon: '⬜', color: 'text-gray-700', bgColor: 'bg-gray-50', borderColor: 'border-gray-200' }
     case 'warning_added':
@@ -164,12 +172,39 @@ export function describeActivity(a: Activity): { summary: string; detail?: strin
       }
     }
 
-    case 'task_completed': {
+    case 'task_completed':
+    case 'task_manual_mark': {
       const taskType = a.new_values?.task_type
       const label = TASK_LABELS[taskType] || taskType
-
+      const isManual = a.action === 'task_manual_mark' || (a.actor || '').startsWith('admin_manual:')
       return {
-        summary: `${person} için ${label} görevini tamamlandı olarak işaretledi.`,
+        summary: `${person} için ${label} görevini ${isManual ? 'manuel olarak ' : ''}tamamlandı işaretledi.`,
+      }
+    }
+
+    case 'auto_tag_assigned': {
+      const tag = a.new_values?.tag
+      const reason = a.new_values?.reason
+      return {
+        summary: `${person} için "${tag}" tag'i otomatik atandı.`,
+        detail: reason ? `Kriter: ${reason}` : undefined,
+      }
+    }
+
+    case 'inventory_email_mismatch': {
+      const submitted = a.new_values?.submitted_email
+      return {
+        summary: `${person} envanter testini farklı bir e-posta (${submitted}) ile doldurdu — ad-soyad ile eşleştirildi.`,
+      }
+    }
+
+    case 'karakteristik_envanter_completed':
+    case 'disipliner_envanter_completed': {
+      const testType = a.action.replace('_completed', '')
+      const disc = a.new_values?.discipline
+      const label = testType === 'karakteristik_envanter' ? 'Karakteristik envanter' : `Disipliner envanter (${disc || '—'})`
+      return {
+        summary: `${person} ${label} testini tamamladı.`,
       }
     }
 
@@ -306,6 +341,11 @@ export function groupByDay(activities: Activity[]): Record<string, Activity[]> {
 export const ACTION_FILTERS: { value: string; label: string }[] = [
   { value: '', label: 'Tüm İşlemler' },
   { value: 'create', label: 'Yeni Başvuru' },
+  { value: 'task_manual_mark', label: 'Manuel Görev İşaretleme' },
+  { value: 'auto_tag_assigned', label: 'Otomatik Tag' },
+  { value: 'karakteristik_envanter_completed', label: 'Karakteristik Envanter' },
+  { value: 'disipliner_envanter_completed', label: 'Disipliner Envanter' },
+  { value: 'inventory_email_mismatch', label: 'Envanter E-posta Uyuşmazlığı' },
   { value: 'status_change', label: 'Durum Değişikliği' },
   { value: 'update', label: 'Bilgi Güncelleme' },
   { value: 'evaluation_added', label: 'Değerlendirme' },
