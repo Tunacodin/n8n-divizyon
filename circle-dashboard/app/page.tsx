@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh'
 
 interface Breakdown {
@@ -129,15 +129,35 @@ export default function DashboardPage() {
     return () => document.removeEventListener('keydown', handler)
   }, [])
 
-  // selectedApp degisince formu resetle
+  // selectedApp degisince: uygulamanin kaydedilmis reviewer/not'u varsa onu goster,
+  // yoksa mevcut state'i (draft) koru. Template/konu da korunur — kullanici
+  // drawer'i kapatip acsa bile doldurdugu veriler silinmez.
+  const appStateCache = useRef<Map<string, { reviewer: string; note: string; templateId: string | null; subject: string }>>(new Map())
+
   useEffect(() => {
-    if (selectedApp) {
+    if (!selectedApp) return
+    const cached = appStateCache.current.get(selectedApp.id)
+    if (cached) {
+      setReviewer(cached.reviewer)
+      setReviewNote(cached.note)
+      setSelectedTemplateId(cached.templateId)
+      setMailSubject(cached.subject)
+    } else {
+      // İlk acilis: DB'de varsa onu kullan
       setReviewer(selectedApp.reviewer || '')
       setReviewNote(selectedApp.review_note || '')
-      setSelectedTemplateId(null)
-      setMailSubject('')
+      // template/subject dokunmuyoruz — onceden bir baska uygulamada doldurulduysa
+      // kullanicinin taslagi korunur
     }
   }, [selectedApp])
+
+  // State her degistigi zaman cache'e yaz (aktif app icin)
+  useEffect(() => {
+    if (!selectedApp) return
+    appStateCache.current.set(selectedApp.id, {
+      reviewer, note: reviewNote, templateId: selectedTemplateId, subject: mailSubject,
+    })
+  }, [selectedApp, reviewer, reviewNote, selectedTemplateId, mailSubject])
 
   const fetchData = async () => {
     try {
@@ -697,6 +717,48 @@ export default function DashboardPage() {
                           </div>
                         </div>
 
+                        {/* Mail sablonu + konu — kesin_kabul/kesin_ret icin zorunlu */}
+                        {sel.status === 'kontrol' && (
+                          <div className="space-y-1.5 pt-1">
+                            <div>
+                              <label className="text-[10px] font-medium text-gray-400 block mb-0.5">
+                                Mail Şablonu <span className="text-red-500">*</span>
+                              </label>
+                              <select
+                                value={selectedTemplateId || ''}
+                                onChange={e => {
+                                  const id = e.target.value || null
+                                  setSelectedTemplateId(id)
+                                  const tpl = mailTemplates.find(t => t.id === id)
+                                  if (tpl?.subject && !mailSubject) setMailSubject(tpl.subject)
+                                }}
+                                className={`w-full text-xs border rounded-lg px-2 py-1.5 bg-white focus:ring-1 focus:ring-indigo-300 outline-none ${
+                                  !selectedTemplateId ? 'border-amber-300 bg-amber-50' : 'border-gray-200'
+                                }`}
+                              >
+                                <option value="">Şablon seç...</option>
+                                {mailTemplates.map(t => (
+                                  <option key={t.id} value={t.id}>{t.name}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="text-[10px] font-medium text-gray-400 block mb-0.5">
+                                Mail Konusu <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                type="text"
+                                value={mailSubject}
+                                onChange={e => setMailSubject(e.target.value)}
+                                placeholder="Mail konusu..."
+                                className={`w-full text-xs border rounded-lg px-2 py-1.5 bg-white focus:ring-1 focus:ring-indigo-300 outline-none ${
+                                  !mailSubject.trim() ? 'border-amber-300 bg-amber-50' : 'border-gray-200'
+                                }`}
+                              />
+                            </div>
+                          </div>
+                        )}
+
                         {!reviewReady && (
                           <p className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1 mt-1">
                             Status geçişi için değerlendiren ve not zorunludur.
@@ -705,17 +767,25 @@ export default function DashboardPage() {
 
                         {/* Action butonlari */}
                         <div className="flex flex-wrap gap-1.5 pt-1">
-                          {selActions.map(a => (
+                          {selActions.map(a => {
+                            const isMailRequired = a.toStatus === 'kesin_kabul' || a.toStatus === 'kesin_ret'
+                            const mailReady = !isMailRequired || (selectedTemplateId && mailSubject.trim().length > 0)
+                            const ready = reviewReady && mailReady
+                            const tip = !reviewReady ? 'Değerlendiren ve not doldurulmalı'
+                              : isMailRequired && !selectedTemplateId ? 'Mail şablonu seçilmeli'
+                              : isMailRequired && !mailSubject.trim() ? 'Mail konusu boş olamaz'
+                              : ''
+                            return (
                             <button
                               key={a.toStatus}
                               onClick={() => handleAction(sel, a.toStatus)}
-                              disabled={actionLoading || !reviewReady}
-                              title={!reviewReady ? 'Değerlendiren ve not doldurulmalı' : ''}
+                              disabled={actionLoading || !ready}
+                              title={tip}
                               className={`px-3 py-2 text-[11px] font-medium text-white rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${a.color}`}
                             >
                               {actionLoading ? '...' : a.label}
                             </button>
-                          ))}
+                          )})}
                           <button onClick={() => handleRollback(sel)} disabled={actionLoading}
                             className="px-3 py-2 text-[11px] font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 ml-auto">
                             Geri Al
