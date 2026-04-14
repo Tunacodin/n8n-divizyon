@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import useSWR from 'swr'
+import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh'
 import { ArrowPathIcon } from '@heroicons/react/24/outline'
 import {
   BarChart, Bar,
@@ -112,8 +113,15 @@ function filterSeries(series: { date: string; count: number }[], period: Period)
 }
 
 export default function AnalizPage() {
-  const { data, error, isLoading, mutate } = useSWR<AnalyticsData>('/api/analytics')
+  const { data, error, isLoading, mutate } = useSWR<AnalyticsData>('/api/analytics', {
+    revalidateOnFocus: true,
+    revalidateOnMount: true,
+    dedupingInterval: 0,
+  })
   const [period, setPeriod] = useState<Period>('tumu')
+
+  // Realtime: applications/task_completions/inventory_tests degisince analitik yenile
+  useRealtimeRefresh(['applications', 'task_completions', 'inventory_tests'], () => mutate())
 
   const loading = isLoading
   const kpi = data?.kpi

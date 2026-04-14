@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase'
 import { startOfMonth, format, differenceInDays } from 'date-fns'
 
-export const revalidate = 120
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 type AppRow = {
   id: string
