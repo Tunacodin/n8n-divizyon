@@ -62,13 +62,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: false, error: 'E-posta veya şifre hatalı' }, { status: 401 })
   }
 
-  const circleCheck = await checkCircleMember(email)
-  if (circleCheck === 'not_found') {
-    return NextResponse.json(
-      { success: false, error: 'Bu e-posta Circle topluluğunda aktif üye olarak bulunamadı' },
-      { status: 403 },
-    )
-  }
+  // Circle member kontrolu artik bilgilendirici — engel degil.
+  // admin_users tablosu otoriter kabul edilir; orada kaydi olan kullanici girebilir.
+  // Circle'da aktif uye olmayan admin hesaplari (test / servis / moderator)
+  // icin bu kontrol blok olusturmaz.
+  await checkCircleMember(email)
 
   await supabase
     .from('admin_users')
