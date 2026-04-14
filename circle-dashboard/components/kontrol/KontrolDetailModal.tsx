@@ -348,6 +348,32 @@ export default function KontrolDetailModal({ data, onClose }: KontrolDetailModal
     setMoveStatus('moving')
     setMoveError('')
     try {
+      // Mail-first: Template secildiyse VE mail henuz gonderilmediyse, once mail.
+      // Mail hatasi olursa status degistirme.
+      const needsMail = !!selectedTemplateId && !data.mail_sent
+      if (needsMail) {
+        const mailRes = await fetch('/api/mail/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email,
+            firstName,
+            lastName,
+            template_id: selectedTemplateId,
+            subject: subject || undefined,
+            application_id: data.id,
+            sent_by: editReviewer || 'dashboard',
+          }),
+        })
+        const mailData = await mailRes.json().catch(() => ({ success: false }))
+        if (!mailRes.ok || !mailData.success) {
+          setMoveStatus('error')
+          setMoveError(`Mail gonderilemedi: ${mailData.error || 'bilinmeyen hata'}. Tasima iptal edildi.`)
+          return
+        }
+        data.mail_sent = true
+      }
+
       const toStatus = isKesinKabul ? 'kesin_kabul' : 'kesin_ret'
       const res = await fetch(`/api/applications/${data.id}/status`, {
         method: 'PATCH',
