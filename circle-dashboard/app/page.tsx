@@ -184,6 +184,7 @@ export default function DashboardPage() {
   const filteredApps = useMemo(() => {
     if (!selectedStep) return []
     let items = allApps.filter(a => {
+      if ((a as any).is_protected) return false // Circle üyeleri dashboard pipeline dışı
       if (selectedStep === 'kesin_kabul') return a.status === 'kesin_kabul' || a.status === 'nihai_olmayan'
       return a.status === selectedStep
     })
@@ -231,7 +232,42 @@ export default function DashboardPage() {
 
     setActionLoading(true)
     try {
-      // 1. Status degistir
+      // 1. Mail template secildiyse: ONCE mail gonder, success donmezse tasima iptal.
+      //    Boylece mail hatasi olan bir kisi yanlislikla kesin_kabul/nihai_uye'ye gecmez.
+      const wantsMail = !!(selectedTemplateId && mailSubject.trim())
+      const tplName = wantsMail
+        ? (mailTemplates.find(t => t.id === selectedTemplateId)?.name || '')
+        : ''
+
+      if (wantsMail) {
+        const nameParts = app.full_name.split(' ')
+        const mailRes = await fetch('/api/mail/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: app.email,
+            firstName: nameParts[0] || '',
+            lastName: nameParts.slice(1).join(' ') || '',
+            templateId: selectedTemplateId,
+            subject: mailSubject,
+            template_name: tplName,
+            application_id: app.id,
+            sent_by: reviewer.trim() || 'dashboard',
+          }),
+        })
+        const mailData = await mailRes.json().catch(() => ({ success: false }))
+        if (!mailRes.ok || !mailData.success) {
+          setToast({
+            type: 'error',
+            text: `Mail gonderilemedi: ${mailData.error || 'bilinmeyen hata'}. Status degistirilmedi.`,
+          })
+          setActionLoading(false)
+          setTimeout(() => setToast(null), 4500)
+          return
+        }
+      }
+
+      // 2. Mail basariliysa (veya istenmiyorsa) status degistir
       const res = await fetch(`/api/applications/${app.id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -247,7 +283,7 @@ export default function DashboardPage() {
       })
       const r = await res.json()
 
-      // Nihai üye + eksik task → modal ile onay
+      // Nihai üye + eksik task → modal ile onay (mail gitti ama status geciremedik)
       if (!r.success && toStatus === 'nihai_uye' && r.missing_tasks && !force) {
         setForceConfirm({ app, toStatus, missing: r.missing_tasks as string[] })
         setActionLoading(false)
@@ -255,30 +291,13 @@ export default function DashboardPage() {
       }
 
       if (!r.success) {
-        setToast({ type: 'error', text: r.error || 'Hata' })
+        setToast({ type: 'error', text: `Status degistirilemedi: ${r.error || 'Hata'}` })
         setActionLoading(false)
         return
       }
 
-      // 2. Mail gonder (eger template secildiyse)
-      if (selectedTemplateId && mailSubject.trim()) {
-        const tplName = mailTemplates.find(t => t.id === selectedTemplateId)?.name || ''
-        const nameParts = app.full_name.split(' ')
-        await fetch('/api/mail/send', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: app.email,
-            firstName: nameParts[0] || '',
-            lastName: nameParts.slice(1).join(' ') || '',
-            templateId: selectedTemplateId,
-            subject: mailSubject,
-            template_name: tplName,
-            application_id: app.id,
-            sent_by: reviewer.trim() || 'dashboard',
-          }),
-        })
-        // mail_sent guncelle
+      // 3. Mail gonderildi ise applications.mail_sent guncelle
+      if (wantsMail) {
         await fetch(`/api/applications/${app.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
@@ -287,11 +306,10 @@ export default function DashboardPage() {
       }
 
       const lbl = ALL_STATUSES.find(s => s.key === toStatus)?.label || toStatus
-      const mailMsg = selectedTemplateId ? ' + mail gonderildi' : ''
+      const mailMsg = wantsMail ? ' + mail gonderildi' : ''
       const tagMsg = r.autoTag?.assigned ? ` + tag: ${r.autoTag.assigned}` : ''
       setToast({ type: 'success', text: `${app.full_name} → ${lbl}${mailMsg}${tagMsg}` })
       setAllApps(prev => prev.map(a => a.id === app.id ? { ...a, status: toStatus, reviewer: reviewer.trim(), review_note: reviewNote.trim() } : a))
-      // breakdown allApps'ten useMemo ile türetiliyor — ayrıca set etmeye gerek yok
       setSelectedApp(null)
       setTimeout(() => setToast(null), 3000)
     } catch { setToast({ type: 'error', text: 'Baglanti hatasi' }) }
@@ -328,7 +346,7 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-[#FAFBFC] flex flex-col">
       {/* Header */}
-      <div className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between shrink-0">
+      <div className="sticky top-20 z-30 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between shrink-0">
         <div>
           <h1 className="text-xl font-bold text-gray-900">Dashboard</h1>
           <p className="text-xs text-gray-500">Divizyon Basvuru Yonetim Paneli</p>
