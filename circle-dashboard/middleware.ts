@@ -2,7 +2,14 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { verifySession } from './lib/auth'
 
-const PUBLIC_PREFIXES = ['/login', '/api/auth/']
+// n8n webhook receiver endpoint'leri: auth gerektirmez (external sistem caligir).
+// Gerekirse ileride API key/Bearer ile korunabilir.
+const PUBLIC_PREFIXES = [
+  '/login',
+  '/api/auth/',
+  '/api/inventory-tests',
+  '/api/circle-sync',
+]
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
