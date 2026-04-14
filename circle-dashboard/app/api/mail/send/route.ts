@@ -122,7 +122,40 @@ export async function POST(req: Request) {
       }
     }
 
-    const template = getTemplate(body.template_id)
+    // Template kaynak: UUID ise Resend API'den cek, degilse lokal
+    const isResendTemplate = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.template_id)
+    let template: { id: string; name: string; subject: string; render: (vars: { firstName: string; lastName?: string }) => string }
+      | null = null
+
+    if (isResendTemplate) {
+      try {
+        const tr = await fetch(`https://api.resend.com/templates/${body.template_id}`, {
+          headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
+          cache: 'no-store',
+        })
+        if (tr.ok) {
+          const rt = await tr.json()
+          const rawHtml: string = rt.html || ''
+          const renderVars = (vars: { firstName: string; lastName?: string }) => rawHtml
+            .replace(/\{\{\s*firstName\s*\}\}/g, vars.firstName || '')
+            .replace(/\{\{\s*lastName\s*\}\}/g, vars.lastName || '')
+            .replace(/\{\{\s*name\s*\}\}/g, `${vars.firstName || ''}${vars.lastName ? ' ' + vars.lastName : ''}`.trim())
+          template = {
+            id: rt.id,
+            name: rt.name,
+            subject: rt.subject || '',
+            render: renderVars,
+          }
+        }
+      } catch (e) {
+        console.error('Resend template fetch error:', e)
+      }
+    }
+
+    if (!template) {
+      template = getTemplate(body.template_id) ?? null
+    }
+
     if (!template) {
       return NextResponse.json({ success: false, error: 'Template bulunamadi' }, { status: 400 })
     }

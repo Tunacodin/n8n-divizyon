@@ -230,6 +230,21 @@ export default function DashboardPage() {
       return
     }
 
+    // kesin_kabul ve kesin_ret için mail template + konu zorunlu
+    const MAIL_REQUIRED_STATUSES = new Set(['kesin_kabul', 'kesin_ret'])
+    if (MAIL_REQUIRED_STATUSES.has(toStatus)) {
+      if (!selectedTemplateId) {
+        setToast({ type: 'error', text: 'Mail şablonu seçilmeden taşıma yapılamaz' })
+        setTimeout(() => setToast(null), 3000)
+        return
+      }
+      if (!mailSubject.trim()) {
+        setToast({ type: 'error', text: 'Mail konusu boş olamaz' })
+        setTimeout(() => setToast(null), 3000)
+        return
+      }
+    }
+
     setActionLoading(true)
     try {
       // 1. Mail template secildiyse: ONCE mail gonder, success donmezse tasima iptal.
