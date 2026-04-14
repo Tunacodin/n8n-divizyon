@@ -1,7 +1,15 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase'
 
-export const revalidate = 60
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
+const NOTIF_LINKS: Record<string, string> = {
+  mail_bekleyen: '/basvurular?tab=kesin_ret',
+  kontrol_bekleyen: '/basvurular?tab=kontrol',
+  oryantasyon_bekleyen: '/uyeler?tab=oryantasyon',
+  uyari_gerekli: '/uyeler?tab=oryantasyon',
+}
 
 // GET /api/notifications — Dashboard bildirimleri
 export async function GET() {
@@ -125,6 +133,52 @@ export async function GET() {
           count: uyariGerekli,
         })
       }
+    }
+
+    // Persistence: aktif alertleri notifications tablosuna upsert et,
+    // önceki açık alertlerden bu turda görünmeyenleri resolved olarak kapat.
+    try {
+      const activeTypes = new Set(notifications.map(n => n.type))
+      const now = new Date().toISOString()
+
+      // Açık (resolved_at NULL) kayıtları al
+      const { data: openRows } = await db
+        .from('notifications')
+        .select('id, type, count')
+        .is('resolved_at', null)
+
+      const openByType = new Map<string, { id: string; count: number }>()
+      for (const r of openRows || []) openByType.set(r.type, { id: r.id, count: r.count })
+
+      // Aktifleri upsert
+      for (const n of notifications) {
+        const existing = openByType.get(n.type)
+        if (existing) {
+          await db
+            .from('notifications')
+            .update({ last_seen_at: now, count: n.count, title: n.message })
+            .eq('id', existing.id)
+        } else {
+          await db.from('notifications').insert({
+            type: n.type,
+            severity: n.severity,
+            title: n.message,
+            count: n.count,
+            link_href: NOTIF_LINKS[n.type] || null,
+            first_seen_at: now,
+            last_seen_at: now,
+          })
+        }
+      }
+
+      // Aktif olmayanları resolved yap
+      openByType.forEach((row, type) => {
+        if (!activeTypes.has(type)) {
+          db.from('notifications').update({ resolved_at: now }).eq('id', row.id).then(() => {})
+        }
+      })
+    } catch {
+      // persistence hatası dashboardı düşürmesin
     }
 
     return NextResponse.json({ success: true, notifications, total: notifications.length })
