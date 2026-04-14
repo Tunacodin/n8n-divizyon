@@ -112,16 +112,49 @@ function filterSeries(series: { date: string; count: number }[], period: Period)
   return series.filter(p => new Date(p.date) >= cutoff)
 }
 
+interface PipelineData {
+  cohorts: { month: string; basvuru: number; kontrol: number; kesin_kabul: number; nihai_uye: number; kesin_ret: number }[]
+  timeInStatus: { status: string; count: number; avg_days: number; median_days: number; p90_days: number }[]
+  reviewers: {
+    name: string; decisions: number; approve: number; reject: number; nihai: number
+    approve_rate: number; avg_decision_hours: number | null; median_decision_hours: number | null
+  }[]
+}
+
+const STATUS_LABELS: Record<string, string> = {
+  basvuru: 'Başvuru',
+  kontrol: 'Kontrol',
+  kesin_kabul: 'Kesin Kabul',
+  nihai_olmayan: 'Nihai Olmayan',
+  nihai_uye: 'Nihai Üye',
+  kesin_ret: 'Kesin Ret',
+  yas_kucuk: '18 Yaş Altı',
+  deaktive: 'Deaktive',
+}
+
+function fmtMonthLabel(m: string): string {
+  const [y, mm] = m.split('-')
+  const d = new Date(Number(y), Number(mm) - 1, 1)
+  return d.toLocaleDateString('tr-TR', { month: 'short', year: '2-digit' })
+}
+
 export default function AnalizPage() {
   const { data, error, isLoading, mutate } = useSWR<AnalyticsData>('/api/analytics', {
     revalidateOnFocus: true,
     revalidateOnMount: true,
     dedupingInterval: 0,
   })
+  const { data: pipeline, mutate: mutatePipeline } = useSWR<PipelineData & { success: boolean }>('/api/analytics/pipeline', {
+    revalidateOnFocus: true,
+    dedupingInterval: 0,
+  })
   const [period, setPeriod] = useState<Period>('tumu')
 
   // Realtime: applications/task_completions/inventory_tests degisince analitik yenile
-  useRealtimeRefresh(['applications', 'task_completions', 'inventory_tests'], () => mutate())
+  useRealtimeRefresh(['applications', 'task_completions', 'inventory_tests'], () => {
+    mutate()
+    mutatePipeline()
+  })
 
   const loading = isLoading
   const kpi = data?.kpi
@@ -437,6 +470,132 @@ export default function AnalizPage() {
             <p className="text-center text-gray-400 py-6 text-xs">Değerlendirici verisi yok</p>
           )}
         </ChartCard>
+
+        {/* ═══ SÜREÇ ANALİTİĞİ ═══ */}
+        <div className="pt-4">
+          <h2 className="text-sm font-semibold text-gray-800 mb-2">Süreç Analitiği</h2>
+          <p className="text-xs text-gray-500 mb-3">n8n pipeline'ındaki başvuruların uçtan uca metrikleri</p>
+        </div>
+
+        {/* 1. Funnel Cohort */}
+        <ChartCard
+          title="Aylık Kohort Hunisi"
+          subtitle="Bu ay başvuran kaç kişi hangi aşamaya ulaştı?"
+          loading={!pipeline}
+          height={220}
+        >
+          {pipeline && pipeline.cohorts.length > 0 ? (
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={pipeline.cohorts.map(c => ({ ...c, label: fmtMonthLabel(c.month) }))}
+                margin={{ left: 0, right: 10, top: 4, bottom: 4 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" vertical={false} />
+                <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#6B7280' }} />
+                <YAxis
+                  tick={{ fontSize: 10, fill: '#9CA3AF' }}
+                  width={28}
+                  allowDecimals={false}
+                  tickFormatter={(v: number) => Number.isInteger(v) ? String(v) : ''}
+                />
+                <Tooltip contentStyle={{ fontSize: 11 }} />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
+                <Bar dataKey="basvuru" stackId={undefined} fill={C.basvuru} name="Başvuru" />
+                <Bar dataKey="kontrol" fill={C.kontrol} name="Kontrol+" />
+                <Bar dataKey="kesin_kabul" fill={C.kabul} name="Kabul+" />
+                <Bar dataKey="nihai_uye" fill={C.nihai} name="Nihai Üye" />
+                <Bar dataKey="kesin_ret" fill={C.ret} name="Ret" />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <p className="text-center text-gray-400 py-6 text-xs">Kohort verisi yok</p>
+          )}
+        </ChartCard>
+
+        {/* 2 + 3: Time-in-status + Reviewer performance yan yana */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
+          <ChartCard
+            title="Statü Bekleme Süreleri"
+            subtitle="Her statüde ortalama / medyan / p90 gün"
+            loading={!pipeline}
+            className="lg:col-span-6"
+            height={220}
+          >
+            {pipeline && pipeline.timeInStatus.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-gray-100 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
+                      <th className="py-2">Statü</th>
+                      <th className="py-2 text-right">Kayıt</th>
+                      <th className="py-2 text-right">Ort. Gün</th>
+                      <th className="py-2 text-right">Medyan</th>
+                      <th className="py-2 text-right">P90</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pipeline.timeInStatus.map(r => (
+                      <tr key={r.status} className="border-b border-gray-50">
+                        <td className="py-2 text-gray-800">{STATUS_LABELS[r.status] || r.status}</td>
+                        <td className="py-2 text-right text-gray-600">{r.count}</td>
+                        <td className="py-2 text-right font-medium text-gray-900">{r.avg_days}</td>
+                        <td className="py-2 text-right text-gray-600">{r.median_days}</td>
+                        <td className={`py-2 text-right ${r.p90_days > 7 ? 'text-red-600 font-medium' : 'text-gray-600'}`}>
+                          {r.p90_days}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-center text-gray-400 py-6 text-xs">Veri yok</p>
+            )}
+          </ChartCard>
+
+          <ChartCard
+            title="Değerlendirici Performansı"
+            subtitle="Karar sayısı, kabul oranı, ortalama karar süresi"
+            loading={!pipeline}
+            className="lg:col-span-6"
+            height={220}
+          >
+            {pipeline && pipeline.reviewers.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-gray-100 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
+                      <th className="py-2">Değerlendiren</th>
+                      <th className="py-2 text-right">Karar</th>
+                      <th className="py-2 text-right">Kabul%</th>
+                      <th className="py-2 text-right">Ort. Saat</th>
+                      <th className="py-2 text-right">Nihai Üye</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pipeline.reviewers.map(r => (
+                      <tr key={r.name} className="border-b border-gray-50">
+                        <td className="py-2 text-gray-800 font-medium">{r.name}</td>
+                        <td className="py-2 text-right text-gray-600">{r.decisions}</td>
+                        <td className="py-2 text-right">
+                          <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                            r.approve_rate >= 0.5 ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'
+                          }`}>
+                            {Math.round(r.approve_rate * 100)}%
+                          </span>
+                        </td>
+                        <td className="py-2 text-right text-gray-600">
+                          {r.avg_decision_hours !== null ? r.avg_decision_hours : '—'}
+                        </td>
+                        <td className="py-2 text-right text-gray-600">{r.nihai}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-center text-gray-400 py-6 text-xs">Karar verisi yok</p>
+            )}
+          </ChartCard>
+        </div>
 
         <p className="text-xs text-gray-400 text-center pb-4">
           {data?.generatedAt
