@@ -135,7 +135,7 @@ export default function AnalizPage() {
 
   return (
     <div className="min-h-screen bg-[#FAFBFC]">
-      <div className="bg-white border-b border-gray-100 px-8 py-5">
+      <div className="sticky top-20 z-30 bg-white border-b border-gray-100 px-8 py-5">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
             <h1 className="text-xl font-bold text-gray-900">Analiz</h1>
@@ -214,7 +214,12 @@ export default function AnalizPage() {
                     textAnchor="end"
                     height={44}
                   />
-                  <YAxis tick={{ fontSize: 10, fill: '#9CA3AF' }} width={28} />
+                  <YAxis
+                    tick={{ fontSize: 10, fill: '#9CA3AF' }}
+                    width={28}
+                    allowDecimals={false}
+                    tickFormatter={(v: number) => Number.isInteger(v) ? String(v) : ''}
+                  />
                   <Tooltip formatter={(v: number) => [num(v), 'Kişi']} contentStyle={{ fontSize: 11 }} />
                   <Bar dataKey="count" fill={C.basvuru} radius={[3, 3, 0, 0]} />
                 </BarChart>
@@ -235,7 +240,12 @@ export default function AnalizPage() {
                 <LineChart data={trendData} margin={{ left: 0, right: 10, top: 4, bottom: 4 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" />
                   <XAxis dataKey="date" tickFormatter={fmtMonth} tick={{ fontSize: 10, fill: '#9CA3AF' }} />
-                  <YAxis tick={{ fontSize: 10, fill: '#9CA3AF' }} width={28} />
+                  <YAxis
+                    tick={{ fontSize: 10, fill: '#9CA3AF' }}
+                    width={28}
+                    allowDecimals={false}
+                    tickFormatter={(v: number) => Number.isInteger(v) ? String(v) : ''}
+                  />
                   <Tooltip
                     formatter={(v: number) => [num(v), 'Başvuru']}
                     labelFormatter={fmtMonth}

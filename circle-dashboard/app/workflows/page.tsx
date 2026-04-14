@@ -88,7 +88,7 @@ export default function WorkflowsPage() {
 
   return (
     <div className="min-h-screen bg-[#FAFBFC]">
-      <div className="bg-white border-b border-gray-100 px-8 py-4">
+      <div className="sticky top-20 z-30 bg-white border-b border-gray-100 px-8 py-4">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-xl font-bold text-gray-900">Workflowlar</h1>
@@ -121,7 +121,7 @@ export default function WorkflowsPage() {
                   <th className="text-left px-4 py-3 font-medium text-gray-600">Son Execution</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-600">Tag</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-600 w-40">Güncelleme</th>
-                  <th className="text-center px-4 py-3 font-medium text-gray-600 w-40">Aksiyon</th>
+                  <th className="text-center px-4 py-3 font-medium text-gray-600 w-56">Aksiyon</th>
                 </tr>
               </thead>
               <tbody>
@@ -175,12 +175,12 @@ export default function WorkflowsPage() {
                       <td className="px-4 py-3 text-xs text-gray-500">
                         {formatRelativeTime(w.updatedAt)}
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center justify-center gap-2">
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="flex items-center justify-center gap-2 flex-nowrap">
                           <button
                             onClick={() => toggleWorkflow(w.id, !w.active)}
                             disabled={toggling === w.id}
-                            className={`text-[11px] px-2.5 py-1.5 rounded-lg font-medium transition-colors disabled:opacity-50 ${
+                            className={`whitespace-nowrap text-[11px] px-2.5 py-1.5 rounded-lg font-medium transition-colors disabled:opacity-50 ${
                               w.active
                                 ? 'bg-red-50 text-red-700 border border-red-200 hover:bg-red-100'
                                 : 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
@@ -192,9 +192,9 @@ export default function WorkflowsPage() {
                             href={`${N8N_HOST}/workflow/${w.id}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-[11px] px-2.5 py-1.5 rounded-lg font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100"
+                            className="whitespace-nowrap text-[11px] px-2.5 py-1.5 rounded-lg font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100"
                           >
-                            n8n'de aç ↗
+                            n8n&apos;de aç ↗
                           </a>
                         </div>
                       </td>

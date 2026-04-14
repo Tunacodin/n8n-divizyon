@@ -124,7 +124,7 @@ export default function WorkflowPage() {
   return (
     <div className="min-h-screen bg-[#FAFBFC]">
       {/* Header */}
-      <div className="bg-white border-b border-gray-100 px-8 py-6">
+      <div className="sticky top-20 z-30 bg-white border-b border-gray-100 px-8 py-6">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">n8n Workflow Yönetimi</h1>
