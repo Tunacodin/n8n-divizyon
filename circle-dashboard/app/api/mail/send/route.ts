@@ -76,6 +76,7 @@ export async function POST(req: Request) {
           provider: 'resend',
           batch_id: batchId,
           status: 'sent',
+          sent_by: sentBy,
         }))
 
         await db.from('mail_logs').insert(logs)
@@ -184,6 +185,7 @@ export async function POST(req: Request) {
         template_name: body.template_id,
         provider: 'resend',
         status: 'sent',
+        sent_by: sentBy,
       })
       .select()
       .single()

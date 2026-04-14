@@ -17,6 +17,7 @@ const navItems = [
   { label: 'Dashboard', href: '/' },
   { label: 'Ağ Üyeleri', href: '/uyeler' },
   { label: 'Aktiviteler', href: '/aktivite' },
+  { label: 'Mail Servisi', href: '/mail-servisi' },
   { label: 'Analiz', href: '/analiz' },
   { label: 'Workflowlar', href: '/workflows' },
 ]
