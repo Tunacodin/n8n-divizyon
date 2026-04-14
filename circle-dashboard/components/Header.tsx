@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
+import { getBrowserClient } from '@/lib/supabase-browser'
 
 interface Notification {
   type: string
@@ -64,6 +65,18 @@ function SeverityIcon({ severity, className }: { severity: 'error' | 'warning' |
   )
 }
 
+interface HistoryRow {
+  id: string
+  type: string
+  severity: 'error' | 'warning' | 'info'
+  title: string
+  count: number
+  link_href: string | null
+  first_seen_at: string
+  last_seen_at: string
+  resolved_at: string | null
+}
+
 export function Header() {
   const pathname = usePathname()
   const router = useRouter()
@@ -71,10 +84,32 @@ export function Header() {
   const [open, setOpen] = useState(false)
   const [lastFetch, setLastFetch] = useState<Date | null>(null)
   const [refreshing, setRefreshing] = useState(false)
+  const [showHistory, setShowHistory] = useState(false)
+  const [history, setHistory] = useState<HistoryRow[]>([])
+  const [historyLoading, setHistoryLoading] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+
+  const loadHistory = async () => {
+    setHistoryLoading(true)
+    try {
+      const res = await fetch('/api/notifications/history?status=resolved&limit=100').then(r => r.json())
+      if (res.success) setHistory(res.data || [])
+    } catch {
+      // sessiz
+    } finally {
+      setHistoryLoading(false)
+    }
+  }
 
   const isActive = (href: string) =>
     href === '/' ? pathname === '/' : pathname.startsWith(href)
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' })
+    } catch {}
+    router.replace('/login')
+  }
 
   const fetchNotifications = async () => {
     setRefreshing(true)
@@ -89,11 +124,32 @@ export function Header() {
     }
   }
 
-  // Bildirimleri çek — her 60 saniyede bir
+  // Bildirimleri çek — ilk yükleme + yavaş backup polling
+  // Asıl anlık güncellemeler Realtime subscription üzerinden.
   useEffect(() => {
     fetchNotifications()
     const interval = setInterval(fetchNotifications, 60000)
     return () => clearInterval(interval)
+  }, [])
+
+  // Realtime: applications / task_completions / warnings değişince anında yenile
+  useEffect(() => {
+    const supabase = getBrowserClient()
+    let debounce: NodeJS.Timeout | null = null
+    const refresh = () => {
+      if (debounce) clearTimeout(debounce)
+      debounce = setTimeout(() => fetchNotifications(), 500)
+    }
+    const channel = supabase
+      .channel('header-notifications')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'applications' }, refresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_completions' }, refresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'warnings' }, refresh)
+      .subscribe()
+    return () => {
+      if (debounce) clearTimeout(debounce)
+      supabase.removeChannel(channel)
+    }
   }, [])
 
   // Dışarı tıklayınca kapat
@@ -111,8 +167,10 @@ export function Header() {
     (a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity],
   )
 
+  if (pathname === '/login') return null
+
   return (
-    <header className="sticky top-0 z-40 bg-[#1E1E2E] border-b border-gray-800">
+    <header className="fixed top-0 left-0 right-0 z-40 bg-[#1E1E2E] border-b border-gray-800">
       <div className="flex items-center h-20 px-10 gap-10">
         {/* Logo */}
         <Link href="/" className="flex items-center shrink-0">
@@ -196,7 +254,7 @@ export function Header() {
                 </div>
 
                 {/* Body */}
-                {sortedNotifications.length === 0 ? (
+                {sortedNotifications.length === 0 && !showHistory ? (
                   <div className="px-4 py-10 text-center">
                     <div className="mx-auto w-10 h-10 rounded-full bg-green-50 flex items-center justify-center mb-2">
                       <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -207,7 +265,7 @@ export function Header() {
                     <p className="text-xs text-gray-400 mt-0.5">Her şey yolunda</p>
                   </div>
                 ) : (
-                  <div className="max-h-[420px] overflow-y-auto">
+                  <div className="max-h-[70vh] overflow-y-auto">
                     {sortedNotifications.map((n) => {
                       const s = severityStyles[n.severity]
                       const link = notificationLinks[n.type]
@@ -266,21 +324,91 @@ export function Header() {
                         </button>
                       )
                     })}
+
+                    {/* Geçmiş (çözülmüş) bildirimler */}
+                    {showHistory && (
+                      <>
+                        <div className="px-4 py-2 bg-gray-50/50 border-t border-b border-gray-100">
+                          <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
+                            Geçmiş ({history.length})
+                          </span>
+                        </div>
+                        {historyLoading ? (
+                          <div className="px-4 py-6 text-center text-xs text-gray-400">Yükleniyor…</div>
+                        ) : history.length === 0 ? (
+                          <div className="px-4 py-6 text-center text-xs text-gray-400">Geçmiş kayıt yok</div>
+                        ) : (
+                          history.map((h) => {
+                            const s = severityStyles[h.severity]
+                            return (
+                              <button
+                                key={h.id}
+                                onClick={() => {
+                                  if (h.link_href) {
+                                    router.push(h.link_href)
+                                    setOpen(false)
+                                  }
+                                }}
+                                className={cn(
+                                  'group relative w-full text-left flex items-start gap-3 pl-4 pr-3 py-3 border-b border-gray-50 last:border-b-0 transition-colors opacity-70',
+                                  h.link_href ? 'hover:bg-gray-50 hover:opacity-100 cursor-pointer' : 'cursor-default',
+                                )}
+                              >
+                                <span className={cn('absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full bg-gray-300')} />
+                                <div className={cn('mt-0.5 w-8 h-8 rounded-lg flex items-center justify-center shrink-0', s.iconBg)}>
+                                  <SeverityIcon severity={h.severity} className={cn('w-4 h-4', s.iconColor)} />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm text-gray-700 leading-snug line-through decoration-gray-300">
+                                    {h.title}
+                                  </p>
+                                  <div className="flex items-center gap-1.5 mt-1 text-[11px] text-gray-400">
+                                    <span>Çözüldü · {new Date(h.resolved_at || h.last_seen_at).toLocaleString('tr-TR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+                                  </div>
+                                </div>
+                                <span className="shrink-0 self-center min-w-[26px] h-[22px] px-1.5 text-[11px] font-semibold rounded-full border bg-gray-50 text-gray-500 border-gray-200 flex items-center justify-center">
+                                  {h.count}
+                                </span>
+                              </button>
+                            )
+                          })
+                        )}
+                      </>
+                    )}
                   </div>
                 )}
 
                 {/* Footer */}
-                {lastFetch && (
-                  <div className="px-4 py-2 border-t border-gray-100 bg-gray-50/50 flex items-center justify-between">
+                <div className="px-4 py-2 border-t border-gray-100 bg-gray-50/50 flex items-center justify-between">
+                  <button
+                    onClick={() => {
+                      const next = !showHistory
+                      setShowHistory(next)
+                      if (next && history.length === 0) loadHistory()
+                    }}
+                    className="text-[11px] font-medium text-indigo-600 hover:text-indigo-700"
+                  >
+                    {showHistory ? 'Geçmişi gizle' : 'Daha fazla ↓'}
+                  </button>
+                  {lastFetch && (
                     <span className="text-[10px] text-gray-400">
-                      Son güncellenme: {lastFetch.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+                      {lastFetch.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })} · 60sn yenilenir
                     </span>
-                    <span className="text-[10px] text-gray-300">60 sn'de bir yenilenir</span>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             )}
           </div>
+
+          <button
+            onClick={handleLogout}
+            title="Çıkış yap"
+            className="w-9 h-9 rounded-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
+            </svg>
+          </button>
 
         </div>
       </div>
