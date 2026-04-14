@@ -365,7 +365,7 @@ export default function KontrolContent() {
         const res = await fetch('/api/mail/send', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, firstName, lastName, templateId: bulkMailTemplateId, subject: bulkMailSubject }),
+          body: JSON.stringify({ email, firstName, lastName, template_id: bulkMailTemplateId, subject: bulkMailSubject }),
         })
         const result = await res.json()
         if (result.success) {
