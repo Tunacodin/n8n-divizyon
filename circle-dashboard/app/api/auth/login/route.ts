@@ -62,11 +62,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: false, error: 'E-posta veya şifre hatalı' }, { status: 401 })
   }
 
-  // Circle member kontrolu artik bilgilendirici — engel degil.
-  // admin_users tablosu otoriter kabul edilir; orada kaydi olan kullanici girebilir.
-  // Circle'da aktif uye olmayan admin hesaplari (test / servis / moderator)
-  // icin bu kontrol blok olusturmaz.
-  await checkCircleMember(email)
+  // Circle member kontrolu kaldirildi — admin_users tablosu tek yetki kaynagi.
 
   await supabase
     .from('admin_users')
