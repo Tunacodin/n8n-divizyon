@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
 import { n8nClient } from '@/lib/n8n-client'
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 export async function GET() {
   try {
     const workflows = await n8nClient.getWorkflows()

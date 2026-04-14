@@ -43,6 +43,7 @@ export class N8nClient {
         headers: {
           'X-N8N-API-KEY': N8N_API_KEY,
         },
+        cache: 'no-store',
       })
 
       if (!response.ok) {
@@ -73,6 +74,7 @@ export class N8nClient {
         headers: {
           'X-N8N-API-KEY': N8N_API_KEY,
         },
+        cache: 'no-store',
       })
 
       if (!response.ok) {
