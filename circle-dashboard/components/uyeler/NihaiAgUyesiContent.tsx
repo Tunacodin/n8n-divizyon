@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { UyeDetailDrawer } from './UyeDetailDrawer'
+import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh'
 // DB field names used directly
 import {
   MagnifyingGlassIcon,
@@ -112,6 +113,9 @@ export default function NihaiAgUyesiContent({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [endpoint])
 
+  // Realtime: applications veya task_completions değişince anında yenile
+  useRealtimeRefresh(['applications', 'task_completions'], () => fetchData())
+
   const fetchData = async () => {
     try {
       const response = await fetch(endpoint)
@@ -182,17 +186,22 @@ export default function NihaiAgUyesiContent({
       })
     }
 
-    // Sırala: en son aktif olanlar üstte
-    // Öncelik: last_seen_at (topluluk aktivitesi), sonra submitted_at (ağa katılım)
+    // Sıralama: Circle'a katılım tarihi (accepted_invitation_at) öncelikli — en yeni üstte.
+    // Pipeline üyeleri (is_protected=false) için updated_at / submitted_at kullanılır.
+    // last_seen sadece tiebreaker.
+    const joinedTs = (r: any): number =>
+      r.is_protected && r.accepted_invitation_at
+        ? new Date(r.accepted_invitation_at).getTime()
+        : (r.updated_at ? new Date(r.updated_at).getTime() :
+           r.submitted_at ? new Date(r.submitted_at).getTime() : 0)
+
+    const lastSeenTs = (r: any): number =>
+      r.last_seen_at ? new Date(r.last_seen_at).getTime() : 0
+
     items = [...items].sort((a, b) => {
-      const la = String((a as any).last_seen_at || '')
-      const lb = String((b as any).last_seen_at || '')
-      if (la && lb) return lb.localeCompare(la)
-      if (la && !lb) return -1
-      if (!la && lb) return 1
-      const sa = String((a as any).submitted_at || (a as any).created_at || '')
-      const sb = String((b as any).submitted_at || (b as any).created_at || '')
-      return sb.localeCompare(sa)
+      const diff = joinedTs(b) - joinedTs(a)
+      if (diff !== 0) return diff
+      return lastSeenTs(b) - lastSeenTs(a)
     })
 
     return items
@@ -310,33 +319,6 @@ export default function NihaiAgUyesiContent({
         ) : (
           /* Aktif tablo */
           <div className="space-y-4">
-            {/* Tag Dağılımı Kartları */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-              {Object.entries(TAG_CONFIG).map(([key, config]) => {
-                const count = tagDistribution[config.label] || 0
-                return (
-                  <button
-                    key={key}
-                    onClick={() => { setActiveTab(key as TabFilter); setCurrentPage(1) }}
-                    className={`bg-white rounded-lg border p-4 text-left transition-all ${
-                      activeTab === key
-                        ? 'border-amber-300 ring-2 ring-amber-100'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 mb-1">
-                      <div className={`w-2.5 h-2.5 rounded-full ${config.dot}`} />
-                      <span className="text-xs font-medium text-gray-500">{config.label}</span>
-                    </div>
-                    <p className="text-2xl font-bold text-gray-900">{count}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      {data.length > 0 ? `${Math.round((count / data.length) * 100)}%` : '0%'}
-                    </p>
-                  </button>
-                )
-              })}
-            </div>
-
             {/* Tabs + Search */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div className="flex gap-1 bg-white rounded-lg border border-gray-200 p-1 overflow-x-auto">
@@ -379,7 +361,6 @@ export default function NihaiAgUyesiContent({
                   <tr className="border-b border-gray-100 bg-gray-50/50">
                     <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-3">Üye</th>
                     <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-3">E-Posta</th>
-                    <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-3">Telefon</th>
                     <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-3">Atanan Tag</th>
                     <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-3">Nereden Geldi</th>
                   </tr>
@@ -390,16 +371,13 @@ export default function NihaiAgUyesiContent({
                       <tr key={i} className="border-b border-gray-50">
                         <td className="px-6 py-4"><div className="h-4 w-32 bg-gray-200 rounded animate-pulse" /></td>
                         <td className="px-6 py-4"><div className="h-4 w-40 bg-gray-200 rounded animate-pulse" /></td>
-                        <td className="px-6 py-4"><div className="h-4 w-28 bg-gray-200 rounded animate-pulse" /></td>
                         <td className="px-6 py-4"><div className="h-4 w-24 bg-gray-200 rounded animate-pulse" /></td>
-                        <td className="px-6 py-4"><div className="h-4 w-16 bg-gray-200 rounded animate-pulse" /></td>
                         <td className="px-6 py-4"><div className="h-4 w-20 bg-gray-200 rounded animate-pulse" /></td>
-                        <td className="px-6 py-4"><div className="h-4 w-16 bg-gray-200 rounded animate-pulse" /></td>
                       </tr>
                     ))
                   ) : paginatedData.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="text-center py-12 text-gray-400 text-sm">
+                      <td colSpan={4} className="text-center py-12 text-gray-400 text-sm">
                         Kayıt bulunamadı
                       </td>
                     </tr>
@@ -407,7 +385,6 @@ export default function NihaiAgUyesiContent({
                     paginatedData.map((item, idx) => {
                       const name = (item as any).full_name || getField(item, 'Adın Soyadın') || getField(item, 'Ad Soyad') || getField(item, 'İsim') || '—'
                       const email = (item as any).email || getField(item, 'E-Posta Adresin') || getField(item, 'E-Posta') || getField(item, 'Mail') || '—'
-                      const telefon = (item as any).phone || (item as any).circle_phone || getField(item, 'Telefon Numaran') || getField(item, 'Telefon Numarası') || getField(item, 'Telefon') || '—'
                       // applications.tags (TEXT[]) — Circle'dan senkronize edilmiş
                       const itemTags: string[] = Array.isArray((item as any).tags) ? (item as any).tags : []
                       const tag = itemTags[0] || (item as any).main_role || getField(item, 'Atanan Tag') || getField(item, 'Tag') || '—'
@@ -479,9 +456,6 @@ export default function NihaiAgUyesiContent({
                           </td>
                           <td className="px-6 py-4">
                             <span className="text-sm text-gray-600">{email}</span>
-                          </td>
-                          <td className="px-6 py-4">
-                            <span className="text-sm text-gray-600">{telefon}</span>
                           </td>
                           <td className="px-6 py-4">
                             {itemTags.length > 0 ? (

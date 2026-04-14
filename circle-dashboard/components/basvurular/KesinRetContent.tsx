@@ -131,12 +131,11 @@ export default function KesinRetContent() {
       })
     }
 
-    // Sort by name
-    items.sort((a, b) => {
-      const nameA = ((a.full_name || '') || '').toLowerCase()
-      const nameB = ((b.full_name || '') || '').toLowerCase()
-      return sortAsc ? nameA.localeCompare(nameB, 'tr') : nameB.localeCompare(nameA, 'tr')
-    })
+    const tsOf = (r: any) => Math.max(
+      r.updated_at ? new Date(r.updated_at).getTime() : 0,
+      r.submitted_at ? new Date(r.submitted_at).getTime() : 0,
+    )
+    items.sort((a, b) => sortAsc ? tsOf(a) - tsOf(b) : tsOf(b) - tsOf(a))
 
     return items
   }, [data, activeTab, retSebebiFilter, search, sortAsc, dateFrom, dateTo])

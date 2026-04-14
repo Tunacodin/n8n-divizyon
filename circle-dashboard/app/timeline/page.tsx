@@ -70,10 +70,13 @@ export default function TimelinePage() {
     }
   }
 
-  // Group by date
+  // Group by date — gün içinde de ve günler arasında da en yeni üstte
   const grouped = useMemo(() => {
+    const sorted = [...data].sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+    )
     const groups: Record<string, TimelineEntry[]> = {}
-    for (const entry of data) {
+    for (const entry of sorted) {
       const date = new Date(entry.created_at).toLocaleDateString('tr-TR', {
         day: '2-digit', month: 'long', year: 'numeric',
       })
@@ -87,7 +90,7 @@ export default function TimelinePage() {
 
   return (
     <div className="min-h-screen bg-[#FAFBFC]">
-      <div className="bg-white border-b border-gray-100 px-8 py-6">
+      <div className="sticky top-20 z-30 bg-white border-b border-gray-100 px-8 py-6">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Zaman Cizelgesi</h1>

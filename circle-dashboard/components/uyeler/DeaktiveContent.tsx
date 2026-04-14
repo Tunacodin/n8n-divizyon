@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
+import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh'
 // DB field names used directly
 import {
   MagnifyingGlassIcon,
@@ -34,17 +35,19 @@ export default function DeaktiveContent() {
 
   const PER_PAGE = 10
 
-  useEffect(() => {
+  const fetchData = useCallback(() => {
     fetch('/api/applications?status=deaktive')
       .then((r) => r.json())
       .then((res) => {
-        if (res.success) {
-          setData(res.data || [])
-        }
+        if (res.success) setData(res.data || [])
       })
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
+
+  useEffect(() => { fetchData() }, [fetchData])
+
+  useRealtimeRefresh(['applications'], () => fetchData())
 
   const filtered = useMemo(() => {
     let items = [...data]
@@ -83,9 +86,12 @@ export default function DeaktiveContent() {
       })
     }
 
-    items.sort((a, b) => {
-      return (a.full_name || '').toLowerCase().localeCompare((b.full_name || '').toLowerCase(), 'tr')
-    })
+    const tsOf = (r: any) => Math.max(
+      r.updated_at ? new Date(r.updated_at).getTime() : 0,
+      r.last_seen_at ? new Date(r.last_seen_at).getTime() : 0,
+      r.submitted_at ? new Date(r.submitted_at).getTime() : 0,
+    )
+    items.sort((a, b) => tsOf(b) - tsOf(a))
 
     return items
   }, [data, activeTab, search, dateFrom, dateTo])

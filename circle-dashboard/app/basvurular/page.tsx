@@ -162,14 +162,25 @@ function FlowContent() {
   // Henüz işlem yapılmamış statüler (kontrol, basvuru) için submitted_at kullan
   const actionStatuses = useMemo(() => new Set(['kesin_kabul', 'kesin_ret', 'nihai_olmayan', 'nihai_uye', 'deaktive']), [])
 
+  // Belirli bir başvuru için sıralama/gruplama tarihini seç.
+  // Circle'dan gelen korumalı üyelerin updated_at'i batch sync zamanı — kullanılmamalı.
+  // Onlar için Circle'a kabul tarihi (accepted_invitation_at) veya son aktivite kullanılır.
+  const pickDate = (app: AppItem): string => {
+    const p = app as any
+    if (p.is_protected) {
+      return p.accepted_invitation_at || p.last_seen_at || app.updated_at || app.created_at || ''
+    }
+    return actionStatuses.has(app.status)
+      ? (app.updated_at || app.created_at || '')
+      : (app.submitted_at || app.created_at || '')
+  }
+
   // Gün bazlı gruplama
   const groupedByDate = useMemo(() => {
 
     const map = new Map<string, AppItem[]>()
     for (const app of filtered) {
-      const dt = actionStatuses.has(app.status)
-        ? (app.updated_at || app.created_at || '')
-        : (app.submitted_at || app.created_at || '')
+      const dt = pickDate(app)
       const dateKey = dt ? dt.slice(0, 10) : 'tarihsiz'
       if (!map.has(dateKey)) map.set(dateKey, [])
       map.get(dateKey)!.push(app)
@@ -185,11 +196,7 @@ function FlowContent() {
         const d = new Date(dateKey)
         label = d.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric', weekday: 'long' })
       }
-      apps.sort((a, b) => {
-        const aDate = actionStatuses.has(a.status) ? (a.updated_at || a.created_at || '') : (a.submitted_at || a.created_at || '')
-        const bDate = actionStatuses.has(b.status) ? (b.updated_at || b.created_at || '') : (b.submitted_at || b.created_at || '')
-        return bDate.localeCompare(aDate)
-      })
+      apps.sort((a, b) => pickDate(b).localeCompare(pickDate(a)))
       groups.push({ date: dateKey, label, apps })
     }
     return groups
@@ -215,7 +222,7 @@ function FlowContent() {
 
   return (
     <div className="min-h-screen bg-[#FAFBFC]">
-      <div className="bg-white border-b border-gray-100 px-8 pt-6 pb-4">
+      <div className="sticky top-20 z-30 bg-white border-b border-gray-100 px-8 pt-6 pb-4">
         <h1 className="text-xl font-bold text-gray-900 mb-4">Flow</h1>
         <div className="overflow-x-auto">
           <TabBar tabs={tabsWithCounts} activeTab={activeTab} onChange={handleTabChange} />

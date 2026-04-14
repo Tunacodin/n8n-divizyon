@@ -130,11 +130,11 @@ export default function KesinKabulContent() {
       })
     }
 
-    items.sort((a, b) => {
-      const nameA = (a.full_name || '').toLowerCase()
-      const nameB = (b.full_name || '').toLowerCase()
-      return nameA.localeCompare(nameB, 'tr')
-    })
+    const tsOf = (r: any) => Math.max(
+      r.updated_at ? new Date(r.updated_at).getTime() : 0,
+      r.submitted_at ? new Date(r.submitted_at).getTime() : 0,
+    )
+    items.sort((a, b) => tsOf(b) - tsOf(a))
 
     return items
   }, [data, activeTab, search, degerlendirenFilter, dateFrom, dateTo])

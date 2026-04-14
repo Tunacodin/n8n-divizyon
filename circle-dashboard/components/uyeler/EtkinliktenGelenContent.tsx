@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh'
 import { UyeDetailDrawer } from './UyeDetailDrawer'
 import {
   MagnifyingGlassIcon,
@@ -68,7 +69,7 @@ export default function EtkinliktenGelenContent() {
   const [page, setPage] = useState(1)
   const pageSize = 15
 
-  useEffect(() => {
+  const fetchData = useCallback(() => {
     fetch('/api/applications/etkinlikten-gelen')
       .then((r) => r.json())
       .then((res) => {
@@ -81,6 +82,10 @@ export default function EtkinliktenGelenContent() {
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
+
+  useEffect(() => { fetchData() }, [fetchData])
+
+  useRealtimeRefresh(['applications'], () => fetchData())
 
   // Source bazlı dağılım
   const breakdown = useMemo(() => {
@@ -101,7 +106,13 @@ export default function EtkinliktenGelenContent() {
         return name.includes(term) || email.includes(term) || phone.includes(term)
       })
     }
-    return items
+    // Circle'a katılım tarihi öncelikli; tiebreaker: last_seen.
+    const joined = (r: any) => r.accepted_invitation_at ? new Date(r.accepted_invitation_at).getTime() : 0
+    const seen = (r: any) => r.last_seen_at ? new Date(r.last_seen_at).getTime() : 0
+    return [...items].sort((a: any, b: any) => {
+      const d = joined(b) - joined(a)
+      return d !== 0 ? d : seen(b) - seen(a)
+    })
   }, [data, source, search])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))

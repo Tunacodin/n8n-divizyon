@@ -404,17 +404,13 @@ export default function OryantasyonContent() {
       })
     }
 
-    // Kontrol gerekli olanlar önce, sonra en eski
-    items.sort((a, b) => {
-      const priority: Record<string, number> = { deaktive_hazir: 0, kontrol_gerekli: 1, bekleniyor: 2, tamamlandi: 3 }
-      const pa = priority[a._takip.durum] ?? 2
-      const pb = priority[b._takip.durum] ?? 2
-      if (pa !== pb) return pa - pb
-      if (a._gun === null && b._gun === null) return 0
-      if (a._gun === null) return 1
-      if (b._gun === null) return -1
-      return b._gun - a._gun
-    })
+    // En son aktiviteye göre (en yeni üstte)
+    const tsOf = (r: any) => Math.max(
+      r.updated_at ? new Date(r.updated_at).getTime() : 0,
+      r.last_seen_at ? new Date(r.last_seen_at).getTime() : 0,
+      r.submitted_at ? new Date(r.submitted_at).getTime() : 0,
+    )
+    items.sort((a, b) => tsOf(b) - tsOf(a))
 
     return items
   }, [enriched, uyariFilter, sureFilter, search])

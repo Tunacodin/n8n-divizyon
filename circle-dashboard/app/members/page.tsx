@@ -88,7 +88,14 @@ export default function MembersPage() {
       items = items.filter(m => m.name.toLowerCase().includes(q) || m.email.toLowerCase().includes(q))
     }
 
-    items.sort((a, b) => (b.joined_at || '').localeCompare(a.joined_at || ''))
+    const joined = (r: any) =>
+      r.accepted_invitation_at ? new Date(r.accepted_invitation_at).getTime() :
+      r.joined_at ? new Date(r.joined_at).getTime() : 0
+    const seen = (r: any) => r.last_seen_at ? new Date(r.last_seen_at).getTime() : 0
+    items.sort((a: any, b: any) => {
+      const d = joined(b) - joined(a)
+      return d !== 0 ? d : seen(b) - seen(a)
+    })
     return items
   }, [allMembers, sourceFilter, search])
 
@@ -100,7 +107,7 @@ export default function MembersPage() {
   return (
     <div className="min-h-screen bg-[#FAFBFC]">
       {/* Header */}
-      <div className="bg-white border-b border-gray-100 px-8 py-6">
+      <div className="sticky top-20 z-30 bg-white border-b border-gray-100 px-8 py-6">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Circle Üyeleri</h1>
