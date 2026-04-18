@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   XMarkIcon,
@@ -56,10 +56,6 @@ export default function BasvuruDetailModal({ data, onClose }: BasvuruDetailModal
     if (e.key === 'Escape') onClose()
   }, [onClose])
 
-  // Mailchimp subscribe state (must be before early return)
-  const [mcStatus, setMcStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
-  const [mcMessage, setMcMessage] = useState('')
-
   useEffect(() => {
     if (data) {
       document.addEventListener('keydown', handleKeyDown)
@@ -70,13 +66,6 @@ export default function BasvuruDetailModal({ data, onClose }: BasvuruDetailModal
       document.body.style.overflow = ''
     }
   }, [data, handleKeyDown])
-
-  // Reset mailchimp state when a different person is opened
-  const currentEmail = data ? (findFieldValue(data, 'E-Posta Adresin') || '') : ''
-  useEffect(() => {
-    setMcStatus('idle')
-    setMcMessage('')
-  }, [currentEmail])
 
   if (!data) return null
 
@@ -125,84 +114,6 @@ export default function BasvuruDetailModal({ data, onClose }: BasvuruDetailModal
 
   // Exclude "kisisel" category — it's shown in the right profile panel
   const drawerCategories = BASVURU_CATEGORIES.filter(c => c.id !== 'kisisel')
-
-  const handleMailchimpSubscribe = async () => {
-    if (!email) return
-    setMcStatus('loading')
-    setMcMessage('')
-
-    const nameParts = name.trim().split(/\s+/)
-    const firstName = nameParts[0] || ''
-    const lastName = nameParts.slice(1).join(' ') || ''
-    const listId = process.env.NEXT_PUBLIC_MAILCHIMP_AUDIENCE_ID || ''
-
-    if (!listId) {
-      setMcStatus('error')
-      setMcMessage('Audience ID tanımlı değil (.env.local)')
-      return
-    }
-
-    try {
-      const res = await fetch('/api/mailchimp/subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ listId, email, firstName, lastName }),
-      })
-      const data = await res.json()
-
-      if (data.success) {
-        setMcStatus('success')
-        setMcMessage('Eklendi')
-      } else {
-        setMcStatus('error')
-        setMcMessage(data.error || 'Bir hata oluştu')
-      }
-    } catch {
-      setMcStatus('error')
-      setMcMessage('Bağlantı hatası')
-    }
-  }
-
-  const MailchimpButton = () => (
-    <div>
-      <button
-        onClick={handleMailchimpSubscribe}
-        disabled={mcStatus === 'loading' || mcStatus === 'success' || !email}
-        className={`w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-          mcStatus === 'success'
-            ? 'bg-green-50 text-green-700 cursor-default'
-            : mcStatus === 'error'
-              ? 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
-              : mcStatus === 'loading'
-                ? 'bg-gray-100 text-gray-400 cursor-wait'
-                : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
-        }`}
-      >
-        {mcStatus === 'loading' ? (
-          <>
-            <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-            </svg>
-            Ekleniyor...
-          </>
-        ) : mcStatus === 'success' ? (
-          <>
-            <CheckCircleIcon className="w-4 h-4 text-green-600" />
-            Eklendi
-          </>
-        ) : (
-          <>
-            <EnvelopeIcon className="w-4 h-4" />
-            Mailchimp&apos;e Ekle
-          </>
-        )}
-      </button>
-      {mcStatus === 'error' && mcMessage && (
-        <p className="text-xs text-red-600 mt-1.5 text-center">{mcMessage}</p>
-      )}
-    </div>
-  )
 
   // Shared priority checks component
   const PriorityChecks = () => (
@@ -295,11 +206,6 @@ export default function BasvuruDetailModal({ data, onClose }: BasvuruDetailModal
                 {/* Priority Checks */}
                 <PriorityChecks />
 
-                {/* Mailchimp */}
-                <div className="mt-3">
-                  <MailchimpButton />
-                </div>
-
                 {/* Contact */}
                 <div className="flex flex-wrap gap-3 mt-3">
                   {email && (
@@ -369,11 +275,6 @@ export default function BasvuruDetailModal({ data, onClose }: BasvuruDetailModal
 
                 {/* Priority Checks */}
                 <PriorityChecks />
-
-                <div className="border-t border-gray-100 my-4" />
-
-                {/* Mailchimp */}
-                <MailchimpButton />
 
                 <div className="border-t border-gray-100 my-4" />
 

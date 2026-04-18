@@ -5,19 +5,19 @@ Divizyon Acik Inovasyon Agi toplulugunun uye basvurularini yoneten full-stack si
 - **Dashboard**: Next.js 14 (`circle-dashboard/`)
 - **Otomasyon**: n8n workflows
 - **Veri**: Google Sheets (6 adet)
-- **Iletisim**: Resend (eski: Mailchimp)
+- **Iletisim**: Resend
 
 ## Guvenlik Kurallari
 - **ASLA** kullaniciya sormadan HTTP istegi gonderme (webhook, API, test dahil)
 - **ASLA** Circle uyeleri uzerinde yazma/guncelleme/silme/tag atama islemi yapma — Circle API sadece okuma (GET) icin kullanilir
 - Circle Admin Token ve API key'leri aciga cikarma
-- Dis servislere (n8n, Mailchimp, Google) yapilacak her cagri icin onay al
+- Dis servislere (n8n, Resend, Google, Circle) yapilacak her cagri icin onay al
 
 ## ⚠️ KRITIK: Korumalı Üyeler (is_protected = TRUE)
 Circle'dan senkronize edilmiş gerçek topluluk üyeleri `applications` tablosunda **`is_protected = TRUE`** flag'iyle saklanir. Bu kayitlar **ÜRETIM DATASIDIR**, asla test verisi ile karistirilmamalidir.
 
 **Yasak işlemler — protected kayitlar üzerinde HİÇBİR durumda yapılmaz:**
-- ❌ Mail/SMS/bildirim gönderme (Resend, Mailchimp, hiçbir kanal)
+- ❌ Mail/SMS/bildirim gönderme (Resend dahil, hiçbir kanal)
 - ❌ Status değiştirme (changeStatus reddedilir)
 - ❌ Field güncelleme (updateApplication reddedilir)
 - ❌ Silme (DELETE reddedilir)
@@ -54,11 +54,6 @@ n8n-circle/
 │   │       │   ├── stats/     # GET — Istatistikler
 │   │       │   ├── timeline/  # GET — Timeline verisi
 │   │       │   └── ag-uyeleri/ # GET — Ag uyeleri
-│   │       ├── mailchimp/
-│   │       │   ├── templates/ # GET — Template listesi
-│   │       │   ├── send/      # POST — Mail gonder
-│   │       │   ├── subscribe/ # POST — Subscriber ekle
-│   │       │   └── audiences/ # GET — Audience listesi
 │   │       ├── n8n/
 │   │       │   ├── workflows/ # GET — n8n workflow listesi
 │   │       │   └── executions/ # GET — Calisma geçmisi
@@ -83,7 +78,6 @@ n8n-circle/
 │       ├── n8n.ts             # N8nService (webhook trigger)
 │       ├── resend.ts           # Resend mail client
 │       ├── mail-templates.ts  # HTML mail template'leri
-│       ├── mailchimp.ts       # Mailchimp client (eski, artik kullanilmiyor)
 │       └── utils.ts           # Yardimci fonksiyonlar
 ├── n8n-workflow-update-sheet.json  # Import edilecek n8n workflow
 └── CLAUDE.md                  # Bu dosya
@@ -154,7 +148,6 @@ React UI (KontrolDetailModal "Mail Gonder")
 ## Bilinen Sorunlar
 1. Google Service Account konfigure edilmemis — direkt Sheets API kullanilmiyor, n8n proxy var.
 2. Iki ayri n8n client (`lib/n8n-client.ts` ve `lib/n8n.ts`) — ileride birlestirilebilir.
-3. Eski Mailchimp kodu (`lib/mailchimp.ts`, `app/api/mailchimp/`) hala mevcut — artik kullanilmiyor, temizlenebilir.
 
 ## UI / Tasarim Kurallari
 - **Header (Navbar)**: Dark tema (`bg-[#1E1E2E]`), buyuk boyut — `h-20`, `px-10`, nav linkleri `text-base`, `gap-2`, logo `h-7`, avatar `w-9 h-9`, ikon `w-6 h-6`
