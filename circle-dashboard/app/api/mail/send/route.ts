@@ -28,7 +28,7 @@ export async function POST(req: Request) {
     // Toplu gonderim
     if (body.emails && Array.isArray(body.emails)) {
       const batchId = crypto.randomUUID()
-      const results: { email: string; success: boolean; error?: string }[] = []
+      const results: { email: string; success: boolean; error?: string; resend_id?: string }[] = []
 
       const protectedSet = await filterProtectedEmails(body.emails.map((i: { email: string }) => i.email))
 
@@ -50,13 +50,13 @@ export async function POST(req: Request) {
             lastName: item.lastName,
           })
 
-          await sendMail({
+          const sendResult = await sendMail({
             to: item.email,
             subject: item.subject || body.subject || template.subject,
             html,
           })
 
-          results.push({ email: item.email, success: true })
+          results.push({ email: item.email, success: true, resend_id: sendResult?.id })
         } catch (err) {
           results.push({
             email: item.email,
@@ -77,6 +77,7 @@ export async function POST(req: Request) {
           batch_id: batchId,
           status: 'sent',
           sent_by: sentBy,
+          metadata: item.resend_id ? { resend_id: item.resend_id } : null,
         }))
 
         await db.from('mail_logs').insert(logs)
@@ -208,7 +209,7 @@ export async function POST(req: Request) {
       html,
     })
 
-    // Log kaydet
+    // Log kaydet (resend_id metadata'ya — teslim durumu webhook/API ile sorgulanabilir)
     const { data: logData, error: logError } = await db
       .from('mail_logs')
       .insert({
@@ -219,6 +220,7 @@ export async function POST(req: Request) {
         provider: 'resend',
         status: 'sent',
         sent_by: sentBy,
+        metadata: result?.id ? { resend_id: result.id } : null,
       })
       .select()
       .single()
