@@ -1,6 +1,9 @@
-// Karakteristik envanter test skoru (scores JSONB) → Circle member_tag ismi eşlemesi
-// 18 kişilik özelliği → Circle'daki tag adı (member_tags.name ile eşleşir)
+// Karakteristik envanter test skoru → Circle persona tag'leri (leaf + parent).
+// Nihai üye geçişinde otomatik çağrılır. Kurallar: TAG_ASSIGNMENT_RULES.md
 
+import type { createClient } from './supabase'
+
+// Envanter scores anahtari → Circle leaf tag adi
 export const CHARACTER_TAG_MAP: Record<string, string> = {
   birlestirici:    'Birleştirici',
   caliskan:        'Çalışkan',
@@ -22,37 +25,104 @@ export const CHARACTER_TAG_MAP: Record<string, string> = {
   yaratici:        'Yaratıcı',
 }
 
-import type { createClient } from './supabase'
+// Leaf (Circle tag adi) → Parent (Circle tag adi). Deterministik tek esleme.
+export const PARENT_MAP: Record<string, string> = {
+  'Birleştirici':    'Öncü',
+  'Pratik':          'Öncü',
+  'Sistemli':        'Öncü',
+  'İlham Verici':    'Öncü',
+  'Tecrübeli':       'Öncü',
+  'Challenger':      'Meydan Okuyan',
+  'Mantıklı':        'Meydan Okuyan',
+  'Tutkulu':         'Meydan Okuyan',
+  'Yaratıcı':        'Zihin Kaşifi',
+  'İnovatif':        'Zihin Kaşifi',
+  'Geleneksel':      'Zihin Kaşifi',
+  'Çalışkan':        'Hedef Takipçisi',
+  'Titiz':           'Hedef Takipçisi',
+  'Çözümcü':         'Hedef Takipçisi',
+  'Gözlemci':        'Gözcü',
+  'Kendinden Emin':  'Gözcü',
+  'Canlı':           'Gözcü',
+  'Gelecek Odaklı':  'Gözcü',
+}
+
+export type TagCandidate = { tag: string; score: number; count: number }
+
+export type AutoAssignResult = {
+  leaf: string | null
+  parent: string | null
+  added: string[]
+  reason: string
+  candidates?: TagCandidate[]
+}
+
+// Saf seçim mantigi — DB'siz test edilebilir
+export function pickLeafAndParent(
+  scores: Record<string, unknown>,
+  counts: Record<string, number>,
+  existing: Set<string>,
+): { leaf: string | null; parent: string | null; reason: string; candidates: TagCandidate[] } {
+  const leafScores = Object.entries(scores)
+    .map(([k, v]) => ({ key: k, score: typeof v === 'number' ? v : Number(v) || 0 }))
+    .filter((e) => e.score > 0 && CHARACTER_TAG_MAP[e.key])
+    .map((e) => ({ tag: CHARACTER_TAG_MAP[e.key], score: e.score }))
+
+  if (leafScores.length === 0) {
+    return { leaf: null, parent: null, reason: 'Anlamli leaf skoru yok', candidates: [] }
+  }
+
+  const maxScore = Math.max(...leafScores.map((l) => l.score))
+  const maxLeafs = leafScores.filter((l) => l.score === maxScore)
+  const availableMaxLeafs = maxLeafs.filter((l) => !existing.has(l.tag))
+
+  const buildCandidates = (ls: Array<{ tag: string; score: number }>): TagCandidate[] =>
+    ls.map((l) => ({
+      tag: l.tag,
+      score: l.score,
+      count: counts[l.tag] ?? Number.MAX_SAFE_INTEGER,
+    }))
+
+  if (availableMaxLeafs.length === 0) {
+    return {
+      leaf: null,
+      parent: null,
+      reason: "Max skorlu tum leaf'ler kullanicida zaten var",
+      candidates: buildCandidates(maxLeafs),
+    }
+  }
+
+  const candidates = buildCandidates(availableMaxLeafs)
+  candidates.sort((a, b) => {
+    if (a.count !== b.count) return a.count - b.count
+    return a.tag.localeCompare(b.tag, 'tr')
+  })
+  const chosen = candidates[0]
+  const parent = PARENT_MAP[chosen.tag] ?? null
+  const detail = candidates.length > 1 ? ` (${candidates.length} aday arasindan)` : ''
+  return {
+    leaf: chosen.tag,
+    parent,
+    reason: `Skor=${chosen.score}, count=${chosen.count}${detail}`,
+    candidates,
+  }
+}
 
 /**
- * Kullanıcının karakteristik envanter skorlarından, Circle'da en az kullanılan
- * "ağır bastığı" özelliği seçip applications.tags'a ekler.
- *
- * Algoritma:
- *  1. inventory_tests.scores (karakteristik_envanter) → 18 özellik skoru
- *  2. En yüksek N (TOP=5) özelliği seç
- *  3. Her birini CHARACTER_TAG_MAP'ten Circle tag adına çevir
- *  4. member_tags.tagged_members_count en düşük olanı seç
- *  5. applications.tags dizisine ekle (zaten varsa dokunma)
- *
- * Dönüş: { assigned: string | null, reason: string }
+ * Nihai üye geçişinde çağrılır. Max skor + (count min → alfabetik) algoritmasıyla
+ * leaf tag seçer, parent'ını bulur, applications.tags'a ekler.
  */
 export async function autoAssignCharacterTag(
   db: ReturnType<typeof createClient>,
   applicationId: string,
-  opts: { topN?: number } = {},
-): Promise<{ assigned: string | null; reason: string; candidates?: Array<{ tag: string; score: number; count: number }> }> {
-  const topN = opts.topN ?? 5
-
-  // 1) Mevcut tags (zaten kullanıcıya atanmış olanları aday listeden çıkar)
+): Promise<AutoAssignResult> {
   const { data: app } = await db
     .from('applications')
     .select('tags')
     .eq('id', applicationId)
     .single()
-  const existingTags = new Set<string>((app as { tags?: string[] } | null)?.tags || [])
+  const existing = new Set<string>((app as { tags?: string[] } | null)?.tags || [])
 
-  // 2) Karakteristik envanter scores
   const { data: invs } = await db
     .from('inventory_tests')
     .select('scores')
@@ -63,62 +133,54 @@ export async function autoAssignCharacterTag(
 
   const scores = (invs?.[0] as { scores?: Record<string, unknown> } | undefined)?.scores
   if (!scores || typeof scores !== 'object') {
-    return { assigned: null, reason: 'Karakteristik envanter skoru yok — tag atanamaz' }
+    return { leaf: null, parent: null, added: [], reason: 'Karakteristik envanter skoru yok' }
   }
 
-  // 3) Top N özellik
-  const entries = Object.entries(scores)
-    .map(([k, v]) => ({ key: k, score: typeof v === 'number' ? v : Number(v) || 0 }))
-    .filter((e) => e.score > 0 && CHARACTER_TAG_MAP[e.key])
-    .sort((a, b) => b.score - a.score)
-    .slice(0, topN)
+  // Max skorlu leaf adaylarinin count'unu al
+  const allLeafNames = Object.keys(scores)
+    .filter((k) => CHARACTER_TAG_MAP[k])
+    .map((k) => CHARACTER_TAG_MAP[k])
 
-  if (entries.length === 0) {
-    return { assigned: null, reason: 'Anlamlı skor yok' }
+  const counts: Record<string, number> = {}
+  if (allLeafNames.length > 0) {
+    const { data: tagRows } = await db
+      .from('member_tags')
+      .select('name, tagged_members_count')
+      .in('name', allLeafNames)
+    for (const r of (tagRows || []) as Array<{ name: string; tagged_members_count: number }>) {
+      counts[r.name] = r.tagged_members_count ?? 0
+    }
   }
 
-  // 4) Tag adları + Circle'daki count bilgisi
-  const tagNames = entries.map((e) => CHARACTER_TAG_MAP[e.key])
-  const { data: tagRows } = await db
-    .from('member_tags')
-    .select('name, tagged_members_count')
-    .in('name', tagNames)
-
-  const countByName = new Map<string, number>()
-  for (const r of (tagRows || []) as Array<{ name: string; tagged_members_count: number }>) {
-    countByName.set(r.name, r.tagged_members_count ?? 0)
+  const pick = pickLeafAndParent(scores, counts, existing)
+  if (!pick.leaf) {
+    return { leaf: null, parent: null, added: [], reason: pick.reason, candidates: pick.candidates }
   }
 
-  // 5) Aday: mevcutta olmayan + Circle count'u en düşük + skoru en yüksek
-  const candidates = entries
-    .map((e) => ({
-      tag: CHARACTER_TAG_MAP[e.key],
-      score: e.score,
-      count: countByName.get(CHARACTER_TAG_MAP[e.key]) ?? Number.MAX_SAFE_INTEGER,
-    }))
-    .filter((c) => !existingTags.has(c.tag))
+  const added: string[] = []
+  const seen = new Set<string>(existing)
+  const newTags: string[] = Array.from(existing)
+  if (!seen.has(pick.leaf)) { seen.add(pick.leaf); newTags.push(pick.leaf); added.push(pick.leaf) }
+  if (pick.parent && !seen.has(pick.parent)) { seen.add(pick.parent); newTags.push(pick.parent); added.push(pick.parent) }
 
-  if (candidates.length === 0) {
-    return { assigned: null, reason: 'Tüm aday tag\'ler zaten atanmış', candidates: entries.map((e) => ({ tag: CHARACTER_TAG_MAP[e.key], score: e.score, count: countByName.get(CHARACTER_TAG_MAP[e.key]) ?? 0 })) }
+  if (added.length === 0) {
+    return { leaf: pick.leaf, parent: pick.parent, added: [], reason: 'Leaf ve parent zaten atanmis', candidates: pick.candidates }
   }
 
-  // En az Circle sayısı olan; eşitlik durumunda en yüksek kullanıcı skoru
-  candidates.sort((a, b) => (a.count - b.count) || (b.score - a.score))
-  const chosen = candidates[0]
-
-  // 6) applications.tags'a ekle
-  const seen = new Set<string>()
-  const newTags: string[] = []
-  existingTags.forEach((t) => { if (!seen.has(t)) { seen.add(t); newTags.push(t) } })
-  if (!seen.has(chosen.tag)) newTags.push(chosen.tag)
   const { error } = await db
     .from('applications')
     .update({ tags: newTags })
     .eq('id', applicationId)
 
   if (error) {
-    return { assigned: null, reason: `DB update hata: ${error.message}`, candidates }
+    return { leaf: null, parent: null, added: [], reason: `DB update hata: ${error.message}`, candidates: pick.candidates }
   }
 
-  return { assigned: chosen.tag, reason: `Skor=${chosen.score}, Circle üye sayısı=${chosen.count}`, candidates }
+  return {
+    leaf: pick.leaf,
+    parent: pick.parent,
+    added,
+    reason: pick.reason,
+    candidates: pick.candidates,
+  }
 }

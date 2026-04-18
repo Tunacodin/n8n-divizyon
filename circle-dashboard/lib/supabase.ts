@@ -220,19 +220,19 @@ export async function changeStatus(
     newValues: { status: params.toStatus, ...params.extraUpdates },
   })
 
-  // 7. Nihai üye'ye geçince otomatik tag atama (karakter + ağ dengesi)
-  let autoTag: { assigned: string | null; reason: string } | null = null
+  // 7. Nihai üye'ye geçince otomatik tag atama (leaf + parent, bkz: TAG_ASSIGNMENT_RULES.md)
+  let autoTag: { leaf: string | null; parent: string | null; added: string[]; reason: string } | null = null
   if (params.toStatus === 'nihai_uye' && fromStatus !== 'nihai_uye') {
     try {
       const { autoAssignCharacterTag } = await import('./character-tags')
       autoTag = await autoAssignCharacterTag(db, params.applicationId)
-      if (autoTag.assigned) {
+      if (autoTag.added.length > 0) {
         await withAuditLog(db, {
           entityType: 'application',
           entityId: params.applicationId,
           action: 'auto_tag_assigned',
           actor: 'system',
-          newValues: { tag: autoTag.assigned, reason: autoTag.reason },
+          newValues: { leaf: autoTag.leaf, parent: autoTag.parent, added: autoTag.added, reason: autoTag.reason },
         })
       }
     } catch (e) {

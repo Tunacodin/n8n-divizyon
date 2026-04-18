@@ -1,5 +1,8 @@
 # Divizyon Basvuru Yonetim Sistemi
 
+> **Alt dokumanlar** (tag/mail/sure ile ilgili karar oncesi oku):
+> - [`TAG_ASSIGNMENT_RULES.md`](./TAG_ASSIGNMENT_RULES.md) — Nihai uye geciste otomatik tag atama algoritmasi, hiyerarsi, test senaryolari
+
 ## Proje Ozeti
 Divizyon Acik Inovasyon Agi toplulugunun uye basvurularini yoneten full-stack sistem.
 - **Dashboard**: Next.js 14 (`circle-dashboard/`)

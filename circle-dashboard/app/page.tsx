@@ -341,7 +341,7 @@ export default function DashboardPage() {
 
       const lbl = ALL_STATUSES.find(s => s.key === toStatus)?.label || toStatus
       const mailMsg = wantsMail ? ' + mail gonderildi' : ''
-      const tagMsg = r.autoTag?.assigned ? ` + tag: ${r.autoTag.assigned}` : ''
+      const tagMsg = r.autoTag?.added?.length ? ` + tag: ${r.autoTag.added.join(', ')}` : ''
       setToast({ type: 'success', text: `${app.full_name} → ${lbl}${mailMsg}${tagMsg}` })
       setAllApps(prev => prev.map(a => a.id === app.id ? { ...a, status: toStatus, reviewer: reviewer.trim(), review_note: reviewNote.trim() } : a))
       setSelectedApp(null)
