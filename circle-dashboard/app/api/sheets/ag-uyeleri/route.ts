@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { fetchGoogleSheet } from '@/lib/gviz'
 
-const AG_UYELERI_SHEET_ID = '1i1zjnCEMYkfIMv8Pjoda1eLHoWKC76YCik8B5LVCP-0'
+const AG_UYELERI_SHEET_ID = process.env.SHEET_NIHAI_OLMAYAN ?? '1i1zjnCEMYkfIMv8Pjoda1eLHoWKC76YCik8B5LVCP-0'
 
 export async function GET() {
   try {

@@ -1,13 +1,13 @@
 export const SHEETS: Record<string, string> = {
-  basvuru: '1ldHhZ6H4NqK3ILhhL3tzbFzHLp1YrCYux5Vmg4zL8qE',
-  kontrol: '16vorLiEB5_vyqOCuACFChFkVHnYZtCoIDIfIcT6POd8',
-  yasKucuk: '1hCc4-lcOs9eYv2loguVY1HWW5ve1OuX9ohN65WkN_Jc',
-  kesinRet: '16B9ZjzIHL02rkiZHm7WeLj2oaq-SBRpjqyvAiwULFX0',
-  nihaiOlmayan: '1i1zjnCEMYkfIMv8Pjoda1eLHoWKC76YCik8B5LVCP-0',
-  kesinKabul: '1MDGfncckImBlf1N70_0FmJqalYOkTYR8dOPX17tYtLo',
-  etkinliktenGelenler: '1fkQ8A-qUf41smNDgxKvR7wwaZs-xx-UOpZW3fti1rtQ',
-  deaktive: '1bTjcaH-J1RYtUqM9_ER4ib7-MBC1Vjbo0k0nJheVDBY',
-  nihaiAgUyesi: '1a8nzWFLIuulbAoFAFW_HaexwvXVKtUD_ESbEExIBycE',
+  basvuru:              process.env.SHEET_BASVURU        ?? '1ldHhZ6H4NqK3ILhhL3tzbFzHLp1YrCYux5Vmg4zL8qE',
+  kontrol:              process.env.SHEET_KONTROL         ?? '16vorLiEB5_vyqOCuACFChFkVHnYZtCoIDIfIcT6POd8',
+  yasKucuk:             process.env.SHEET_YAS_KUCUK       ?? '1hCc4-lcOs9eYv2loguVY1HWW5ve1OuX9ohN65WkN_Jc',
+  kesinRet:             process.env.SHEET_KESIN_RET       ?? '16B9ZjzIHL02rkiZHm7WeLj2oaq-SBRpjqyvAiwULFX0',
+  nihaiOlmayan:         process.env.SHEET_NIHAI_OLMAYAN   ?? '1i1zjnCEMYkfIMv8Pjoda1eLHoWKC76YCik8B5LVCP-0',
+  kesinKabul:           process.env.SHEET_KESIN_KABUL     ?? '1MDGfncckImBlf1N70_0FmJqalYOkTYR8dOPX17tYtLo',
+  etkinliktenGelenler:  process.env.SHEET_ETKINLIK        ?? '1fkQ8A-qUf41smNDgxKvR7wwaZs-xx-UOpZW3fti1rtQ',
+  deaktive:             process.env.SHEET_DEAKTIVE        ?? '1bTjcaH-J1RYtUqM9_ER4ib7-MBC1Vjbo0k0nJheVDBY',
+  nihaiAgUyesi:         process.env.SHEET_NIHAI_AG_UYESI  ?? '1a8nzWFLIuulbAoFAFW_HaexwvXVKtUD_ESbEExIBycE',
 }
 
 function parseGoogleDate(dateStr: string): string {
