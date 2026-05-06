@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient, withAuditLog, isProtectedApplication, PROTECTED_BLOCK_MSG } from '@/lib/supabase'
+import { requirePermission } from '@/lib/permissions'
 
 const VALID_FORM_TYPES = ['karakteristik_envanter', 'disipliner_envanter'] as const
 
@@ -36,6 +37,9 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 // Body: { warned_by, reason?, form_type? }
 // form_type: 'karakteristik_envanter' | 'disipliner_envanter' | null (genel uyari)
 export async function POST(req: Request, { params }: { params: { id: string } }) {
+  const denied = await requirePermission(req, 'mutate:warnings')
+  if (denied) return denied
+
   const db = createClient()
 
   try {

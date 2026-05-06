@@ -1,9 +1,13 @@
 import { NextResponse } from 'next/server'
 import { createClient, changeStatus, type ApplicationStatus } from '@/lib/supabase'
+import { requirePermission } from '@/lib/permissions'
 
 // PATCH /api/applications/[id]/status
 // Body: { to_status, changed_by, reason?, extra_updates? }
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+  const denied = await requirePermission(req, 'mutate:application')
+  if (denied) return denied
+
   const db = createClient()
 
   try {

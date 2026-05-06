@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { createClient, withAuditLog } from '@/lib/supabase'
+import { createClient, withAuditLog, isProtectedApplication, PROTECTED_BLOCK_MSG } from '@/lib/supabase'
+import { requirePermission } from '@/lib/permissions'
 
 // GET /api/applications/[id]/evaluations
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
@@ -24,6 +25,9 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 // POST /api/applications/[id]/evaluations
 // Body: { reviewer, decision, notes? }
 export async function POST(req: Request, { params }: { params: { id: string } }) {
+  const denied = await requirePermission(req, 'mutate:evaluations')
+  if (denied) return denied
+
   const db = createClient()
 
   try {
@@ -34,6 +38,10 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         { success: false, error: 'reviewer ve decision zorunlu' },
         { status: 400 }
       )
+    }
+
+    if (await isProtectedApplication(db, params.id)) {
+      return NextResponse.json({ success: false, error: PROTECTED_BLOCK_MSG }, { status: 403 })
     }
 
     const { data, error } = await db

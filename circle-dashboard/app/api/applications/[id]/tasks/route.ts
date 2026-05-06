@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient, withAuditLog, PROTECTED_BLOCK_MSG } from '@/lib/supabase'
+import { requirePermission } from '@/lib/permissions'
 // Task completion endpoint - verified_by column used
 
 const VALID_TASK_TYPES = [
@@ -16,6 +17,9 @@ const VALID_DISCIPLINES = ['kreatif_yapim', 'dijital_deneyim', 'dijital_urun'] a
 // Body: { task_type, completed?, completed_by?, discipline?, manual_note?, source? }
 // source: 'admin_manual' | 'dashboard' | 'typeform' (audit icin etiket)
 export async function POST(req: Request, { params }: { params: { id: string } }) {
+  const denied = await requirePermission(req, 'mutate:tasks')
+  if (denied) return denied
+
   const db = createClient()
 
   try {

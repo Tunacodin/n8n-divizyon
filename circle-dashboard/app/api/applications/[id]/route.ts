@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient, updateApplication } from '@/lib/supabase'
+import { requirePermission } from '@/lib/permissions'
 
 // GET /api/applications/[id]
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
@@ -47,6 +48,9 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 
 // PATCH /api/applications/[id]
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+  const denied = await requirePermission(req, 'mutate:application')
+  if (denied) return denied
+
   const db = createClient()
 
   try {
@@ -79,6 +83,9 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
 // DELETE /api/applications/[id] (soft delete — deaktive statuse tasi)
 export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+  const denied = await requirePermission(req, 'mutate:application')
+  if (denied) return denied
+
   const db = createClient()
 
   try {

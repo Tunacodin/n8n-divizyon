@@ -49,7 +49,7 @@ export async function POST(req: Request) {
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY)
   const { data: user } = await supabase
     .from('admin_users')
-    .select('email, password_hash, password_salt')
+    .select('email, password_hash, password_salt, role')
     .eq('email', email)
     .maybeSingle()
 
@@ -69,7 +69,9 @@ export async function POST(req: Request) {
     .update({ last_login_at: new Date().toISOString() })
     .eq('email', email)
 
-  const tok = await createSession({ email, role: 'admin', mode: 'email' })
+  // Role default 'admin' (migration 018 kolonu ekledi). Eger DB'de NULL ise admin kabul et.
+  const role = (user as { role?: string | null }).role || 'admin'
+  const tok = await createSession({ email, role, mode: 'email' })
   const res = NextResponse.json({ success: true })
   res.cookies.set('admin_session', tok, {
     httpOnly: true,

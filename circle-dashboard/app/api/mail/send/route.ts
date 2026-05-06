@@ -2,11 +2,15 @@ import { NextResponse } from 'next/server'
 import { createClient, withAuditLog, PROTECTED_BLOCK_MSG } from '@/lib/supabase'
 import { sendMail } from '@/lib/resend'
 import { getTemplate } from '@/lib/mail-templates'
+import { requirePermission } from '@/lib/permissions'
 
 // POST /api/mail/send
 // Body: { email, firstName, lastName, template_id, subject?, sent_by? }
 // Toplu: { emails: [{email, firstName, template_id}], sent_by? }
 export async function POST(req: Request) {
+  const denied = await requirePermission(req, 'mutate:mail')
+  if (denied) return denied
+
   const db = createClient()
 
   try {
@@ -201,13 +205,30 @@ export async function POST(req: Request) {
       lastName: body.lastName,
     })
 
-    // Resend ile gonder
+    // Resend ile gonder (transient hatalarda lib/resend.ts retry yapar)
     const mailSubject = body.subject || template.subject
-    const result = await sendMail({
-      to: body.email,
-      subject: mailSubject,
-      html,
-    })
+    let result: { id?: string } | null | undefined
+    try {
+      result = await sendMail({
+        to: body.email,
+        subject: mailSubject,
+        html,
+      })
+    } catch (sendErr) {
+      // Retry exhausted veya permanent error — failed log kaydet
+      const errMsg = sendErr instanceof Error ? sendErr.message : 'gonderim hatasi'
+      await db.from('mail_logs').insert({
+        application_id: applicationId,
+        email_to: body.email.toLowerCase().trim(),
+        subject: mailSubject,
+        template_name: body.template_id,
+        provider: 'resend',
+        status: 'failed',
+        sent_by: sentBy,
+        metadata: { error: errMsg },
+      })
+      throw sendErr
+    }
 
     // Log kaydet (resend_id metadata'ya — teslim durumu webhook/API ile sorgulanabilir)
     const { data: logData, error: logError } = await db
