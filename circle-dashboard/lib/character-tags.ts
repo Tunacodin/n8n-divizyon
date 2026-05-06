@@ -49,12 +49,19 @@ export const PARENT_MAP: Record<string, string> = {
 
 export type TagCandidate = { tag: string; score: number; count: number }
 
+export type CircleSyncStatus = 'skipped_protected' | 'skipped_no_circle_id' | 'skipped_disabled' | 'ok' | 'partial' | 'failed'
+
 export type AutoAssignResult = {
   leaf: string | null
   parent: string | null
   added: string[]
   reason: string
   candidates?: TagCandidate[]
+  circleSync?: {
+    status: CircleSyncStatus
+    addedTagIds?: number[]
+    error?: string
+  }
 }
 
 // Saf seçim mantigi — DB'siz test edilebilir
@@ -118,10 +125,12 @@ export async function autoAssignCharacterTag(
 ): Promise<AutoAssignResult> {
   const { data: app } = await db
     .from('applications')
-    .select('tags')
+    .select('tags, is_protected, circle_id')
     .eq('id', applicationId)
     .single()
   const existing = new Set<string>((app as { tags?: string[] } | null)?.tags || [])
+  const isProtected = Boolean((app as { is_protected?: boolean } | null)?.is_protected)
+  const circleId = (app as { circle_id?: number | null } | null)?.circle_id ?? null
 
   const { data: invs } = await db
     .from('inventory_tests')
@@ -176,11 +185,83 @@ export async function autoAssignCharacterTag(
     return { leaf: null, parent: null, added: [], reason: `DB update hata: ${error.message}`, candidates: pick.candidates }
   }
 
+  // Circle yansima: SADECE is_protected=false (sheet/basvurudan eklenen yeni
+  // kullanici, henuz Circle'a katilmamis) kayitlarda yapilir. Mevcut Circle
+  // uyelerinde Circle API yazma yasak (CLAUDE.md).
+  const circleSync = await syncTagsToCircle({
+    db,
+    isProtected,
+    circleId,
+    tagNames: added,
+  })
+
   return {
     leaf: pick.leaf,
     parent: pick.parent,
     added,
     reason: pick.reason,
     candidates: pick.candidates,
+    circleSync,
+  }
+}
+
+async function syncTagsToCircle(params: {
+  db: ReturnType<typeof createClient>
+  isProtected: boolean
+  circleId: number | null
+  tagNames: string[]
+}): Promise<AutoAssignResult['circleSync']> {
+  if (params.isProtected) {
+    return { status: 'skipped_protected' }
+  }
+  if (!params.circleId) {
+    // is_protected=false ama circle_id de yok — uye henuz Circle'a katilmamis
+    // (mantikli durum, sheet'ten eklendi ama davet kabul edilmedi). Tag yine
+    // applications.tags'a yazildi; Circle'da senkronizasyon icin uyenin once
+    // Circle uyesi olmasi gerekir.
+    return { status: 'skipped_no_circle_id' }
+  }
+  if (params.tagNames.length === 0) {
+    return { status: 'ok', addedTagIds: [] }
+  }
+
+  // Lazy import — circle modulunu sadece gerektiginde yukle
+  const { isCircleWriteEnabled, addMemberTags, getMemberTagIds } = await import('./circle')
+  if (!isCircleWriteEnabled()) {
+    return { status: 'skipped_disabled', error: 'Circle_API_KEY env yok' }
+  }
+
+  // Tag adlarini Circle tag id'lerine cevir (member_tags tablosundan)
+  const { data: tagRows } = await params.db
+    .from('member_tags')
+    .select('id, name')
+    .in('name', params.tagNames)
+  const desiredTagIds = ((tagRows || []) as Array<{ id: number; name: string }>).map((r) => r.id)
+  const foundNames = new Set(((tagRows || []) as Array<{ id: number; name: string }>).map((r) => r.name))
+  const missing = params.tagNames.filter((n) => !foundNames.has(n))
+
+  if (desiredTagIds.length === 0) {
+    return {
+      status: 'failed',
+      error: `member_tags tablosunda tag id bulunamadi: ${params.tagNames.join(', ')} (sync-circle-tags.py calistirilmamis olabilir)`,
+    }
+  }
+
+  // Mevcut Circle tag id'lerini cek (replace yapmamak icin tum tag listesini
+  // koruyoruz, sadece eklemek istedigimiz tag'leri merge ediyoruz)
+  const existingIds = await getMemberTagIds(params.circleId)
+  if (existingIds === null) {
+    return { status: 'failed', error: 'Circle uyesi getirilemedi (mevcut tag listesi alinamadi)' }
+  }
+
+  const result = await addMemberTags(params.circleId, desiredTagIds, existingIds)
+  if (!result.ok) {
+    return { status: 'failed', error: result.error || `HTTP ${result.status}` }
+  }
+
+  return {
+    status: missing.length > 0 ? 'partial' : 'ok',
+    addedTagIds: desiredTagIds,
+    error: missing.length > 0 ? `Eslesmeyen tag adlari: ${missing.join(', ')}` : undefined,
   }
 }

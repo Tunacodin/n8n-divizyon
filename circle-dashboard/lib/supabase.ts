@@ -232,7 +232,13 @@ export async function changeStatus(
           entityId: params.applicationId,
           action: 'auto_tag_assigned',
           actor: 'system',
-          newValues: { leaf: autoTag.leaf, parent: autoTag.parent, added: autoTag.added, reason: autoTag.reason },
+          newValues: {
+            leaf: autoTag.leaf,
+            parent: autoTag.parent,
+            added: autoTag.added,
+            reason: autoTag.reason,
+            circle_sync: (autoTag as { circleSync?: unknown }).circleSync,
+          },
         })
       }
     } catch (e) {
