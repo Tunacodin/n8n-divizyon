@@ -162,19 +162,31 @@ export async function POST(req: Request) {
     let matchedExisting = 0
     let insertedEvent = 0
     let enrichedExisting = 0
+    let markedRemoved = 0
+    let unmarkedRemoved = 0
     const errors: string[] = []
+    const seenCircleIds = new Set<number>()
+    const syncStartedAt = new Date().toISOString()
 
     for (const m of members) {
       if (!m.id) continue
+      seenCircleIds.add(m.id)
 
       // Zaten sync edilmiş → sadece enrichment'ı güncelle (avatar/bio/location vs.)
       if (existingIds.has(m.id)) {
         const enrichment = enrichFromMember(m)
         const hasAnyValue = Object.values(enrichment).some(v => v != null)
-        if (hasAnyValue) {
+        const updates: Record<string, unknown> = {
+          ...enrichment,
+          circle_last_seen_in_sync_at: syncStartedAt,
+          // Eger daha once "Circle'dan ayrildi" isaretlenmisse, geri donmus
+          // olabilir — iki yonlu de tutarli olsun diye temizle
+          circle_removed_at: null,
+        }
+        if (hasAnyValue || true) {
           const { error } = await db
             .from('applications')
-            .update(enrichment)
+            .update(updates)
             .eq('circle_id', m.id)
           if (error) errors.push(`enrich ${m.id}: ${error.message}`)
           else enrichedExisting++
@@ -217,6 +229,51 @@ export async function POST(req: Request) {
       }
     }
 
+    // Ters yon: DB'de protected/circle_id'li ama bu sync'te Circle'dan
+    // gelmeyen kayitlari "ayrilmis" olarak isaretle. Sadece tam liste
+    // (50 sayfaya kadar) cektigimiz icin bu guvenli — pagination kesilmis
+    // olsaydi false-positive olusurdu, asagidaki esik bunu engeller.
+    //
+    // Esik: Circle'dan en az 50 uye geldiyse reverse-mark calistir. Daha
+    // azinda (bos yanit / hata / rate-limit kismi pagination) atla.
+    if (members.length >= 50) {
+      const { data: protectedAll } = await db
+        .from('applications')
+        .select('id, circle_id, circle_removed_at')
+        .eq('is_protected', true)
+        .not('circle_id', 'is', null)
+
+      const toMarkRemoved: string[] = []
+      const toUnmark: string[] = []
+
+      for (const r of protectedAll || []) {
+        const cid = (r as { circle_id: number }).circle_id
+        const removedAt = (r as { circle_removed_at: string | null }).circle_removed_at
+        if (!seenCircleIds.has(cid) && !removedAt) {
+          toMarkRemoved.push((r as { id: string }).id)
+        } else if (seenCircleIds.has(cid) && removedAt) {
+          toUnmark.push((r as { id: string }).id)
+        }
+      }
+
+      if (toMarkRemoved.length > 0) {
+        const { error } = await db
+          .from('applications')
+          .update({ circle_removed_at: syncStartedAt })
+          .in('id', toMarkRemoved)
+        if (error) errors.push(`mark_removed: ${error.message}`)
+        else markedRemoved = toMarkRemoved.length
+      }
+      if (toUnmark.length > 0) {
+        const { error } = await db
+          .from('applications')
+          .update({ circle_removed_at: null })
+          .in('id', toUnmark)
+        if (error) errors.push(`unmark_removed: ${error.message}`)
+        else unmarkedRemoved = toUnmark.length
+      }
+    }
+
     return NextResponse.json({
       success: true,
       total_circle_members: members.length,
@@ -224,6 +281,8 @@ export async function POST(req: Request) {
       enriched_existing: enrichedExisting,
       matched_existing: matchedExisting,
       inserted_event: insertedEvent,
+      marked_removed: markedRemoved,
+      unmarked_removed: unmarkedRemoved,
       errors,
     })
   } catch (error: unknown) {
