@@ -106,9 +106,30 @@ export async function createSnapshot(
 
   if (!app) return null
 
+  // Iliskili child tablolari da snapshot'a dahil et — rollback sirasinda
+  // bagimli verilerin (degerlendirme, uyari, gorev, mail) o anki halini
+  // gorebiliyor olmamiz icin. Restore mantigi şu an sadece parent (app)
+  // alanlarini geri aliyor; child'lar audit/history amacli saklaniyor.
+  const [tasks, warnings, evaluations, mailLogs] = await Promise.all([
+    db.from('task_completions').select('*').eq('application_id', applicationId),
+    db.from('warnings').select('*').eq('application_id', applicationId),
+    db.from('evaluations').select('*').eq('application_id', applicationId),
+    db.from('mail_logs').select('*').eq('application_id', applicationId),
+  ])
+
+  const fullSnapshot = {
+    ...app,
+    _related: {
+      tasks: tasks.data || [],
+      warnings: warnings.data || [],
+      evaluations: evaluations.data || [],
+      mail_logs: mailLogs.data || [],
+    },
+  }
+
   const { error } = await db.from('application_snapshots').insert({
     application_id: applicationId,
-    snapshot: app,
+    snapshot: fullSnapshot,
     trigger_action: triggerAction,
     created_by: createdBy,
   })
@@ -340,8 +361,9 @@ export async function rollbackApplication(
     return { success: false, error: PROTECTED_BLOCK_MSG }
   }
 
-  // Snapshot'tan restore et (id, created_at haric)
-  const { id: _id, created_at: _ca, ...restoreData } = snapshotData
+  // Snapshot'tan restore et (id, created_at, _related haric — _related child
+  // tablo verisi audit amacli; restore'da uygulanmaz)
+  const { id: _id, created_at: _ca, _related: _rel, ...restoreData } = snapshotData
   await db.from('applications').update(restoreData).eq('id', applicationId)
 
   // Status degistiyse history ekle
