@@ -66,6 +66,8 @@ export async function GET(req: Request) {
   const from = searchParams.get('from')
   const to = searchParams.get('to')
   const search = searchParams.get('search')
+  // Default: protected (Circle uyesi) kayitlarin aktivitesini gizle. ?include_protected=true ile gosterilebilir.
+  const includeProtected = searchParams.get('include_protected') === 'true'
 
   try {
     const offset = (page - 1) * limit
@@ -109,16 +111,24 @@ export async function GET(req: Request) {
     const entityIds = Array.from(new Set(logs.map((l: any) => l.entity_id).filter(Boolean)))
     const { data: apps } = await db
       .from('applications')
-      .select('id, full_name, email, status')
+      .select('id, full_name, email, status, is_protected')
       .in('id', entityIds)
 
-    const appMap = new Map<string, { full_name: string; email: string; status: string }>()
+    const appMap = new Map<string, { full_name: string; email: string; status: string; is_protected?: boolean }>()
     for (const app of apps || []) {
       appMap.set(app.id, app)
     }
 
+    // 2.5. Protected (Circle uyesi) kayitlarin loglarini filtrele
+    const filteredLogs = includeProtected
+      ? logs
+      : logs.filter((l: any) => {
+          const a = appMap.get(l.entity_id)
+          return !a?.is_protected
+        })
+
     // 3. Aktivite kayitlarini zenginlestir
-    const activities = logs.map((log: any) => {
+    const activities = filteredLogs.map((log: any) => {
       const app = appMap.get(log.entity_id)
       const personName =
         app?.full_name ||
@@ -153,9 +163,14 @@ export async function GET(req: Request) {
       )
     }
 
+    // Total: protected filter veya search uygulandiginda yaklasik (post-filter sayfa
+     // kapsami); aksi halde DB'den gelen exact count. Pagination tutarsizliklarini
+     // onlemek icin protected kayitlar sayfa basina cikarildiktan sonra count duser.
+    const total = (search || !includeProtected) ? filtered.length : (count || 0)
+
     return NextResponse.json({
       success: true,
-      total: search ? filtered.length : (count || 0),
+      total,
       page,
       limit,
       data: filtered,
