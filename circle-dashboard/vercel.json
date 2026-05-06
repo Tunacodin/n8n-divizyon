@@ -1,0 +1,17 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [
+    {
+      "path": "/api/cron/check-deadlines",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/notifications",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/circle-sync",
+      "schedule": "0 * * * *"
+    }
+  ]
+}
