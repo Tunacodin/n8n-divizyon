@@ -1,12 +1,11 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase'
+import { prisma } from '@/lib/prisma'
 
-// Circle admin token (V1 sheet endpoint'leri için)
 const CIRCLE_KEY = process.env.Circle_API_KEY_V1 || process.env.Circle_API_KEY || ''
 const CIRCLE_BASE = 'https://app.circle.so/api/v1'
 const COMMUNITY_ID = Number(process.env.CIRCLE_COMMUNITY_ID || '405377')
 
-async function circleGet<T = any>(path: string): Promise<T> {
+async function circleGet<T = unknown>(path: string): Promise<T> {
   const res = await fetch(`${CIRCLE_BASE}${path}`, {
     headers: { Authorization: `Token ${CIRCLE_KEY}`, 'User-Agent': 'circle-sync/1.0' },
     cache: 'no-store',
@@ -30,9 +29,8 @@ type CircleMember = {
   instagram_url?: string
   website_url?: string
   flattened_profile_fields?: Record<string, unknown>
-  // Aktivite alanları
   active?: boolean
-  activity_score?: unknown  // number | {} | null — Circle tutarsız döner
+  activity_score?: unknown
   last_seen_at?: string
   profile_confirmed_at?: string
   accepted_invitation?: string
@@ -41,7 +39,6 @@ type CircleMember = {
   topics_count?: unknown
 }
 
-// Türkçe tarih 'DD.MM.YYYY' → ISO string
 function trDateToIso(raw: unknown): string | null {
   if (!raw) return null
   const s = String(raw).trim()
@@ -52,7 +49,6 @@ function trDateToIso(raw: unknown): string | null {
   return isNaN(dt.getTime()) ? null : dt.toISOString().slice(0, 10)
 }
 
-// Circle'dan gelen alanlardan applications için zenginleştirme
 function enrichFromMember(m: CircleMember) {
   const flat = (m.flattened_profile_fields || {}) as Record<string, unknown>
   const asString = (v: unknown): string | null => {
@@ -72,12 +68,10 @@ function enrichFromMember(m: CircleMember) {
     return null
   }
 
-  // Circle profile_fields → applications kolonlarına map
   const birthRaw = asString(flat.dogumtarihi) || asString(flat.birth_date)
-  const birthIso = birthRaw ? trDateToIso(birthRaw) : null
+  void trDateToIso(birthRaw) // birthIso parsed but not stored separately
 
   return {
-    // Profil ve sosyal (mevcut)
     avatar_url: m.avatar_url || null,
     bio: m.bio || asString(flat.bio) || null,
     location: m.location || asString(flat.location) || null,
@@ -85,20 +79,18 @@ function enrichFromMember(m: CircleMember) {
     instagram_url: m.instagram_url || null,
     website_url: m.website_url || asString(flat.website) || null,
     circle_headline: m.headline || asString(flat.headline) || null,
-    // Aktivite (yeni) — Circle bazı sayısal alanları {} olarak dönüyor, güvenli cast
     activity_score: asInt(m.activity_score),
-    last_seen_at: m.last_seen_at || null,
-    profile_confirmed_at: m.profile_confirmed_at || null,
+    last_seen_at: m.last_seen_at ? new Date(m.last_seen_at) : null,
+    profile_confirmed_at: m.profile_confirmed_at ? new Date(m.profile_confirmed_at) : null,
     accepted_invitation_at: m.accepted_invitation
-      ? new Date(m.accepted_invitation.replace(' UTC', 'Z').replace(' ', 'T')).toISOString()
+      ? new Date(m.accepted_invitation.replace(' UTC', 'Z').replace(' ', 'T'))
       : null,
     circle_active: m.active ?? null,
     circle_posts_count: asInt(m.posts_count) ?? 0,
     circle_comments_count: asInt(m.comments_count) ?? 0,
     circle_topics_count: asInt(m.topics_count) ?? 0,
-    // Profil alanları (ayrı kolonlar — başvurudan gelenleri override etme)
     circle_company: asString(flat.company) || null,
-    circle_disciplines: asArray(flat.disiplin),
+    circle_disciplines: asArray(flat.disiplin) || [],
     circle_birth_date: birthRaw || null,
     circle_university: asString(flat.universite) || null,
     circle_department: asString(flat.bolum) || null,
@@ -110,7 +102,7 @@ async function fetchAllMembers(): Promise<CircleMember[]> {
   const out: CircleMember[] = []
   for (let p = 1; p < 50; p++) {
     const data = await circleGet<CircleMember[] | { community_members?: CircleMember[] }>(
-      `/community_members?community_id=${COMMUNITY_ID}&per_page=100&page=${p}`
+      `/community_members?community_id=${COMMUNITY_ID}&per_page=100&page=${p}`,
     )
     const recs = Array.isArray(data) ? data : data.community_members || []
     if (!recs.length) break
@@ -120,41 +112,33 @@ async function fetchAllMembers(): Promise<CircleMember[]> {
   return out
 }
 
-// POST /api/circle-sync — n8n cron buraya vurur
-// Yeni Circle üyelerini yakalar, applications'a yazar.
-// Email match var (başvuru sheet'ten geldi) → circle_existing_match, mevcut status korunur
-// Email match yok → etkinlik + circle_event
+// POST /api/circle-sync
 export async function POST(req: Request) {
   if (!CIRCLE_KEY) {
     return NextResponse.json({ success: false, error: 'Circle_API_KEY eksik' }, { status: 500 })
   }
 
-  // Basit shared secret guard (opsiyonel)
   const authHeader = req.headers.get('x-sync-secret')
   const expected = process.env.CIRCLE_SYNC_SECRET
   if (expected && authHeader !== expected) {
     return NextResponse.json({ success: false, error: 'unauthorized' }, { status: 401 })
   }
 
-  const db = createClient()
-
   try {
     const members = await fetchAllMembers()
 
-    // Mevcut circle_id'leri al — idempotent sync
-    const { data: existing } = await db
-      .from('applications')
-      .select('circle_id')
-      .not('circle_id', 'is', null)
-    const existingIds = new Set((existing || []).map((r: { circle_id: number }) => r.circle_id))
+    const existing = await prisma.applications.findMany({
+      where: { circle_id: { not: null } },
+      select: { circle_id: true },
+    })
+    const existingIds = new Set(existing.map((r) => r.circle_id).filter((v) => v != null) as number[])
 
-    // Applications email map (applications.is_protected=false olanlar = başvurudan gelmiş)
-    const { data: existingApps } = await db
-      .from('applications')
-      .select('id, email')
-      .eq('is_protected', false)
+    const existingApps = await prisma.applications.findMany({
+      where: { is_protected: false },
+      select: { id: true, email: true },
+    })
     const byEmail = new Map<string, string>()
-    for (const a of existingApps || []) {
+    for (const a of existingApps) {
       const e = (a.email || '').toLowerCase().trim()
       if (e) byEmail.set(e, a.id)
     }
@@ -166,30 +150,27 @@ export async function POST(req: Request) {
     let unmarkedRemoved = 0
     const errors: string[] = []
     const seenCircleIds = new Set<number>()
-    const syncStartedAt = new Date().toISOString()
+    const syncStartedAt = new Date()
 
     for (const m of members) {
       if (!m.id) continue
       seenCircleIds.add(m.id)
 
-      // Zaten sync edilmiş → sadece enrichment'ı güncelle (avatar/bio/location vs.)
       if (existingIds.has(m.id)) {
         const enrichment = enrichFromMember(m)
-        const hasAnyValue = Object.values(enrichment).some(v => v != null)
-        const updates: Record<string, unknown> = {
+        const updates = {
           ...enrichment,
           circle_last_seen_in_sync_at: syncStartedAt,
-          // Eger daha once "Circle'dan ayrildi" isaretlenmisse, geri donmus
-          // olabilir — iki yonlu de tutarli olsun diye temizle
           circle_removed_at: null,
         }
-        if (hasAnyValue || true) {
-          const { error } = await db
-            .from('applications')
-            .update(updates)
-            .eq('circle_id', m.id)
-          if (error) errors.push(`enrich ${m.id}: ${error.message}`)
-          else enrichedExisting++
+        try {
+          await prisma.applications.updateMany({
+            where: { circle_id: m.id },
+            data: updates as never,
+          })
+          enrichedExisting++
+        } catch (e: unknown) {
+          errors.push(`enrich ${m.id}: ${(e as Error).message}`)
         }
         continue
       }
@@ -201,76 +182,81 @@ export async function POST(req: Request) {
 
       if (email && byEmail.has(email)) {
         const appId = byEmail.get(email)!
-        const { error } = await db
-          .from('applications')
-          .update({
-            is_protected: true,
-            circle_id: m.id,
-            protected_source: 'circle_existing_match',
-            ...enrichment,
+        try {
+          await prisma.applications.update({
+            where: { id: appId },
+            data: {
+              is_protected: true,
+              circle_id: m.id,
+              protected_source: 'circle_existing_match',
+              ...enrichment,
+            } as never,
           })
-          .eq('id', appId)
-        if (error) errors.push(`update ${appId}: ${error.message}`)
-        else matchedExisting++
+          matchedExisting++
+        } catch (e: unknown) {
+          errors.push(`update ${appId}: ${(e as Error).message}`)
+        }
       } else {
-        const { error } = await db.from('applications').insert({
-          email: email || `circle-${m.id}@no-email.local`,
-          full_name: name,
-          status: 'etkinlik',
-          is_protected: true,
-          circle_id: m.id,
-          protected_source: 'circle_event',
-          source: 'circle',
-          submitted_at: m.created_at || new Date().toISOString(),
-          ...enrichment,
-        })
-        if (error) errors.push(`insert ${m.id}: ${error.message}`)
-        else insertedEvent++
+        try {
+          await prisma.applications.create({
+            data: {
+              email: email || `circle-${m.id}@no-email.local`,
+              full_name: name,
+              status: 'etkinlik',
+              is_protected: true,
+              circle_id: m.id,
+              protected_source: 'circle_event',
+              source: 'circle',
+              submitted_at: m.created_at ? new Date(m.created_at) : new Date(),
+              ...enrichment,
+            } as never,
+          })
+          insertedEvent++
+        } catch (e: unknown) {
+          errors.push(`insert ${m.id}: ${(e as Error).message}`)
+        }
       }
     }
 
-    // Ters yon: DB'de protected/circle_id'li ama bu sync'te Circle'dan
-    // gelmeyen kayitlari "ayrilmis" olarak isaretle. Sadece tam liste
-    // (50 sayfaya kadar) cektigimiz icin bu guvenli — pagination kesilmis
-    // olsaydi false-positive olusurdu, asagidaki esik bunu engeller.
-    //
-    // Esik: Circle'dan en az 50 uye geldiyse reverse-mark calistir. Daha
-    // azinda (bos yanit / hata / rate-limit kismi pagination) atla.
     if (members.length >= 50) {
-      const { data: protectedAll } = await db
-        .from('applications')
-        .select('id, circle_id, circle_removed_at')
-        .eq('is_protected', true)
-        .not('circle_id', 'is', null)
+      const protectedAll = await prisma.applications.findMany({
+        where: { is_protected: true, circle_id: { not: null } },
+        select: { id: true, circle_id: true, circle_removed_at: true },
+      })
 
       const toMarkRemoved: string[] = []
       const toUnmark: string[] = []
 
-      for (const r of protectedAll || []) {
-        const cid = (r as { circle_id: number }).circle_id
-        const removedAt = (r as { circle_removed_at: string | null }).circle_removed_at
-        if (!seenCircleIds.has(cid) && !removedAt) {
-          toMarkRemoved.push((r as { id: string }).id)
-        } else if (seenCircleIds.has(cid) && removedAt) {
-          toUnmark.push((r as { id: string }).id)
+      for (const r of protectedAll) {
+        if (!r.circle_id) continue
+        if (!seenCircleIds.has(r.circle_id) && !r.circle_removed_at) {
+          toMarkRemoved.push(r.id)
+        } else if (seenCircleIds.has(r.circle_id) && r.circle_removed_at) {
+          toUnmark.push(r.id)
         }
       }
 
       if (toMarkRemoved.length > 0) {
-        const { error } = await db
-          .from('applications')
-          .update({ circle_removed_at: syncStartedAt })
-          .in('id', toMarkRemoved)
-        if (error) errors.push(`mark_removed: ${error.message}`)
-        else markedRemoved = toMarkRemoved.length
+        try {
+          await prisma.applications.updateMany({
+            where: { id: { in: toMarkRemoved } },
+            data: { circle_removed_at: syncStartedAt },
+          })
+          markedRemoved = toMarkRemoved.length
+        } catch (e: unknown) {
+          errors.push(`mark_removed: ${(e as Error).message}`)
+        }
       }
       if (toUnmark.length > 0) {
-        const { error } = await db
-          .from('applications')
-          .update({ circle_removed_at: null })
-          .in('id', toUnmark)
-        if (error) errors.push(`unmark_removed: ${error.message}`)
-        else unmarkedRemoved = toUnmark.length
+        try {
+          await prisma.applications.updateMany({
+            where: { id: { in: toUnmark } },
+            data: { circle_removed_at: null },
+          })
+          unmarkedRemoved = toUnmark.length
+        } catch (e: unknown) {
+          errors.push(`unmark_removed: ${(e as Error).message}`)
+        }
       }
     }
 
@@ -293,14 +279,13 @@ export async function POST(req: Request) {
 
 // GET — durum gözlemi
 export async function GET() {
-  const db = createClient()
-  const { data } = await db
-    .from('applications')
-    .select('protected_source, status')
-    .eq('is_protected', true)
+  const data = await prisma.applications.findMany({
+    where: { is_protected: true },
+    select: { protected_source: true, status: true },
+  })
   const counts: Record<string, number> = {}
-  for (const r of data || []) {
-    const k = `${(r as any).protected_source}/${(r as any).status}`
+  for (const r of data) {
+    const k = `${r.protected_source}/${r.status}`
     counts[k] = (counts[k] || 0) + 1
   }
   return NextResponse.json({ success: true, counts })

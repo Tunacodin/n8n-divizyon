@@ -1,9 +1,8 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase'
+import { prisma } from '@/lib/prisma'
 
 // GET /api/mail/logs?email=ali@test.com&template=kabul&limit=100
 export async function GET(req: Request) {
-  const db = createClient()
   const { searchParams } = new URL(req.url)
 
   const email = searchParams.get('email')
@@ -12,20 +11,21 @@ export async function GET(req: Request) {
   const limit = parseInt(searchParams.get('limit') || '100')
 
   try {
-    let query = db
-      .from('mail_logs')
-      .select('*, applications(full_name, email, status)')
-      .order('sent_at', { ascending: false })
-      .limit(limit)
+    const where: Record<string, unknown> = {}
+    if (email) where.email_to = email.toLowerCase()
+    if (template) where.template_name = template
+    if (applicationId) where.application_id = applicationId
 
-    if (email) query = query.eq('email_to', email.toLowerCase())
-    if (template) query = query.eq('template_name', template)
-    if (applicationId) query = query.eq('application_id', applicationId)
+    const data = await prisma.mail_logs.findMany({
+      where: where as never,
+      orderBy: { sent_at: 'desc' },
+      take: limit,
+      include: {
+        applications: { select: { full_name: true, email: true, status: true } },
+      },
+    })
 
-    const { data, error } = await query
-    if (error) throw error
-
-    return NextResponse.json({ success: true, total: data?.length || 0, data: data || [] })
+    return NextResponse.json({ success: true, total: data.length, data })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Bilinmeyen hata'
     return NextResponse.json({ success: false, error: message }, { status: 500 })

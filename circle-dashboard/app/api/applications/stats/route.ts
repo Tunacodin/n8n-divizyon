@@ -1,20 +1,15 @@
 import { NextResponse } from 'next/server'
-import { createClient, getDashboardStats, STATUS_LABELS, STATUS_COLORS } from '@/lib/supabase'
+import { getDashboardStats, STATUS_LABELS, STATUS_COLORS } from '@/lib/supabase'
 
 export const revalidate = 30
 
 // GET /api/applications/stats
 export async function GET() {
-  const db = createClient()
-
   try {
-    const { data, error } = await getDashboardStats(db)
+    const { data } = await getDashboardStats()
 
-    if (error) throw error
-
-    // Her status icin label ve color ekle
     const enrichedBreakdown: Record<string, { count: number; label: string; color: string }> = {}
-    for (const [status, count] of Object.entries(data!.breakdown)) {
+    for (const [status, count] of Object.entries(data.breakdown)) {
       enrichedBreakdown[status] = {
         count,
         label: STATUS_LABELS[status as keyof typeof STATUS_LABELS] || status,
@@ -24,7 +19,7 @@ export async function GET() {
 
     return NextResponse.json({
       success: true,
-      total: data!.total,
+      total: data.total,
       breakdown: enrichedBreakdown,
     })
   } catch (error: unknown) {

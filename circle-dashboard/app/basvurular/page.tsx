@@ -60,7 +60,7 @@ const STATUS_BADGE: Record<string, string> = {
   nihai_olmayan: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   nihai_uye: 'bg-amber-50 text-amber-700 border-amber-200',
   etkinlik: 'bg-cyan-50 text-cyan-700 border-cyan-200',
-  deaktive: 'bg-gray-100 text-gray-600 border-gray-200',
+  deaktive: 'bg-muted text-muted-foreground border-border',
   yas_kucuk: 'bg-orange-50 text-orange-700 border-orange-200',
 }
 
@@ -221,9 +221,9 @@ function FlowContent() {
     : <span className="text-gray-300 text-xs">○</span>
 
   return (
-    <div className="min-h-screen bg-[#FAFBFC]">
-      <div className="sticky top-20 z-30 bg-white border-b border-gray-100 px-8 pt-6 pb-4">
-        <h1 className="text-xl font-bold text-gray-900 mb-4">Flow</h1>
+    <div className="min-h-screen bg-background">
+      <div className="sticky top-20 z-30 bg-card border-b border-border px-8 pt-6 pb-4">
+        <h1 className="text-xl font-bold text-foreground mb-4">Flow</h1>
         <div className="overflow-x-auto">
           <TabBar tabs={tabsWithCounts} activeTab={activeTab} onChange={handleTabChange} />
         </div>
@@ -240,9 +240,9 @@ function FlowContent() {
             placeholder="Ad, e-posta veya telefon ara..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="px-4 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 outline-none min-w-[260px]"
+            className="px-4 py-2 text-sm border border-border rounded-lg bg-card focus:ring-2 focus:ring-indigo-500 outline-none min-w-[260px]"
           />
-          <span className="text-sm text-gray-400 ml-auto">{filtered.length} kayıt</span>
+          <span className="text-sm text-muted-foreground ml-auto">{filtered.length} kayıt</span>
         </div>
 
         {/* Table */}
@@ -251,31 +251,31 @@ function FlowContent() {
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500" />
           </div>
         ) : filtered.length === 0 ? (
-          <div className="bg-white rounded-xl border border-gray-200 p-12 text-center text-gray-400">
+          <div className="bg-card rounded-xl border border-border p-12 text-center text-muted-foreground">
             Bu statüde kayıt yok
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="bg-card rounded-xl border border-border overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-gray-50 border-b border-gray-200">
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">Ad Soyad</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">E-Posta</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">Telefon</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">Durum</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">Değerlendiren</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">Not</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">Tarih</th>
+                  <tr className="bg-muted/50 border-b border-border">
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Ad Soyad</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">E-Posta</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Telefon</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Durum</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Değerlendiren</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Not</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Tarih</th>
                     {activeTab === 'kesin_ret' && (
-                      <th className="text-left px-4 py-3 font-medium text-gray-600">Mail</th>
+                      <th className="text-left px-4 py-3 font-medium text-muted-foreground">Mail</th>
                     )}
                     {showTaskCols && (
                       <>
-                        <th className="text-center px-3 py-3 font-medium text-gray-600 text-xs">Kar.Env</th>
-                        <th className="text-center px-3 py-3 font-medium text-gray-600 text-xs">Dis.Env</th>
-                        <th className="text-center px-3 py-3 font-medium text-gray-600 text-xs">Oryant.</th>
-                        <th className="text-center px-3 py-3 font-medium text-gray-600 text-xs">Uyarı</th>
+                        <th className="text-center px-3 py-3 font-medium text-muted-foreground text-xs">Kar.Env</th>
+                        <th className="text-center px-3 py-3 font-medium text-muted-foreground text-xs">Dis.Env</th>
+                        <th className="text-center px-3 py-3 font-medium text-muted-foreground text-xs">Oryant.</th>
+                        <th className="text-center px-3 py-3 font-medium text-muted-foreground text-xs">Uyarı</th>
                       </>
                     )}
                   </tr>
@@ -297,9 +297,9 @@ function FlowContent() {
                     return (
                       <tr key={group.date}>
                         <td colSpan={activeTab === 'kesin_ret' ? 8 : showTaskCols ? 11 : 7} className="p-0">
-                          <div className="sticky top-0 z-10 bg-gray-50 px-4 py-1.5 border-b border-gray-100">
-                            <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">{group.label}</span>
-                            <span className="text-[10px] text-gray-400 ml-2">({group.apps.length})</span>
+                          <div className="sticky top-0 z-10 bg-muted/50 px-4 py-1.5 border-b border-border">
+                            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">{group.label}</span>
+                            <span className="text-[10px] text-muted-foreground ml-2">({group.apps.length})</span>
                           </div>
                           <table className="w-full">
                             <tbody>
@@ -310,8 +310,8 @@ function FlowContent() {
                                 const time = timeSource.slice(11, 16)
                                 const statusKey = app.status || 'basvuru'
                                 return (
-                                  <tr key={app.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                                    <td className="px-4 py-2.5 font-medium text-gray-900 w-[200px]">
+                                  <tr key={app.id} className="border-b border-gray-50 hover:bg-muted/50 transition-colors">
+                                    <td className="px-4 py-2.5 font-medium text-foreground w-[200px]">
                                       <div className="flex items-center gap-1.5">
                                         <span className="truncate">{app.full_name || '—'}</span>
                                         {(app as { is_protected?: boolean }).is_protected && (
@@ -335,16 +335,16 @@ function FlowContent() {
                                         })()}
                                       </div>
                                     </td>
-                                    <td className="px-4 py-2.5 text-gray-600 text-xs w-[220px]">{app.email || '—'}</td>
-                                    <td className="px-4 py-2.5 text-gray-500 text-xs w-[130px]">{app.phone || '—'}</td>
+                                    <td className="px-4 py-2.5 text-muted-foreground text-xs w-[220px]">{app.email || '—'}</td>
+                                    <td className="px-4 py-2.5 text-muted-foreground text-xs w-[130px]">{app.phone || '—'}</td>
                                     <td className="px-4 py-2.5 w-[120px]">
-                                      <Badge className={STATUS_BADGE[statusKey] || 'bg-gray-100 text-gray-600'}>
+                                      <Badge className={STATUS_BADGE[statusKey] || 'bg-muted text-muted-foreground'}>
                                         {STATUS_LABELS[statusKey] || statusKey}
                                       </Badge>
                                     </td>
-                                    <td className="px-4 py-2.5 text-gray-500 text-xs w-[100px]">{app.reviewer || '—'}</td>
-                                    <td className="px-4 py-2.5 text-gray-500 text-xs max-w-[200px] truncate">{app.review_note || '—'}</td>
-                                    <td className="px-4 py-2.5 text-gray-400 text-xs w-[80px]">{time || '—'}</td>
+                                    <td className="px-4 py-2.5 text-muted-foreground text-xs w-[100px]">{app.reviewer || '—'}</td>
+                                    <td className="px-4 py-2.5 text-muted-foreground text-xs max-w-[200px] truncate">{app.review_note || '—'}</td>
+                                    <td className="px-4 py-2.5 text-muted-foreground text-xs w-[80px]">{time || '—'}</td>
                                     {activeTab === 'kesin_ret' && (
                                       <td className="px-4 py-2.5 w-[80px]">
                                         {app.mail_sent ? (
@@ -387,13 +387,13 @@ function FlowContent() {
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 bg-gray-50">
-                <p className="text-sm text-gray-500">
+              <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-muted/50">
+                <p className="text-sm text-muted-foreground">
                   {totalItems} kayıttan {startIdx + 1}–{Math.min(startIdx + PER_PAGE, totalItems)} arası
                 </p>
                 <div className="flex gap-1">
-                  <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 text-sm rounded-md border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-50">Önceki</button>
-                  <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="px-3 py-1.5 text-sm rounded-md border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-50">Sonraki</button>
+                  <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 text-sm rounded-md border border-border bg-card hover:bg-muted/50 disabled:opacity-50">Önceki</button>
+                  <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="px-3 py-1.5 text-sm rounded-md border border-border bg-card hover:bg-muted/50 disabled:opacity-50">Sonraki</button>
                 </div>
               </div>
             )}

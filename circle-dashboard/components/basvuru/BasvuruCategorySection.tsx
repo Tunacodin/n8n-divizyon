@@ -102,7 +102,7 @@ export default function BasvuruCategorySection({ category, data, defaultOpen = f
                         key={field.key}
                         className={isFullWidth ? 'md:col-span-2' : ''}
                       >
-                        <label className="block text-xs font-medium text-gray-500 mb-1">
+                        <label className="block text-xs font-medium text-muted-foreground mb-1">
                           {field.label}
                         </label>
                         {isEmpty ? (
@@ -119,7 +119,7 @@ export default function BasvuruCategorySection({ category, data, defaultOpen = f
               {/* Badge fields cluster */}
               {badgeFields.length > 0 && (
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-2">
+                  <label className="block text-xs font-medium text-muted-foreground mb-2">
                     Alt Roller
                   </label>
                   {activeBadges.length === 0 ? (
@@ -190,17 +190,17 @@ function FieldValue({ field, value }: { field: { type: string; label: string }; 
       return value && value !== 'Hayir' ? (
         <CheckIcon className="w-5 h-5 text-green-600" />
       ) : (
-        <XMarkIcon className="w-5 h-5 text-gray-400" />
+        <XMarkIcon className="w-5 h-5 text-muted-foreground" />
       )
 
     case 'longtext':
       return (
-        <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
+        <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
           {strValue}
         </p>
       )
 
     default:
-      return <span className="text-sm text-gray-900">{strValue}</span>
+      return <span className="text-sm text-foreground">{strValue}</span>
   }
 }

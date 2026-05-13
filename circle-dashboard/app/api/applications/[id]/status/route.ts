@@ -1,14 +1,12 @@
 import { NextResponse } from 'next/server'
-import { createClient, changeStatus, type ApplicationStatus } from '@/lib/supabase'
+import { prisma } from '@/lib/prisma'
+import { changeStatus, type ApplicationStatus } from '@/lib/supabase'
 import { requirePermission } from '@/lib/permissions'
 
 // PATCH /api/applications/[id]/status
-// Body: { to_status, changed_by, reason?, extra_updates? }
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   const denied = await requirePermission(req, 'mutate:application')
   if (denied) return denied
-
-  const db = createClient()
 
   try {
     const body = await req.json()
@@ -16,11 +14,11 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     if (!body.to_status || !body.changed_by) {
       return NextResponse.json(
         { success: false, error: 'to_status ve changed_by zorunlu' },
-        { status: 400 }
+        { status: 400 },
       )
     }
 
-    const result = await changeStatus(db, {
+    const result = await changeStatus({
       applicationId: params.id,
       toStatus: body.to_status as ApplicationStatus,
       changedBy: body.changed_by,
@@ -33,8 +31,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       return NextResponse.json(result, { status: 400 })
     }
 
-    // Guncel veriyi don
-    const { data } = await db.from('applications').select('*').eq('id', params.id).single()
+    const data = await prisma.applications.findUnique({ where: { id: params.id } })
 
     return NextResponse.json({ success: true, data, fromStatus: result.fromStatus, toStatus: result.toStatus })
   } catch (error: unknown) {

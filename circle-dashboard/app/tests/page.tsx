@@ -17,8 +17,8 @@ export default function TestsPage() {
   return (
     <div className="p-8">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Test Sonuçları</h1>
-        <p className="text-gray-500 mt-1">Kullanıcı test tamamlama durumları</p>
+        <h1 className="text-3xl font-bold text-foreground">Test Sonuçları</h1>
+        <p className="text-muted-foreground mt-1">Kullanıcı test tamamlama durumları</p>
       </div>
 
       <Card>
@@ -30,10 +30,10 @@ export default function TestsPage() {
         </CardHeader>
         <CardContent>
           <div className="text-center py-12">
-            <p className="text-gray-500 mb-4">
+            <p className="text-muted-foreground mb-4">
               🧪 Geliştirme aşamasında...
             </p>
-            <p className="text-sm text-gray-400">
+            <p className="text-sm text-muted-foreground">
               Test Sonuçları sheet'inden veri çekme işlemi Phase 2'de eklenecek
             </p>
           </div>
@@ -47,7 +47,7 @@ export default function TestsPage() {
             <CardTitle className="text-3xl">-</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-xs text-gray-500">Tamamlayan kullanıcı</p>
+            <p className="text-xs text-muted-foreground">Tamamlayan kullanıcı</p>
           </CardContent>
         </Card>
 
@@ -57,7 +57,7 @@ export default function TestsPage() {
             <CardTitle className="text-3xl">-</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-xs text-gray-500">Tamamlayan kullanıcı</p>
+            <p className="text-xs text-muted-foreground">Tamamlayan kullanıcı</p>
           </CardContent>
         </Card>
 
@@ -67,7 +67,7 @@ export default function TestsPage() {
             <CardTitle className="text-3xl">-</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-xs text-gray-500">Tamamlayan kullanıcı</p>
+            <p className="text-xs text-muted-foreground">Tamamlayan kullanıcı</p>
           </CardContent>
         </Card>
 
@@ -77,7 +77,7 @@ export default function TestsPage() {
             <CardTitle className="text-3xl">-</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-xs text-gray-500">Tamamlayan kullanıcı</p>
+            <p className="text-xs text-muted-foreground">Tamamlayan kullanıcı</p>
           </CardContent>
         </Card>
       </div>

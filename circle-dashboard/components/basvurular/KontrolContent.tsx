@@ -47,7 +47,7 @@ const TABS: { key: TabKey; label: string; icon: React.ElementType }[] = [
 function getOnayBadge(value: string | undefined) {
   if (!value) {
     return (
-      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
+      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">
         Boş
       </span>
     )
@@ -91,7 +91,7 @@ function getMailBadge(value: boolean | undefined) {
     )
   }
   return (
-    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
+    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">
       Gönderilmedi
     </span>
   )
@@ -402,19 +402,19 @@ export default function KontrolContent() {
   }
 
   return (
-    <div className="min-h-screen bg-[#FAFBFC]">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="bg-white border-b border-gray-100 px-8 py-6">
-        <h1 className="text-2xl font-bold text-gray-900">Kontrol Paneli</h1>
-        <p className="text-sm text-gray-500 mt-1">
+      <div className="bg-card border-b border-border px-8 py-6">
+        <h1 className="text-2xl font-bold text-foreground">Kontrol Paneli</h1>
+        <p className="text-sm text-muted-foreground mt-1">
           Manuel degerlendirme bekleyen basvurulari inceleyin ve yonetin
         </p>
       </div>
 
       <div className="p-8">
         {/* Filter Tabs + Search + Advanced */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm mb-6">
-          <div className="flex flex-wrap border-b border-gray-100">
+        <div className="bg-card rounded-xl border border-border shadow-sm mb-6">
+          <div className="flex flex-wrap border-b border-border">
             {TABS.map((tab) => {
               const count = tabCounts[tab.key]
               const isActive = activeTab === tab.key
@@ -426,12 +426,12 @@ export default function KontrolContent() {
                   className={`flex items-center gap-2 px-5 py-3.5 text-sm font-medium border-b-2 transition-colors ${
                     isActive
                       ? 'border-blue-600 text-blue-600 bg-blue-50/50'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                      : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50'
                   }`}
                 >
                   <Icon className="w-4 h-4" />
                   <span>{tab.label}</span>
-                  <span className={`ml-1 px-2 py-0.5 rounded-full text-xs font-semibold ${isActive ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>
+                  <span className={`ml-1 px-2 py-0.5 rounded-full text-xs font-semibold ${isActive ? 'bg-blue-100 text-blue-700' : 'bg-muted text-muted-foreground'}`}>
                     {count}
                   </span>
                 </button>
@@ -444,13 +444,13 @@ export default function KontrolContent() {
             <div className="flex flex-wrap gap-3 items-center">
               {/* Search */}
               <div className="relative flex-1 min-w-[200px] max-w-md">
-                <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <input
                   type="text"
                   placeholder="Ad soyad veya e-posta ile ara..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2.5 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  className="w-full pl-9 pr-4 py-2.5 text-sm border border-border rounded-lg bg-muted/50 focus:bg-card focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                 />
               </div>
 
@@ -458,7 +458,7 @@ export default function KontrolContent() {
               <select
                 value={onayFilter}
                 onChange={(e) => setOnayFilter(e.target.value)}
-                className="px-3 py-2.5 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                className="px-3 py-2.5 text-sm border border-border rounded-lg bg-muted/50 focus:bg-card focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
               >
                 <option value="">Onay Durumu (Tümü)</option>
                 <option value="Kabul">Kabul</option>
@@ -471,7 +471,7 @@ export default function KontrolContent() {
               <select
                 value={degerlendirenFilter}
                 onChange={(e) => setDegerlendirenFilter(e.target.value)}
-                className="px-3 py-2.5 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                className="px-3 py-2.5 text-sm border border-border rounded-lg bg-muted/50 focus:bg-card focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
               >
                 <option value="">Değerlendiren (Tümü)</option>
                 {degerlendirenList.map((v) => (
@@ -484,14 +484,14 @@ export default function KontrolContent() {
                 type="date"
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
-                className="px-3 py-2.5 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                className="px-3 py-2.5 text-sm border border-border rounded-lg bg-muted/50 focus:bg-card focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                 title="Başlangıç tarihi"
               />
               <input
                 type="date"
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
-                className="px-3 py-2.5 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                className="px-3 py-2.5 text-sm border border-border rounded-lg bg-muted/50 focus:bg-card focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                 title="Bitiş tarihi"
               />
 
@@ -508,7 +508,7 @@ export default function KontrolContent() {
 
             {/* Filtre özeti */}
             {sorted.length > 0 && (
-              <div className="flex items-center gap-2 text-xs text-gray-500">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <span>{sorted.length} kayıt</span>
                 {selectedEmails.size > 0 && (
                   <>
@@ -533,7 +533,7 @@ export default function KontrolContent() {
             <div className="flex-1" />
             <button
               onClick={() => setBulkApproveOpen(true)}
-              className="px-4 py-2 text-sm font-medium bg-white text-blue-700 rounded-lg hover:bg-blue-50 transition-colors"
+              className="px-4 py-2 text-sm font-medium bg-card text-blue-700 rounded-lg hover:bg-blue-50 transition-colors"
             >
               Toplu Onayla
             </button>
@@ -557,7 +557,7 @@ export default function KontrolContent() {
         )}
 
         {/* Table */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
           {loading ? (
             <div className="flex items-center justify-center py-20">
               <div className="flex flex-col items-center gap-3">
@@ -565,11 +565,11 @@ export default function KontrolContent() {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
-                <span className="text-sm text-gray-500">Veriler yukleniyor...</span>
+                <span className="text-sm text-muted-foreground">Veriler yukleniyor...</span>
               </div>
             </div>
           ) : sorted.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+            <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
               <InboxIcon className="w-12 h-12 mb-3" />
               <p className="text-sm font-medium">Kayit bulunamadi</p>
               <p className="text-xs mt-1">Bu filtreye uygun basvuru yok</p>
@@ -579,27 +579,27 @@ export default function KontrolContent() {
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="bg-gray-50 border-b border-gray-100">
+                    <tr className="bg-muted/50 border-b border-border">
                       <th className="px-4 py-3">
                         <input
                           type="checkbox"
                           checked={allPageSelected}
                           ref={(el) => { if (el) el.indeterminate = somePageSelected && !allPageSelected }}
                           onChange={toggleSelectAll}
-                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          className="rounded border-border text-blue-600 focus:ring-blue-500"
                         />
                       </th>
-                      <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Ad Soyad</th>
-                      <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">E-Posta</th>
-                      <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Degerlendiren</th>
-                      <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Not</th>
-                      <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Onay Durumu</th>
-                      <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Mail Template</th>
-                      <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Mail Durumu</th>
-                      <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Tarih</th>
+                      <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Ad Soyad</th>
+                      <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">E-Posta</th>
+                      <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Degerlendiren</th>
+                      <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Not</th>
+                      <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Onay Durumu</th>
+                      <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Mail Template</th>
+                      <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Mail Durumu</th>
+                      <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Tarih</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-50">
+                  <tbody className="divide-y divide-border">
                     {paginatedData.map((item, index) => {
                       const name = item.full_name || '-'
                       const email = item.email || '-'
@@ -626,7 +626,7 @@ export default function KontrolContent() {
                               type="checkbox"
                               checked={isSelected}
                               onChange={() => toggleSelectItem(email)}
-                              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                              className="rounded border-border text-blue-600 focus:ring-blue-500"
                             />
                           </td>
                           <td className="px-5 py-3.5" onClick={() => setSelectedItem(item)}>
@@ -634,27 +634,27 @@ export default function KontrolContent() {
                               <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold ${avatarColor} flex-shrink-0`}>
                                 {initials}
                               </div>
-                              <span className="text-sm font-medium text-gray-900 group-hover:text-blue-700 transition-colors">
+                              <span className="text-sm font-medium text-foreground group-hover:text-blue-700 transition-colors">
                                 {name}
                               </span>
                             </div>
                           </td>
                           <td className="px-5 py-3.5" onClick={() => setSelectedItem(item)}>
-                            <span className="text-sm text-gray-600">{email}</span>
+                            <span className="text-sm text-muted-foreground">{email}</span>
                           </td>
                           <td className="px-5 py-3.5" onClick={() => setSelectedItem(item)}>
-                            <span className="text-sm text-gray-600">{reviewer || <span className="text-gray-300 italic">-</span>}</span>
+                            <span className="text-sm text-muted-foreground">{reviewer || <span className="text-gray-300 italic">-</span>}</span>
                           </td>
                           <td className="px-5 py-3.5 max-w-[200px]" onClick={() => setSelectedItem(item)}>
-                            <span className="text-sm text-gray-600 truncate block">{note || <span className="text-gray-300 italic">-</span>}</span>
+                            <span className="text-sm text-muted-foreground truncate block">{note || <span className="text-gray-300 italic">-</span>}</span>
                           </td>
                           <td className="px-5 py-3.5" onClick={() => setSelectedItem(item)}>{getOnayBadge(onayDurumu)}</td>
                           <td className="px-5 py-3.5" onClick={() => setSelectedItem(item)}>
-                            <span className="text-sm text-gray-600">{mailTemplate || <span className="text-gray-300 italic">-</span>}</span>
+                            <span className="text-sm text-muted-foreground">{mailTemplate || <span className="text-gray-300 italic">-</span>}</span>
                           </td>
                           <td className="px-5 py-3.5" onClick={() => setSelectedItem(item)}>{getMailBadge(mailSent)}</td>
                           <td className="px-5 py-3.5" onClick={() => setSelectedItem(item)}>
-                            <span className="text-xs text-gray-400">{dateStr || '-'}</span>
+                            <span className="text-xs text-muted-foreground">{dateStr || '-'}</span>
                           </td>
                         </tr>
                       )
@@ -664,15 +664,15 @@ export default function KontrolContent() {
               </div>
 
               {/* Pagination */}
-              <div className="flex items-center justify-between px-5 py-4 border-t border-gray-100">
-                <p className="text-sm text-gray-500">
-                  Toplam <span className="font-semibold text-gray-700">{sorted.length}</span> kayit
+              <div className="flex items-center justify-between px-5 py-4 border-t border-border">
+                <p className="text-sm text-muted-foreground">
+                  Toplam <span className="font-semibold text-foreground">{sorted.length}</span> kayit
                   {sorted.length > 0 && (
-                    <> &middot; Sayfa <span className="font-semibold text-gray-700">{currentPage}</span> / <span className="font-semibold text-gray-700">{totalPages}</span></>
+                    <> &middot; Sayfa <span className="font-semibold text-foreground">{currentPage}</span> / <span className="font-semibold text-foreground">{totalPages}</span></>
                   )}
                 </p>
                 <div className="flex items-center gap-2">
-                  <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                  <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-2 rounded-lg border border-border text-muted-foreground hover:bg-muted/50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
                     <ChevronLeftIcon className="w-4 h-4" />
                   </button>
                   {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
@@ -682,12 +682,12 @@ export default function KontrolContent() {
                     else if (currentPage >= totalPages - 2) pageNum = totalPages - 4 + i
                     else pageNum = currentPage - 2 + i
                     return (
-                      <button key={pageNum} onClick={() => setCurrentPage(pageNum)} className={`w-9 h-9 rounded-lg text-sm font-medium transition-colors ${currentPage === pageNum ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'}`}>
+                      <button key={pageNum} onClick={() => setCurrentPage(pageNum)} className={`w-9 h-9 rounded-lg text-sm font-medium transition-colors ${currentPage === pageNum ? 'bg-blue-600 text-white shadow-sm' : 'text-muted-foreground hover:bg-muted'}`}>
                         {pageNum}
                       </button>
                     )
                   })}
-                  <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                  <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="p-2 rounded-lg border border-border text-muted-foreground hover:bg-muted/50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
                     <ChevronRightIcon className="w-4 h-4" />
                   </button>
                 </div>
@@ -704,19 +704,19 @@ export default function KontrolContent() {
       {bulkApproveOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => !bulkApproveProcessing && setBulkApproveOpen(false)} />
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 mx-4">
-            <h3 className="text-lg font-bold text-gray-900 mb-1">Toplu Onayla</h3>
-            <p className="text-sm text-gray-500 mb-4">{selectedEmails.size} kişi için onay durumu belirle</p>
+          <div className="relative bg-card rounded-2xl shadow-2xl w-full max-w-md p-6 mx-4">
+            <h3 className="text-lg font-bold text-foreground mb-1">Toplu Onayla</h3>
+            <p className="text-sm text-muted-foreground mb-4">{selectedEmails.size} kişi için onay durumu belirle</p>
 
             {bulkApproveProcessing ? (
               <div className="space-y-3">
-                <div className="w-full bg-gray-100 rounded-full h-2">
+                <div className="w-full bg-muted rounded-full h-2">
                   <div
                     className="bg-blue-600 h-2 rounded-full transition-all"
                     style={{ width: `${(bulkApproveProgress.done / bulkApproveProgress.total) * 100}%` }}
                   />
                 </div>
-                <p className="text-sm text-gray-600 text-center">
+                <p className="text-sm text-muted-foreground text-center">
                   {bulkApproveProgress.done} / {bulkApproveProgress.total} güncellendi
                 </p>
                 {bulkApproveProgress.errors.length > 0 && (
@@ -727,14 +727,14 @@ export default function KontrolContent() {
               <>
                 <div className="space-y-2 mb-4">
                   {['Kabul', 'Ret', 'Beklemede'].map((val) => (
-                    <label key={val} className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-colors ${bulkApproveValue === val ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                    <label key={val} className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-colors ${bulkApproveValue === val ? 'border-blue-500 bg-blue-50' : 'border-border hover:border-border'}`}>
                       <input type="radio" name="bulkApprove" value={val} checked={bulkApproveValue === val} onChange={() => setBulkApproveValue(val)} className="text-blue-600" />
                       <span className="text-sm font-medium">{val}</span>
                     </label>
                   ))}
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={() => setBulkApproveOpen(false)} className="flex-1 px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                  <button onClick={() => setBulkApproveOpen(false)} className="flex-1 px-4 py-2 text-sm border border-border rounded-lg hover:bg-muted/50 transition-colors">
                     İptal
                   </button>
                   <button onClick={handleBulkApprove} className="flex-1 px-4 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors">
@@ -751,9 +751,9 @@ export default function KontrolContent() {
       {bulkMailOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => !bulkMailProcessing && setBulkMailOpen(false)} />
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 mx-4">
-            <h3 className="text-lg font-bold text-gray-900 mb-1">Toplu Mail Gönder</h3>
-            <p className="text-sm text-gray-500 mb-4">
+          <div className="relative bg-card rounded-2xl shadow-2xl w-full max-w-md p-6 mx-4">
+            <h3 className="text-lg font-bold text-foreground mb-1">Toplu Mail Gönder</h3>
+            <p className="text-sm text-muted-foreground mb-4">
               {bulkMailTargets.length} kişiye mail gönderilecek
               {bulkMailTargets.length < selectedEmails.size && (
                 <span className="text-orange-600"> (Mail gönderilmiş olanlar hariç)</span>
@@ -762,13 +762,13 @@ export default function KontrolContent() {
 
             {bulkMailProcessing ? (
               <div className="space-y-3">
-                <div className="w-full bg-gray-100 rounded-full h-2">
+                <div className="w-full bg-muted rounded-full h-2">
                   <div
                     className="bg-blue-600 h-2 rounded-full transition-all"
                     style={{ width: `${(bulkMailProgress.done / bulkMailProgress.total) * 100}%` }}
                   />
                 </div>
-                <p className="text-sm text-gray-600 text-center">
+                <p className="text-sm text-muted-foreground text-center">
                   {bulkMailProgress.done} / {bulkMailProgress.total} gönderildi
                 </p>
                 {bulkMailProgress.errors.length > 0 && (
@@ -777,18 +777,18 @@ export default function KontrolContent() {
               </div>
             ) : bulkMailTargets.length === 0 ? (
               <div className="text-center py-6">
-                <p className="text-gray-500 text-sm">Seçili kişilerin tümüne zaten mail gönderilmiş.</p>
-                <button onClick={() => setBulkMailOpen(false)} className="mt-4 px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50">Kapat</button>
+                <p className="text-muted-foreground text-sm">Seçili kişilerin tümüne zaten mail gönderilmiş.</p>
+                <button onClick={() => setBulkMailOpen(false)} className="mt-4 px-4 py-2 text-sm border border-border rounded-lg hover:bg-muted/50">Kapat</button>
               </div>
             ) : (
               <>
                 <div className="space-y-3 mb-4">
                   <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">Template</label>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">Template</label>
                     <select
                       value={bulkMailTemplateId ?? ''}
                       onChange={(e) => setBulkMailTemplateId(e.target.value ? Number(e.target.value) : null)}
-                      className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                      className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-card focus:ring-2 focus:ring-blue-500 outline-none"
                     >
                       <option value="">-- Template Seç --</option>
                       {templates.map((t) => (
@@ -797,18 +797,18 @@ export default function KontrolContent() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">Konu</label>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">Konu</label>
                     <input
                       type="text"
                       value={bulkMailSubject}
                       onChange={(e) => setBulkMailSubject(e.target.value)}
                       placeholder="Mail konusu"
-                      className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                      className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-card focus:ring-2 focus:ring-blue-500 outline-none"
                     />
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={() => setBulkMailOpen(false)} className="flex-1 px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                  <button onClick={() => setBulkMailOpen(false)} className="flex-1 px-4 py-2 text-sm border border-border rounded-lg hover:bg-muted/50 transition-colors">
                     İptal
                   </button>
                   <button

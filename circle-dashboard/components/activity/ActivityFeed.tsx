@@ -54,7 +54,7 @@ function ActivityCard({ activity }: { activity: Activity }) {
 
   return (
     <div
-      className="px-4 py-3 rounded-lg border border-gray-100 bg-white cursor-pointer hover:border-gray-200 transition-colors"
+      className="px-4 py-3 rounded-lg border border-border bg-card cursor-pointer hover:border-border transition-colors"
       onClick={() => setExpanded(!expanded)}
     >
       <div className="flex items-start gap-3">
@@ -65,20 +65,20 @@ function ActivityCard({ activity }: { activity: Activity }) {
 
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline gap-3">
-            <p className="text-sm text-gray-500 leading-relaxed">
+            <p className="text-sm text-muted-foreground leading-relaxed">
               <span dangerouslySetInnerHTML={{ __html: highlightPerson(summary, activity) }} />
             </p>
-            <span className="text-xs text-gray-400 shrink-0 whitespace-nowrap ml-auto">
+            <span className="text-xs text-muted-foreground shrink-0 whitespace-nowrap ml-auto">
               {formatActivityDate(activity.created_at)}
             </span>
           </div>
 
           {detail && (
-            <p className="text-xs text-gray-400 mt-1">{detail}</p>
+            <p className="text-xs text-muted-foreground mt-1">{detail}</p>
           )}
 
           {expanded && (
-            <div className="mt-2 pt-2 border-t border-gray-100 text-xs text-gray-400 space-y-0.5">
+            <div className="mt-2 pt-2 border-t border-border text-xs text-muted-foreground space-y-0.5">
               <p>{formatFullDate(activity.created_at)}</p>
               {activity.person_email && <p>{activity.person_email}</p>}
             </div>
@@ -97,7 +97,7 @@ function highlightPerson(summary: string, activity: Activity): string {
 
   return summary.replace(
     name,
-    `<strong class="font-semibold text-gray-900">${name}</strong>`
+    `<strong class="font-semibold text-foreground">${name}</strong>`
   )
 }
 
@@ -160,7 +160,7 @@ export function ActivityFeed() {
         <input
           type="text"
           placeholder="Kişi veya işlem ara..."
-          className="px-4 py-2.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-gray-200 outline-none w-72"
+          className="px-4 py-2.5 text-sm border border-border rounded-lg bg-card focus:outline-none focus:ring-2 focus:ring-border outline-none w-72"
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
@@ -168,18 +168,18 @@ export function ActivityFeed() {
         <select
           value={actionFilter}
           onChange={(e) => handleFilterChange(e.target.value)}
-          className="px-4 py-2.5 text-sm border border-gray-200 rounded-lg bg-white outline-none"
+          className="px-4 py-2.5 text-sm border border-border rounded-lg bg-card outline-none"
         >
           {ACTION_FILTERS.map((f) => (
             <option key={f.value} value={f.value}>{f.label}</option>
           ))}
         </select>
-        <span className="text-sm text-gray-400 ml-auto">{total} işlem</span>
+        <span className="text-sm text-muted-foreground ml-auto">{total} işlem</span>
       </div>
 
       {/* Feed */}
       {Object.keys(grouped).length === 0 && !loading ? (
-        <div className="text-center py-20 text-gray-400">
+        <div className="text-center py-20 text-muted-foreground">
           Aktivite kaydı bulunamadı.
         </div>
       ) : (
@@ -187,9 +187,9 @@ export function ActivityFeed() {
           {Object.entries(grouped).map(([day, items]) => (
             <div key={day}>
               <div className="flex items-center gap-4 mb-2">
-                <h2 className="text-base font-semibold text-gray-800">{day}</h2>
-                <div className="flex-1 h-px bg-gray-100" />
-                <span className="text-sm text-gray-400">{items.length} işlem</span>
+                <h2 className="text-base font-semibold text-foreground">{day}</h2>
+                <div className="flex-1 h-px bg-muted" />
+                <span className="text-sm text-muted-foreground">{items.length} işlem</span>
               </div>
 
               <div className="space-y-2">
@@ -204,7 +204,7 @@ export function ActivityFeed() {
 
       {loading && (
         <div className="flex justify-center py-10">
-          <div className="w-6 h-6 border-2 border-gray-200 border-t-gray-500 rounded-full animate-spin" />
+          <div className="w-6 h-6 border-2 border-border border-t-gray-500 rounded-full animate-spin" />
         </div>
       )}
 
@@ -212,7 +212,7 @@ export function ActivityFeed() {
         <div className="flex justify-center pt-6">
           <button
             onClick={loadMore}
-            className="px-5 py-2.5 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+            className="px-5 py-2.5 text-sm text-muted-foreground border border-border rounded-lg hover:bg-muted/50 transition-colors"
           >
             Daha fazla yükle ({total - activities.length} kayıt daha var)
           </button>
@@ -221,7 +221,7 @@ export function ActivityFeed() {
 
       {!loading && !hasMore && activities.length > 0 && (
         <div className="flex justify-center pt-6">
-          <span className="text-xs text-gray-400">
+          <span className="text-xs text-muted-foreground">
             Tüm kayıtlar gösteriliyor ({activities.length}/{total})
           </span>
         </div>

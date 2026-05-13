@@ -69,10 +69,10 @@ export default function WorkflowDashboard() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">
+          <h1 className="text-4xl font-bold text-foreground mb-2">
             Başvuru Otomasyon Workflow
           </h1>
-          <p className="text-gray-600">
+          <p className="text-muted-foreground">
             Google Sheets Trigger → Yaş Kontrolü → Topluluk İlkeleri → Hedef Sheet
           </p>
         </div>
@@ -130,8 +130,8 @@ export default function WorkflowDashboard() {
       </div>
 
       {/* Workflow Visualization */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+      <div className="bg-card rounded-2xl border border-border shadow-sm p-8">
+        <h2 className="text-2xl font-bold text-foreground mb-6 flex items-center gap-2">
           <ChartBarIcon className="w-7 h-7 text-purple-600" />
           Workflow Akışı
         </h2>
@@ -140,20 +140,20 @@ export default function WorkflowDashboard() {
       </div>
 
       {/* Recent Activity */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+      <div className="bg-card rounded-2xl border border-border shadow-sm p-8">
+        <h2 className="text-2xl font-bold text-foreground mb-6 flex items-center gap-2">
           <ClockIcon className="w-7 h-7 text-blue-600" />
           Son Aktivite
         </h2>
 
         <div className="space-y-3">
           {stats?.lastRunTime && (
-            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg border border-border">
               <div className="flex items-center gap-3">
                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                <span className="text-gray-700 font-medium">Son çalışma</span>
+                <span className="text-foreground font-medium">Son çalışma</span>
               </div>
-              <span className="text-gray-500 text-sm">
+              <span className="text-muted-foreground text-sm">
                 {new Date(stats.lastRunTime).toLocaleString('tr-TR')}
               </span>
             </div>
@@ -163,7 +163,7 @@ export default function WorkflowDashboard() {
 
       {/* Applications Table */}
       <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+        <h2 className="text-2xl font-bold text-foreground mb-6 flex items-center gap-2">
           <DocumentTextIcon className="w-7 h-7 text-purple-600" />
           Tüm Başvurular
         </h2>
@@ -199,20 +199,20 @@ function StatsCard({ title, value, icon: Icon, color, subtitle, trend }: StatsCa
       <div className="flex items-start justify-between mb-4">
         <Icon className="w-8 h-8" />
         {trend && (
-          <span className="text-xs font-medium px-2 py-1 bg-white rounded-lg">
+          <span className="text-xs font-medium px-2 py-1 bg-card rounded-lg">
             {trend}
           </span>
         )}
       </div>
 
-      <div className="text-4xl font-bold text-gray-900 mb-1">
+      <div className="text-4xl font-bold text-foreground mb-1">
         {value.toLocaleString()}
       </div>
 
-      <div className="text-sm text-gray-700">{title}</div>
+      <div className="text-sm text-foreground">{title}</div>
 
       {subtitle && (
-        <div className="text-xs text-gray-500 mt-2">{subtitle}</div>
+        <div className="text-xs text-muted-foreground mt-2">{subtitle}</div>
       )}
     </motion.div>
   )
@@ -289,14 +289,14 @@ function WorkflowFlow({ stats }: { stats: WorkflowStats | null }) {
           <div key={node.id} className="flex items-center gap-4 flex-1">
             <FlowNode {...node} />
             {index < nodes.length - 1 && (
-              <ArrowRightIcon className="w-6 h-6 text-gray-400 flex-shrink-0" />
+              <ArrowRightIcon className="w-6 h-6 text-muted-foreground flex-shrink-0" />
             )}
           </div>
         ))}
       </div>
 
       {/* Outputs */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-6 border-t border-gray-200">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-6 border-t border-border">
         {outputs.map((output) => (
           <FlowNode key={output.id} {...output} isOutput />
         ))}
@@ -339,10 +339,10 @@ function FlowNode({ title, subtitle, icon: Icon, color, count, isOutput }: FlowN
         <Icon className={`w-8 h-8 ${isOutput ? 'mx-auto mb-2' : ''}`} />
 
         <div className={isOutput ? 'text-center' : ''}>
-          <div className="font-semibold text-gray-900 text-sm">{title}</div>
-          <div className="text-xs text-gray-500 mt-1">{subtitle}</div>
+          <div className="font-semibold text-foreground text-sm">{title}</div>
+          <div className="text-xs text-muted-foreground mt-1">{subtitle}</div>
           {count > 0 && (
-            <div className="text-2xl font-bold text-gray-900 mt-2">
+            <div className="text-2xl font-bold text-foreground mt-2">
               {count}
             </div>
           )}
@@ -355,13 +355,13 @@ function FlowNode({ title, subtitle, icon: Icon, color, count, isOutput }: FlowN
 function WorkflowSkeleton() {
   return (
     <div className="p-8 space-y-6 animate-pulse">
-      <div className="h-12 bg-gray-200 rounded-xl w-64" />
+      <div className="h-12 bg-secondary rounded-xl w-64" />
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="h-32 bg-gray-200 rounded-xl" />
+          <div key={i} className="h-32 bg-secondary rounded-xl" />
         ))}
       </div>
-      <div className="h-96 bg-gray-200 rounded-xl" />
+      <div className="h-96 bg-secondary rounded-xl" />
     </div>
   )
 }

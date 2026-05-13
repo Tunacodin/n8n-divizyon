@@ -1,37 +1,28 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase'
+import { prisma } from '@/lib/prisma'
 
 // GET /api/applications/[id]/history
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
-  const db = createClient()
-
   try {
     const [statusHistory, auditLog, snapshots] = await Promise.all([
-      db
-        .from('status_history')
-        .select('*')
-        .eq('application_id', params.id)
-        .order('created_at', { ascending: false }),
-      db
-        .from('audit_log')
-        .select('*')
-        .eq('entity_type', 'application')
-        .eq('entity_id', params.id)
-        .order('created_at', { ascending: false }),
-      db
-        .from('application_snapshots')
-        .select('id, trigger_action, created_by, created_at')
-        .eq('application_id', params.id)
-        .order('created_at', { ascending: false }),
+      prisma.status_history.findMany({
+        where: { application_id: params.id },
+        orderBy: { created_at: 'desc' },
+      }),
+      prisma.audit_log.findMany({
+        where: { entity_type: 'application', entity_id: params.id },
+        orderBy: { created_at: 'desc' },
+      }),
+      prisma.application_snapshots.findMany({
+        where: { application_id: params.id },
+        select: { id: true, trigger_action: true, created_by: true, created_at: true },
+        orderBy: { created_at: 'desc' },
+      }),
     ])
 
     return NextResponse.json({
       success: true,
-      data: {
-        status_history: statusHistory.data || [],
-        audit_log: auditLog.data || [],
-        snapshots: snapshots.data || [],
-      },
+      data: { status_history: statusHistory, audit_log: auditLog, snapshots },
     })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Bilinmeyen hata'

@@ -47,10 +47,10 @@ function getUyariColor(n: number): { badge: string; dot: string } {
 }
 
 function getSureStatus(days: number | null): { label: string; color: string; bgColor: string } {
-  if (days === null) return { label: 'Tarih Yok', color: 'text-gray-400', bgColor: '' }
+  if (days === null) return { label: 'Tarih Yok', color: 'text-muted-foreground', bgColor: '' }
   if (days > 21) return { label: `${days} gün`, color: 'text-red-600 font-semibold', bgColor: 'bg-red-50' }
   if (days > 14) return { label: `${days} gün`, color: 'text-orange-600 font-semibold', bgColor: 'bg-orange-50' }
-  return { label: `${days} gün`, color: 'text-gray-600', bgColor: '' }
+  return { label: `${days} gün`, color: 'text-muted-foreground', bgColor: '' }
 }
 
 type TaskInfo = { completed: boolean; completed_by?: string; completed_at?: string }
@@ -458,7 +458,7 @@ export default function OryantasyonContent() {
   const activeFilterCount = (uyariFilter !== 'tumu' ? 1 : 0) + (sureFilter !== 'tumu' ? 1 : 0) + (takipFilter !== 'tumu' ? 1 : 0)
 
   return (
-    <div className="min-h-screen bg-[#FAFBFC]">
+    <div className="min-h-screen bg-background">
       <div className="p-6">
         {/* Compact toolbar */}
         <div className="flex items-center gap-3 mb-4">
@@ -467,7 +467,7 @@ export default function OryantasyonContent() {
             placeholder="Ad soyad veya e-posta ara..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="px-4 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none min-w-[220px]"
+            className="px-4 py-2 text-sm border border-border rounded-lg bg-card focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none min-w-[220px]"
           />
 
           {/* Filter dropdown */}
@@ -477,7 +477,7 @@ export default function OryantasyonContent() {
               className={`flex items-center gap-2 px-3 py-2 text-sm border rounded-lg transition-colors ${
                 activeFilterCount > 0
                   ? 'border-purple-300 bg-purple-50 text-purple-700'
-                  : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                  : 'border-border bg-card text-muted-foreground hover:bg-muted/50'
               }`}
             >
               <FunnelIcon className="w-4 h-4" />
@@ -489,10 +489,10 @@ export default function OryantasyonContent() {
             </button>
 
             {filterOpen && (
-              <div className="absolute left-0 top-full mt-1 w-72 bg-white rounded-xl border border-gray-200 shadow-lg z-30 p-4 space-y-4">
+              <div className="absolute left-0 top-full mt-1 w-72 bg-card rounded-xl border border-border shadow-lg z-30 p-4 space-y-4">
                 {/* Uyarı */}
                 <div>
-                  <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5 block">Uyarı Sayısı</label>
+                  <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">Uyarı Sayısı</label>
                   <div className="flex gap-1">
                     {(['tumu', '0', '1', '2'] as UyariFilter[]).map((f) => {
                       const label = f === 'tumu' ? 'Tümü' : f
@@ -500,7 +500,7 @@ export default function OryantasyonContent() {
                       return (
                         <button key={f} onClick={() => setUyariFilter(f)}
                           className={`flex-1 px-2 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                            uyariFilter === f ? 'bg-purple-100 text-purple-700' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
+                            uyariFilter === f ? 'bg-purple-100 text-purple-700' : 'bg-muted/50 text-muted-foreground hover:bg-muted'
                           }`}
                         >
                           {label} <span className="opacity-60">({cnt})</span>
@@ -512,11 +512,11 @@ export default function OryantasyonContent() {
 
                 {/* Süre */}
                 <div>
-                  <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5 block">Geçen Süre</label>
+                  <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">Geçen Süre</label>
                   <select
                     value={sureFilter}
                     onChange={(e) => setSureFilter(e.target.value as SureFilter)}
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-purple-500 outline-none"
+                    className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-card focus:ring-2 focus:ring-purple-500 outline-none"
                   >
                     <option value="tumu">Tümü</option>
                     <option value="kritik">Kritik (21+ gün)</option>
@@ -527,7 +527,7 @@ export default function OryantasyonContent() {
 
                 {/* Takip */}
                 <div>
-                  <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5 block">Haftalık Takip</label>
+                  <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">Haftalık Takip</label>
                   <div className="flex flex-col gap-1">
                     {([
                       { key: 'tumu' as TakipFilter, label: 'Tümü', cnt: counts.tumu, dot: '' },
@@ -537,7 +537,7 @@ export default function OryantasyonContent() {
                     ]).map(({ key, label, cnt, dot }) => (
                       <button key={key} onClick={() => setTakipFilter(key)}
                         className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium transition-colors text-left ${
-                          takipFilter === key ? 'bg-purple-100 text-purple-700' : 'text-gray-500 hover:bg-gray-50'
+                          takipFilter === key ? 'bg-purple-100 text-purple-700' : 'text-muted-foreground hover:bg-muted/50'
                         }`}
                       >
                         {dot && <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />}
@@ -562,7 +562,7 @@ export default function OryantasyonContent() {
           </div>
 
           {/* Quick stats inline */}
-          <div className="flex items-center gap-3 ml-auto text-xs text-gray-500">
+          <div className="flex items-center gap-3 ml-auto text-xs text-muted-foreground">
             {counts.kritik > 0 && (
               <span className="flex items-center gap-1 text-red-600 font-medium">
                 <ExclamationTriangleIcon className="w-3.5 h-3.5" />
@@ -571,7 +571,7 @@ export default function OryantasyonContent() {
             )}
             <span>{counts.karDone}/{counts.tumu} envanter</span>
             <span>{counts.oryDone}/{counts.tumu} oryantasyon</span>
-            <span className="text-gray-400">{filtered.length} kayıt</span>
+            <span className="text-muted-foreground">{filtered.length} kayıt</span>
           </div>
         </div>
 
@@ -581,27 +581,27 @@ export default function OryantasyonContent() {
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500" />
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="bg-card rounded-xl border border-border overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-gray-50 border-b border-gray-200">
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">Ad Soyad</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">E-Posta</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">Taşınma Tarihi</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">Geçen Süre</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">Uyarı Sayısı</th>
-                    <th className="text-center px-4 py-3 font-medium text-gray-600">Kar. Envanter</th>
-                    <th className="text-center px-4 py-3 font-medium text-gray-600">Dis. Envanter</th>
-                    <th className="text-center px-4 py-3 font-medium text-gray-600">Oryantasyon</th>
-                    <th className="text-center px-4 py-3 font-medium text-gray-600">Haftalık Takip</th>
-                    <th className="text-center px-4 py-3 font-medium text-gray-600">Aksiyon</th>
+                  <tr className="bg-muted/50 border-b border-border">
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Ad Soyad</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">E-Posta</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Taşınma Tarihi</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Geçen Süre</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Uyarı Sayısı</th>
+                    <th className="text-center px-4 py-3 font-medium text-muted-foreground">Kar. Envanter</th>
+                    <th className="text-center px-4 py-3 font-medium text-muted-foreground">Dis. Envanter</th>
+                    <th className="text-center px-4 py-3 font-medium text-muted-foreground">Oryantasyon</th>
+                    <th className="text-center px-4 py-3 font-medium text-muted-foreground">Haftalık Takip</th>
+                    <th className="text-center px-4 py-3 font-medium text-muted-foreground">Aksiyon</th>
                   </tr>
                 </thead>
                 <tbody>
                   {paged.length === 0 ? (
                     <tr>
-                      <td colSpan={10} className="text-center py-12 text-gray-400">Kayıt bulunamadı</td>
+                      <td colSpan={10} className="text-center py-12 text-muted-foreground">Kayıt bulunamadı</td>
                     </tr>
                   ) : (
                     paged.map((row, i) => {
@@ -620,13 +620,13 @@ export default function OryantasyonContent() {
                         <tr
                           key={i}
                           onClick={() => setSelectedUye(row)}
-                          className={`border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer ${
+                          className={`border-b border-border hover:bg-muted/50 transition-colors cursor-pointer ${
                           row._takip.durum === 'deaktive_hazir' ? 'bg-red-50/50' :
                           row._takip.durum === 'kontrol_gerekli' ? 'bg-amber-50/30' :
                           row._takip.durum === 'tamamlandi' ? 'bg-green-50/30' :
                           sureStatus.bgColor
                         }`}>
-                          <td className="px-4 py-3 font-medium text-gray-900">
+                          <td className="px-4 py-3 font-medium text-foreground">
                             <div className="flex items-center gap-1.5">
                               {name}
                               {isProtected && (
@@ -641,8 +641,8 @@ export default function OryantasyonContent() {
                               )}
                             </div>
                           </td>
-                          <td className="px-4 py-3 text-gray-600 text-xs">{email}</td>
-                          <td className="px-4 py-3 text-gray-600 text-xs">{tasinmaTarihiStr}</td>
+                          <td className="px-4 py-3 text-muted-foreground text-xs">{email}</td>
+                          <td className="px-4 py-3 text-muted-foreground text-xs">{tasinmaTarihiStr}</td>
                           <td className="px-4 py-3">
                             {row._gun !== null ? (
                               <span className={`text-sm ${sureStatus.color}`}>
@@ -650,7 +650,7 @@ export default function OryantasyonContent() {
                                 {row._gun > 21 && <ExclamationTriangleIcon className="w-3.5 h-3.5 inline ml-1 text-red-500" />}
                               </span>
                             ) : (
-                              <span className="text-gray-400 text-xs">—</span>
+                              <span className="text-muted-foreground text-xs">—</span>
                             )}
                           </td>
                           <td className="px-4 py-3">
@@ -679,23 +679,23 @@ export default function OryantasyonContent() {
                                     title={isProtected ? 'Korumalı kayıt — değiştirilemez' : tooltip}
                                   >
                                     {isToggling ? (
-                                      <svg className="animate-spin h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                      <svg className="animate-spin h-5 w-5 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                                       </svg>
                                     ) : done ? (
                                       <CheckCircleSolid className={`w-5 h-5 transition-colors ${isManual ? 'text-amber-500 hover:text-amber-600' : 'text-green-500 hover:text-green-600'}`} />
                                     ) : (
-                                      <CheckCircleIcon className="w-5 h-5 text-gray-300 hover:text-gray-400 transition-colors" />
+                                      <CheckCircleIcon className="w-5 h-5 text-gray-300 hover:text-muted-foreground transition-colors" />
                                     )}
                                   </button>
                                   {taskType === 'disipliner_envanter' && disciplines.length > 0 && (
-                                    <span className="text-[10px] text-gray-500 leading-tight">
+                                    <span className="text-[10px] text-muted-foreground leading-tight">
                                       {disciplines.map((d) => DISCIPLINE_LABEL[d] ?? d).join(', ')}
                                     </span>
                                   )}
                                   {done && verifiedShort && !(taskType === 'disipliner_envanter' && disciplines.length > 0) && (
-                                    <span className="text-[10px] text-gray-400 leading-tight">{verifiedShort}</span>
+                                    <span className="text-[10px] text-muted-foreground leading-tight">{verifiedShort}</span>
                                   )}
                                 </div>
                               </td>
@@ -710,14 +710,14 @@ export default function OryantasyonContent() {
                               <div className="flex flex-col items-center">
                                 <Badge className="bg-red-50 text-red-600 border-red-200 text-[10px] animate-pulse">Kontrol gerekli</Badge>
                                 {row._takip.sonKontrolTarih && (
-                                  <span className="text-[10px] text-gray-400 mt-0.5">Son: {new Date(row._takip.sonKontrolTarih).toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' })}</span>
+                                  <span className="text-[10px] text-muted-foreground mt-0.5">Son: {new Date(row._takip.sonKontrolTarih).toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' })}</span>
                                 )}
                               </div>
                             ) : (
                               <div className="flex flex-col items-center">
                                 <Badge className="bg-yellow-50 text-yellow-600 border-yellow-200 text-[10px]">{row._takip.label}</Badge>
                                 {row._takip.sonKontrolTarih && (
-                                  <span className="text-[10px] text-gray-400 mt-0.5">Son: {new Date(row._takip.sonKontrolTarih).toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' })}</span>
+                                  <span className="text-[10px] text-muted-foreground mt-0.5">Son: {new Date(row._takip.sonKontrolTarih).toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' })}</span>
                                 )}
                               </div>
                             )}
@@ -767,7 +767,7 @@ export default function OryantasyonContent() {
                                 disabled={warningLoading === row.id || row._uyariSayisi >= 2}
                                 className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
                                   row._uyariSayisi >= 2
-                                    ? 'bg-gray-50 text-gray-400 border border-gray-200'
+                                    ? 'bg-muted/50 text-muted-foreground border border-border'
                                     : 'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100'
                                 }`}
                                 title={row._uyariSayisi >= 2 ? '2 uyarı verildi, 2 hafta bekleniyor' : 'Circle üzerinden uyarıldı olarak işaretle'}
@@ -794,21 +794,21 @@ export default function OryantasyonContent() {
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 bg-gray-50">
-                <p className="text-sm text-gray-500">
+              <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-muted/50">
+                <p className="text-sm text-muted-foreground">
                   {filtered.length} sonuctan {(page - 1) * PER_PAGE + 1}–{Math.min(page * PER_PAGE, filtered.length)} arası
                 </p>
                 <div className="flex gap-1">
-                  <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 text-sm rounded-md border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">Önceki</button>
+                  <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 text-sm rounded-md border border-border bg-card hover:bg-muted/50 disabled:opacity-50 disabled:cursor-not-allowed">Önceki</button>
                   {Array.from({ length: totalPages }, (_, i) => i + 1)
                     .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
                     .map((p, idx, arr) => (
                       <span key={p}>
-                        {idx > 0 && arr[idx - 1] !== p - 1 && <span className="px-1 text-gray-400">...</span>}
-                        <button onClick={() => setPage(p)} className={`px-3 py-1.5 text-sm rounded-md border ${p === page ? 'bg-purple-500 text-white border-purple-500' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>{p}</button>
+                        {idx > 0 && arr[idx - 1] !== p - 1 && <span className="px-1 text-muted-foreground">...</span>}
+                        <button onClick={() => setPage(p)} className={`px-3 py-1.5 text-sm rounded-md border ${p === page ? 'bg-purple-500 text-white border-purple-500' : 'border-border bg-card hover:bg-muted/50'}`}>{p}</button>
                       </span>
                     ))}
-                  <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="px-3 py-1.5 text-sm rounded-md border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">Sonraki</button>
+                  <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="px-3 py-1.5 text-sm rounded-md border border-border bg-card hover:bg-muted/50 disabled:opacity-50 disabled:cursor-not-allowed">Sonraki</button>
                 </div>
               </div>
             )}
@@ -820,14 +820,14 @@ export default function OryantasyonContent() {
       {pendingTaskAction && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/30" onClick={() => setPendingTaskAction(null)} />
-          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-xs p-5 mx-4">
-            <h3 className="text-sm font-semibold text-gray-900 mb-1">Manuel olarak tamamlandı</h3>
-            <p className="text-xs text-gray-500 mb-3">Bu işaret audit log'a "admin_manual" olarak yazılır.</p>
-            <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Kim işaretliyor?</label>
+          <div className="relative bg-card rounded-xl shadow-xl w-full max-w-xs p-5 mx-4">
+            <h3 className="text-sm font-semibold text-foreground mb-1">Manuel olarak tamamlandı</h3>
+            <p className="text-xs text-muted-foreground mb-3">Bu işaret audit log'a "admin_manual" olarak yazılır.</p>
+            <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1 block">Kim işaretliyor?</label>
             <select
               value={pendingPerson}
               onChange={(e) => setPendingPerson(e.target.value)}
-              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-400 outline-none mb-3"
+              className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-card focus:ring-2 focus:ring-indigo-400 outline-none mb-3"
             >
               <option value="">Kişi seç...</option>
               <option value="Tuna">Tuna</option>
@@ -835,11 +835,11 @@ export default function OryantasyonContent() {
             </select>
             {pendingTaskAction.taskType === 'disipliner_envanter' && (
               <>
-                <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Hangi disiplin?</label>
+                <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1 block">Hangi disiplin?</label>
                 <select
                   value={pendingDiscipline}
                   onChange={(e) => setPendingDiscipline(e.target.value)}
-                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-400 outline-none mb-3"
+                  className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-card focus:ring-2 focus:ring-indigo-400 outline-none mb-3"
                 >
                   <option value="">Disiplin seç...</option>
                   <option value="kreatif_yapim">Kreatif Yapım</option>
@@ -849,7 +849,7 @@ export default function OryantasyonContent() {
               </>
             )}
             <div className="flex gap-2">
-              <button onClick={() => setPendingTaskAction(null)} className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50">İptal</button>
+              <button onClick={() => setPendingTaskAction(null)} className="flex-1 px-3 py-2 text-sm border border-border rounded-lg hover:bg-muted/50">İptal</button>
               <button
                 onClick={() => {
                   if (!pendingPerson) return
@@ -876,38 +876,38 @@ export default function OryantasyonContent() {
       {pendingWarning && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/30" onClick={() => setPendingWarning(null)} />
-          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-sm p-5 mx-4">
-            <h3 className="text-sm font-semibold text-gray-900 mb-1">Uyarı kaydı ekle</h3>
-            <p className="text-xs text-gray-500 mb-3">{pendingWarning.name} için Circle üzerinden atılan mesajı kaydeder.</p>
-            <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Hangi form için?</label>
+          <div className="relative bg-card rounded-xl shadow-xl w-full max-w-sm p-5 mx-4">
+            <h3 className="text-sm font-semibold text-foreground mb-1">Uyarı kaydı ekle</h3>
+            <p className="text-xs text-muted-foreground mb-3">{pendingWarning.name} için Circle üzerinden atılan mesajı kaydeder.</p>
+            <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1 block">Hangi form için?</label>
             <select
               value={pendingFormType}
               onChange={(e) => setPendingFormType(e.target.value)}
-              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-amber-400 outline-none mb-3"
+              className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-card focus:ring-2 focus:ring-amber-400 outline-none mb-3"
             >
               <option value="">Genel uyarı</option>
               <option value="karakteristik_envanter">Karakteristik envanter</option>
               <option value="disipliner_envanter">Disipliner envanter</option>
             </select>
-            <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Kim uyardı?</label>
+            <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1 block">Kim uyardı?</label>
             <select
               value={pendingWarnedBy}
               onChange={(e) => setPendingWarnedBy(e.target.value)}
-              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-amber-400 outline-none mb-3"
+              className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-card focus:ring-2 focus:ring-amber-400 outline-none mb-3"
             >
               <option value="">Kişi seç...</option>
               <option value="Tuna">Tuna</option>
               <option value="Taha">Taha</option>
             </select>
-            <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Sebep / not</label>
+            <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1 block">Sebep / not</label>
             <textarea
               value={pendingWarnReason}
               onChange={(e) => setPendingWarnReason(e.target.value)}
               rows={3}
-              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-amber-400 outline-none mb-3 resize-none"
+              className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-card focus:ring-2 focus:ring-amber-400 outline-none mb-3 resize-none"
             />
             <div className="flex gap-2">
-              <button onClick={() => setPendingWarning(null)} className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50">İptal</button>
+              <button onClick={() => setPendingWarning(null)} className="flex-1 px-3 py-2 text-sm border border-border rounded-lg hover:bg-muted/50">İptal</button>
               <button
                 onClick={submitWarning}
                 disabled={!pendingWarnedBy}
@@ -924,22 +924,22 @@ export default function OryantasyonContent() {
       {pendingPromote && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/30" onClick={() => setPendingPromote(null)} />
-          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-sm p-5 mx-4">
-            <h3 className="text-sm font-semibold text-gray-900 mb-1">Nihai Üye'ye Taşı</h3>
-            <p className="text-xs text-gray-500 mb-3">{pendingPromote.name} 3 görevi tamamladı. Nihai Ağ Üyesi'ne taşınacak.</p>
-            <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">
+          <div className="relative bg-card rounded-xl shadow-xl w-full max-w-sm p-5 mx-4">
+            <h3 className="text-sm font-semibold text-foreground mb-1">Nihai Üye'ye Taşı</h3>
+            <p className="text-xs text-muted-foreground mb-3">{pendingPromote.name} 3 görevi tamamladı. Nihai Ağ Üyesi'ne taşınacak.</p>
+            <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1 block">
               Onaylayan kişi <span className="text-red-500">*</span>
             </label>
             <select
               value={promotePerson}
               onChange={(e) => setPromotePerson(e.target.value)}
-              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-emerald-400 outline-none mb-3"
+              className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-card focus:ring-2 focus:ring-emerald-400 outline-none mb-3"
             >
               <option value="">Kişi seç...</option>
               <option value="Tuna">Tuna</option>
               <option value="Taha">Taha</option>
             </select>
-            <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">
+            <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1 block">
               Not <span className="text-red-500">*</span>
             </label>
             <textarea
@@ -947,10 +947,10 @@ export default function OryantasyonContent() {
               onChange={(e) => setPromoteNote(e.target.value)}
               rows={3}
               placeholder="Taşıma sebebi / not..."
-              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-emerald-400 outline-none mb-3 resize-none"
+              className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-card focus:ring-2 focus:ring-emerald-400 outline-none mb-3 resize-none"
             />
             <div className="flex gap-2">
-              <button onClick={() => setPendingPromote(null)} className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50">İptal</button>
+              <button onClick={() => setPendingPromote(null)} className="flex-1 px-3 py-2 text-sm border border-border rounded-lg hover:bg-muted/50">İptal</button>
               <button
                 onClick={submitPromote}
                 disabled={!promotePerson.trim() || !promoteNote.trim()}
@@ -968,34 +968,34 @@ export default function OryantasyonContent() {
       {pendingDeactivate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/30" onClick={() => setPendingDeactivate(null)} />
-          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-sm p-5 mx-4">
-            <h3 className="text-sm font-semibold text-gray-900 mb-1">Deaktive Et</h3>
-            <p className="text-xs text-gray-500 mb-3">
+          <div className="relative bg-card rounded-xl shadow-xl w-full max-w-sm p-5 mx-4">
+            <h3 className="text-sm font-semibold text-foreground mb-1">Deaktive Et</h3>
+            <p className="text-xs text-muted-foreground mb-3">
               {pendingDeactivate.name} 2 uyarıya rağmen 2 hafta içinde görevlerini tamamlamadı.
             </p>
-            <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">
+            <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1 block">
               Onaylayan kişi <span className="text-red-500">*</span>
             </label>
             <select
               value={deactivatePerson}
               onChange={(e) => setDeactivatePerson(e.target.value)}
-              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-red-400 outline-none mb-3"
+              className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-card focus:ring-2 focus:ring-red-400 outline-none mb-3"
             >
               <option value="">Kişi seç...</option>
               <option value="Tuna">Tuna</option>
               <option value="Taha">Taha</option>
             </select>
-            <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">
+            <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1 block">
               Not <span className="text-red-500">*</span>
             </label>
             <textarea
               value={deactivateNote}
               onChange={(e) => setDeactivateNote(e.target.value)}
               rows={3}
-              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-red-400 outline-none mb-3 resize-none"
+              className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-card focus:ring-2 focus:ring-red-400 outline-none mb-3 resize-none"
             />
             <div className="flex gap-2">
-              <button onClick={() => setPendingDeactivate(null)} className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50">İptal</button>
+              <button onClick={() => setPendingDeactivate(null)} className="flex-1 px-3 py-2 text-sm border border-border rounded-lg hover:bg-muted/50">İptal</button>
               <button
                 onClick={submitDeactivate}
                 disabled={!deactivatePerson.trim() || !deactivateNote.trim()}

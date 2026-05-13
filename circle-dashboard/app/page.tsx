@@ -47,7 +47,7 @@ const PIPELINE_STEPS = [
 
 const EXIT_STATUSES = [
   { key: 'yas_kucuk', label: '18 Yas Alti', color: '#F97316', bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200', ring: 'ring-orange-400' },
-  { key: 'deaktive', label: 'Deaktive', color: '#6B7280', bg: 'bg-gray-100', text: 'text-gray-600', border: 'border-gray-200', ring: 'ring-gray-400' },
+  { key: 'deaktive', label: 'Deaktive', color: '#6B7280', bg: 'bg-muted', text: 'text-muted-foreground', border: 'border-border', ring: 'ring-gray-400' },
   { key: 'etkinlik', label: 'Etkinlik', color: '#06B6D4', bg: 'bg-cyan-50', text: 'text-cyan-700', border: 'border-cyan-200', ring: 'ring-cyan-400' },
 ]
 
@@ -73,8 +73,8 @@ function InfoRow({ label, value }: { label: string; value: string | undefined | 
   if (!value) return null
   return (
     <div>
-      <span className="text-gray-400 text-[11px]">{label}</span>
-      <p className="text-gray-800 text-xs leading-relaxed">{value}</p>
+      <span className="text-muted-foreground text-[11px]">{label}</span>
+      <p className="text-foreground text-xs leading-relaxed">{value}</p>
     </div>
   )
 }
@@ -82,9 +82,9 @@ function InfoRow({ label, value }: { label: string; value: string | undefined | 
 function QABlock({ label, value }: { label: string; value: string | undefined | null }) {
   if (!value) return null
   return (
-    <div className="bg-white rounded p-2 border border-gray-100">
-      <span className="text-gray-400 text-[10px] block mb-0.5">{label}</span>
-      <p className="text-gray-700 text-xs leading-relaxed">{value}</p>
+    <div className="bg-card rounded p-2 border border-border">
+      <span className="text-muted-foreground text-[10px] block mb-0.5">{label}</span>
+      <p className="text-foreground text-xs leading-relaxed">{value}</p>
     </div>
   )
 }
@@ -378,12 +378,12 @@ export default function DashboardPage() {
     ? '18yas' : (selNote.includes('topluluk') && selNote.includes('ilke')) ? 'topluluk' : null
 
   return (
-    <div className="min-h-screen bg-[#FAFBFC] flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
-      <div className="sticky top-20 z-30 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between shrink-0">
+      <div className="sticky top-16 z-30 bg-card border-b border-border px-6 py-4 flex items-center justify-between shrink-0">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-xs text-gray-500">Divizyon Basvuru Yonetim Paneli</p>
+          <h1 className="text-xl font-bold text-foreground">Dashboard</h1>
+          <p className="text-xs text-muted-foreground">Divizyon Basvuru Yonetim Paneli</p>
         </div>
         {toast && (
           <div className={`flex items-center gap-2.5 px-5 py-3 rounded-xl shadow-lg border text-sm font-medium animate-[slideIn_0.3s_ease-out] ${
@@ -412,7 +412,7 @@ export default function DashboardPage() {
       {/* Pipeline + Stats */}
       <div className="px-6 pt-5 pb-3 space-y-3 shrink-0">
         {/* Pipeline breadcrumb */}
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
+        <div className="bg-card rounded-xl border border-border p-4">
           <div className="flex items-stretch gap-0">
             {PIPELINE_STEPS.map((step, i) => {
               let rawCount = breakdown?.[step.key]?.count ?? 0
@@ -430,7 +430,7 @@ export default function DashboardPage() {
                     className={`flex-1 flex flex-col items-center justify-center py-2.5 px-1 rounded-lg border-2 transition-all min-w-0 cursor-pointer ${
                       isSelected ? `${step.bg} ${step.text} border-current ring-2 ${step.ring} ring-offset-1 shadow-sm` :
                       count > 0 ? `${step.bg} ${step.border} ${step.text} hover:shadow-sm` :
-                      'bg-gray-50 border-gray-100 text-gray-400'
+                      'bg-muted/50 border-border text-muted-foreground'
                     }`}
                   >
                     <span className={`text-xl font-bold leading-none ${!count && !isSelected ? 'text-gray-300' : ''}`}>{count}</span>
@@ -452,8 +452,8 @@ export default function DashboardPage() {
             const exits = EXIT_STATUSES.filter(s => (breakdown?.[s.key]?.count ?? 0) > 0 || selectedStep === s.key)
             if (!exits.length) return null
             return (
-              <div className="flex items-center gap-1.5 mt-3 pt-3 border-t border-gray-100">
-                <span className="text-[10px] text-gray-400 mr-1">Cikarilan:</span>
+              <div className="flex items-center gap-1.5 mt-3 pt-3 border-t border-border">
+                <span className="text-[10px] text-muted-foreground mr-1">Cikarilan:</span>
                 {exits.map(s => (
                   <button key={s.key} onClick={() => setSelectedStep(selectedStep === s.key ? null : s.key)}
                     className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium transition-all ${
@@ -472,29 +472,29 @@ export default function DashboardPage() {
       {/* Main content: List + Side Panel */}
       <div className="flex-1 flex px-6 pb-6 gap-4 min-h-0">
         {/* Left: List */}
-        <div className={`bg-white rounded-xl border border-gray-200 flex flex-col min-h-0 transition-all ${sel ? 'flex-1' : 'w-full'}`}>
-          <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between shrink-0">
+        <div className={`bg-card rounded-xl border border-border flex flex-col min-h-0 transition-all ${sel ? 'flex-1' : 'w-full'}`}>
+          <div className="px-4 py-3 border-b border-border flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2">
               {selectedStep && (() => { const s = ALL_STATUSES.find(x => x.key === selectedStep); return s ? <span className="w-2 h-2 rounded-full" style={{ backgroundColor: s.color }} /> : null })()}
-              <h2 className="text-sm font-semibold text-gray-900">{ALL_STATUSES.find(s => s.key === selectedStep)?.label || 'Kayıtlar'}</h2>
-              {selectedStep && <span className="text-xs text-gray-400">({filteredApps.length})</span>}
+              <h2 className="text-sm font-semibold text-foreground">{ALL_STATUSES.find(s => s.key === selectedStep)?.label || 'Kayıtlar'}</h2>
+              {selectedStep && <span className="text-xs text-muted-foreground">({filteredApps.length})</span>}
             </div>
-            {selectedStep && <button onClick={() => setSelectedStep(null)} className="text-[11px] text-gray-500 hover:text-gray-700">Temizle</button>}
+            {selectedStep && <button onClick={() => setSelectedStep(null)} className="text-[11px] text-muted-foreground hover:text-foreground">Temizle</button>}
           </div>
 
-          <div className="flex-1 overflow-y-auto divide-y divide-gray-50">
+          <div className="flex-1 overflow-y-auto divide-y divide-border">
             {loading ? (
-              <div className="p-4 space-y-2">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-10 bg-gray-100 rounded animate-pulse" />)}</div>
+              <div className="p-4 space-y-2">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-10 bg-muted rounded animate-pulse" />)}</div>
             ) : !selectedStep ? (
-              <div className="p-10 text-center text-gray-400 text-sm">Kayıtları görmek için yukarıdaki bir aşamaya tıklayın</div>
+              <div className="p-10 text-center text-muted-foreground text-sm">Kayıtları görmek için yukarıdaki bir aşamaya tıklayın</div>
             ) : filteredApps.length === 0 ? (
-              <div className="p-10 text-center text-gray-400 text-sm">Bu asamada kimse yok</div>
+              <div className="p-10 text-center text-muted-foreground text-sm">Bu asamada kimse yok</div>
             ) : groupedByDate.map(group => (
               <div key={group.date}>
                 {/* Gün başlığı */}
-                <div className="sticky top-0 z-10 bg-gray-50 px-4 py-1.5 border-b border-gray-100">
-                  <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">{group.label}</span>
-                  <span className="text-[10px] text-gray-400 ml-2">({group.apps.length})</span>
+                <div className="sticky top-0 z-10 bg-muted/50 px-4 py-1.5 border-b border-border">
+                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">{group.label}</span>
+                  <span className="text-[10px] text-muted-foreground ml-2">({group.apps.length})</span>
                 </div>
                 {/* Kayıtlar */}
                 {group.apps.map(app => {
@@ -511,13 +511,13 @@ export default function DashboardPage() {
                   const isProtected = (app as { is_protected?: boolean }).is_protected
                   return (
                     <button key={app.id} onClick={() => setSelectedApp(isActive ? null : app)}
-                      className={`w-full text-left px-4 py-2.5 flex items-center gap-2.5 transition-colors border-b border-gray-50 ${isActive ? 'bg-indigo-50' : 'hover:bg-gray-50'}`}>
+                      className={`w-full text-left px-4 py-2.5 flex items-center gap-2.5 transition-colors border-b border-gray-50 ${isActive ? 'bg-indigo-50' : 'hover:bg-muted/50'}`}>
                       <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0" style={{ backgroundColor: step?.color || '#6B7280' }}>{initials}</div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 truncate">{app.full_name}</p>
-                        <p className="text-[11px] text-gray-400 truncate">{app.email}</p>
+                        <p className="text-sm font-medium text-foreground truncate">{app.full_name}</p>
+                        <p className="text-[11px] text-muted-foreground truncate">{app.email}</p>
                       </div>
-                      {time && <span className="text-[10px] text-gray-400 shrink-0">{time}</span>}
+                      {time && <span className="text-[10px] text-muted-foreground shrink-0">{time}</span>}
                       {isProtected && (
                         <span
                           className="text-[9px] px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 shrink-0 font-semibold"
@@ -549,20 +549,20 @@ export default function DashboardPage() {
         {sel && (
           <>
           {/* Backdrop */}
-          <div className="fixed inset-0 top-[5rem] z-20 bg-black/10" onClick={() => setSelectedApp(null)} />
-          <div className="fixed right-0 top-[5rem] bottom-0 w-[400px] bg-white border-l border-gray-200 flex flex-col z-30 animate-slide-in-right shadow-xl">
+          <div className="fixed inset-0 top-[4rem] z-20 bg-black/10" onClick={() => setSelectedApp(null)} />
+          <div className="fixed right-0 top-[4rem] bottom-0 w-[400px] bg-card border-l border-border flex flex-col z-30 animate-slide-in-right shadow-xl">
             {/* Panel header */}
-            <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between shrink-0">
+            <div className="px-4 py-3 border-b border-border flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold" style={{ backgroundColor: selStep?.color || '#6B7280' }}>
                   {sel.full_name.split(' ').map(p => p.charAt(0)).join('').toUpperCase().slice(0, 2)}
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-gray-900">{sel.full_name}</p>
-                  <p className="text-[11px] text-gray-400">{sel.email}</p>
+                  <p className="text-sm font-semibold text-foreground">{sel.full_name}</p>
+                  <p className="text-[11px] text-muted-foreground">{sel.email}</p>
                 </div>
               </div>
-              <button onClick={() => setSelectedApp(null)} className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600">
+              <button onClick={() => setSelectedApp(null)} className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-muted-foreground">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
@@ -579,7 +579,7 @@ export default function DashboardPage() {
 
             {/* Duplicate e-posta uyarısı */}
             {sel.email && (emailCounts.get(sel.email.toLowerCase().trim()) || 1) > 1 && (
-              <div className="px-4 py-2 border-b border-gray-100 bg-amber-50">
+              <div className="px-4 py-2 border-b border-border bg-amber-50">
                 <p className="text-xs font-medium text-amber-800 mb-1">
                   Bu e-posta ile {emailCounts.get(sel.email.toLowerCase().trim())} başvuru mevcut
                 </p>
@@ -614,7 +614,7 @@ export default function DashboardPage() {
             )}
 
             {/* Degerlendirme + Islem */}
-            <div className="px-4 py-3 border-b border-gray-100 space-y-2.5 shrink-0">
+            <div className="px-4 py-3 border-b border-border space-y-2.5 shrink-0">
               {(sel as { is_protected?: boolean }).is_protected ? (
                 <div className="bg-purple-50 border border-purple-200 rounded-lg px-3 py-2.5 text-purple-800">
                   <div className="flex items-center gap-2 text-sm font-semibold">
@@ -680,7 +680,7 @@ export default function DashboardPage() {
                     </div>
                   )}
                   <button onClick={() => handleRollback(sel)} disabled={actionLoading}
-                    className="w-full px-3 py-2 text-[11px] font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50">
+                    className="w-full px-3 py-2 text-[11px] font-medium text-muted-foreground bg-muted rounded-lg hover:bg-secondary transition-colors disabled:opacity-50">
                     Geri Al
                   </button>
                 </>
@@ -693,12 +693,12 @@ export default function DashboardPage() {
                       <>
                         <div className="grid grid-cols-2 gap-2">
                           <div>
-                            <label className="text-[10px] font-medium text-gray-400 block mb-0.5">
+                            <label className="text-[10px] font-medium text-muted-foreground block mb-0.5">
                               Değerlendiren <span className="text-red-500">*</span>
                             </label>
                             <select value={reviewer} onChange={e => setReviewer(e.target.value)}
-                              className={`w-full text-xs border rounded-lg px-2 py-1.5 bg-white focus:ring-1 focus:ring-indigo-300 outline-none ${
-                                !reviewer.trim() ? 'border-amber-300 bg-amber-50' : 'border-gray-200'
+                              className={`w-full text-xs border rounded-lg px-2 py-1.5 bg-card focus:ring-1 focus:ring-indigo-300 outline-none ${
+                                !reviewer.trim() ? 'border-amber-300 bg-amber-50' : 'border-border'
                               }`}>
                               <option value="">Seç...</option>
                               <option value="Tuna">Tuna</option>
@@ -706,12 +706,12 @@ export default function DashboardPage() {
                             </select>
                           </div>
                           <div>
-                            <label className="text-[10px] font-medium text-gray-400 block mb-0.5">
+                            <label className="text-[10px] font-medium text-muted-foreground block mb-0.5">
                               Not <span className="text-red-500">*</span>
                             </label>
                             <input type="text" value={reviewNote} onChange={e => setReviewNote(e.target.value)} placeholder="Değerlendirme notu..."
-                              className={`w-full text-xs border rounded-lg px-2 py-1.5 bg-white focus:ring-1 focus:ring-indigo-300 outline-none ${
-                                !reviewNote.trim() ? 'border-amber-300 bg-amber-50' : 'border-gray-200'
+                              className={`w-full text-xs border rounded-lg px-2 py-1.5 bg-card focus:ring-1 focus:ring-indigo-300 outline-none ${
+                                !reviewNote.trim() ? 'border-amber-300 bg-amber-50' : 'border-border'
                               }`} />
                           </div>
                         </div>
@@ -720,7 +720,7 @@ export default function DashboardPage() {
                         {sel.status === 'kontrol' && (
                           <div className="space-y-1.5 pt-1">
                             <div>
-                              <label className="text-[10px] font-medium text-gray-400 block mb-0.5">
+                              <label className="text-[10px] font-medium text-muted-foreground block mb-0.5">
                                 Mail Şablonu <span className="text-red-500">*</span>
                               </label>
                               <select
@@ -731,8 +731,8 @@ export default function DashboardPage() {
                                   const tpl = mailTemplates.find(t => t.id === id)
                                   if (tpl?.subject && !mailSubject) setMailSubject(tpl.subject)
                                 }}
-                                className={`w-full text-xs border rounded-lg px-2 py-1.5 bg-white focus:ring-1 focus:ring-indigo-300 outline-none ${
-                                  !selectedTemplateId ? 'border-amber-300 bg-amber-50' : 'border-gray-200'
+                                className={`w-full text-xs border rounded-lg px-2 py-1.5 bg-card focus:ring-1 focus:ring-indigo-300 outline-none ${
+                                  !selectedTemplateId ? 'border-amber-300 bg-amber-50' : 'border-border'
                                 }`}
                               >
                                 <option value="">Şablon seç...</option>
@@ -742,7 +742,7 @@ export default function DashboardPage() {
                               </select>
                             </div>
                             <div>
-                              <label className="text-[10px] font-medium text-gray-400 block mb-0.5">
+                              <label className="text-[10px] font-medium text-muted-foreground block mb-0.5">
                                 Mail Konusu <span className="text-red-500">*</span>
                               </label>
                               <input
@@ -750,8 +750,8 @@ export default function DashboardPage() {
                                 value={mailSubject}
                                 onChange={e => setMailSubject(e.target.value)}
                                 placeholder="Mail konusu..."
-                                className={`w-full text-xs border rounded-lg px-2 py-1.5 bg-white focus:ring-1 focus:ring-indigo-300 outline-none ${
-                                  !mailSubject.trim() ? 'border-amber-300 bg-amber-50' : 'border-gray-200'
+                                className={`w-full text-xs border rounded-lg px-2 py-1.5 bg-card focus:ring-1 focus:ring-indigo-300 outline-none ${
+                                  !mailSubject.trim() ? 'border-amber-300 bg-amber-50' : 'border-border'
                                 }`}
                               />
                             </div>
@@ -786,7 +786,7 @@ export default function DashboardPage() {
                             </button>
                           )})}
                           <button onClick={() => handleRollback(sel)} disabled={actionLoading}
-                            className="px-3 py-2 text-[11px] font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 ml-auto">
+                            className="px-3 py-2 text-[11px] font-medium text-muted-foreground bg-muted rounded-lg hover:bg-secondary transition-colors disabled:opacity-50 ml-auto">
                             Geri Al
                           </button>
                         </div>
@@ -800,10 +800,10 @@ export default function DashboardPage() {
             {/* Scrollable detail — two columns: info left, principles right */}
             <div className="flex-1 overflow-y-auto flex min-h-0">
               {/* Left column: bilgiler */}
-              <div className="flex-1 px-3 py-3 space-y-3 overflow-y-auto border-r border-gray-100">
+              <div className="flex-1 px-3 py-3 space-y-3 overflow-y-auto border-r border-border">
                 {/* Kisisel */}
                 <div>
-                  <h4 className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Kisisel</h4>
+                  <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Kisisel</h4>
                   <div className="grid grid-cols-2 gap-x-2 gap-y-0.5">
                     <InfoRow label="Telefon" value={sel.phone} />
                     <InfoRow label="Dogum" value={sel.birth_date} />
@@ -815,7 +815,7 @@ export default function DashboardPage() {
                 {/* Egitim */}
                 {(sel.university || sel.department) && (
                   <div>
-                    <h4 className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Egitim</h4>
+                    <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Egitim</h4>
                     <div className="grid grid-cols-2 gap-x-2 gap-y-0.5">
                       <InfoRow label="Universite" value={sel.university} />
                       <InfoRow label="Bolum" value={sel.department} />
@@ -827,7 +827,7 @@ export default function DashboardPage() {
                 {/* Rol */}
                 {sel.main_role && (
                   <div>
-                    <h4 className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Rol & Degerler</h4>
+                    <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Rol & Degerler</h4>
                     <InfoRow label="Ana Rol" value={sel.main_role} />
                     <InfoRow label="Degerler" value={sel.core_values} />
                   </div>
@@ -836,17 +836,17 @@ export default function DashboardPage() {
                 {/* Kendini ifade */}
                 {(sel.self_expression || sel.video_link || sel.plan_description) && (
                   <div>
-                    <h4 className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Kendini Ifade</h4>
-                    {sel.self_expression && <p className="text-[11px] text-gray-700 leading-relaxed mb-1">{sel.self_expression}</p>}
+                    <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Kendini Ifade</h4>
+                    {sel.self_expression && <p className="text-[11px] text-foreground leading-relaxed mb-1">{sel.self_expression}</p>}
                     {sel.video_link && <a href={sel.video_link} target="_blank" rel="noopener noreferrer" className="text-[11px] text-blue-600 hover:underline block truncate mb-1">{sel.video_link}</a>}
-                    {sel.plan_description && <p className="text-[11px] text-gray-600 leading-relaxed">{sel.plan_description}</p>}
+                    {sel.plan_description && <p className="text-[11px] text-muted-foreground leading-relaxed">{sel.plan_description}</p>}
                   </div>
                 )}
 
                 {/* Acik uclu sorular */}
                 {(sel.future_ideas || sel.feedback_experience || sel.project_steps || sel.curiosity_topic) && (
                   <div>
-                    <h4 className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Sorular</h4>
+                    <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Sorular</h4>
                     <div className="space-y-1">
                       <QABlock label="Alanin gelecegi" value={sel.future_ideas} />
                       <QABlock label="Geri bildirim" value={sel.feedback_experience} />
@@ -859,8 +859,8 @@ export default function DashboardPage() {
 
                 {/* Degerlendirme — sadece kesin ret olmayanlarda goster (kesin ret bilgisi zaten ust banner'da) */}
                 {sel.reviewer && sel.status !== 'kesin_ret' && sel.status !== 'yas_kucuk' && (
-                  <div className="bg-gray-50 rounded-lg p-2 border border-gray-100">
-                    <span className="text-[10px] text-gray-400">Degerlendirme</span>
+                  <div className="bg-muted/50 rounded-lg p-2 border border-border">
+                    <span className="text-[10px] text-muted-foreground">Degerlendirme</span>
                     <p className="text-[11px]"><span className="font-medium">{sel.reviewer}</span>{sel.review_note ? ` — ${sel.review_note}` : ''}</p>
                     {sel.mail_sent && <p className="text-[10px] text-emerald-600 mt-0.5">Mail gonderildi{sel.mail_template ? ` (${sel.mail_template})` : ''}</p>}
                   </div>
@@ -877,7 +877,7 @@ export default function DashboardPage() {
 
                   return (
                     <>
-                      <h4 className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Ilkeler</h4>
+                      <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Ilkeler</h4>
                       {/* Ozet badge */}
                       <div className={`rounded-lg px-2 py-1.5 mb-2 text-center ${
                         noneFilled ? 'bg-red-50 border border-red-200' : allFilled ? 'bg-emerald-50 border border-emerald-200' : 'bg-amber-50 border border-amber-200'
@@ -916,7 +916,7 @@ export default function DashboardPage() {
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                               </svg>
                             )}
-                            <span className={`text-[10px] truncate ${val ? 'text-gray-600' : 'text-red-400'}`}>{i + 1}. ilke</span>
+                            <span className={`text-[10px] truncate ${val ? 'text-muted-foreground' : 'text-red-400'}`}>{i + 1}. ilke</span>
                           </div>
                         ))}
                       </div>
@@ -934,7 +934,7 @@ export default function DashboardPage() {
       {forceConfirm && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setForceConfirm(null)} />
-          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+          <div className="relative bg-card rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
             <div className="flex items-start gap-3 mb-4">
               <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
                 <svg className="w-5 h-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -942,14 +942,14 @@ export default function DashboardPage() {
                 </svg>
               </div>
               <div className="flex-1">
-                <h3 className="text-sm font-semibold text-gray-900">Eksik görevler var</h3>
-                <p className="text-xs text-gray-500 mt-1">
+                <h3 className="text-sm font-semibold text-foreground">Eksik görevler var</h3>
+                <p className="text-xs text-muted-foreground mt-1">
                   <span className="font-medium">{forceConfirm.app.full_name}</span> henüz şu görevleri tamamlamadı:
                 </p>
               </div>
             </div>
 
-            <ul className="space-y-1 mb-4 pl-4 list-disc text-xs text-gray-700">
+            <ul className="space-y-1 mb-4 pl-4 list-disc text-xs text-foreground">
               {forceConfirm.missing.map(t => {
                 const labels: Record<string, string> = {
                   karakteristik_envanter: 'Karakteristik Envanter',
@@ -969,7 +969,7 @@ export default function DashboardPage() {
             <div className="flex gap-2">
               <button
                 onClick={() => setForceConfirm(null)}
-                className="flex-1 px-3 py-2 text-sm border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50"
+                className="flex-1 px-3 py-2 text-sm border border-border text-foreground rounded-lg hover:bg-muted/50"
               >
                 İptal
               </button>

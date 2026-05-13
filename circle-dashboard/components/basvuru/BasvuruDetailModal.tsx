@@ -119,17 +119,17 @@ export default function BasvuruDetailModal({ data, onClose }: BasvuruDetailModal
   const PriorityChecks = () => (
     <div className="space-y-2.5">
       {/* Age Check */}
-      <div className={`flex items-start gap-2.5 px-3 py-2.5 rounded-lg ${isUnder18 ? 'bg-red-50' : 'bg-gray-50'}`}>
+      <div className={`flex items-start gap-2.5 px-3 py-2.5 rounded-lg ${isUnder18 ? 'bg-red-50' : 'bg-muted/50'}`}>
         {isUnder18 ? (
           <ExclamationTriangleIcon className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
         ) : (
-          <CheckCircleIcon className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
+          <CheckCircleIcon className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
         )}
         <div>
-          <span className={`text-xs font-medium ${isUnder18 ? 'text-red-700' : 'text-gray-700'}`}>
+          <span className={`text-xs font-medium ${isUnder18 ? 'text-red-700' : 'text-foreground'}`}>
             Yaş Kontrolü
           </span>
-          <p className={`text-xs mt-0.5 ${isUnder18 ? 'text-red-600' : 'text-gray-500'}`}>
+          <p className={`text-xs mt-0.5 ${isUnder18 ? 'text-red-600' : 'text-muted-foreground'}`}>
             {age !== null
               ? isUnder18
                 ? `${age} yaşında — 18 yaşından küçük`
@@ -140,17 +140,17 @@ export default function BasvuruDetailModal({ data, onClose }: BasvuruDetailModal
       </div>
 
       {/* Topluluk İlkeleri Check */}
-      <div className={`flex items-start gap-2.5 px-3 py-2.5 rounded-lg ${!allIlkelerFilled ? 'bg-red-50' : 'bg-gray-50'}`}>
+      <div className={`flex items-start gap-2.5 px-3 py-2.5 rounded-lg ${!allIlkelerFilled ? 'bg-red-50' : 'bg-muted/50'}`}>
         {!allIlkelerFilled ? (
           <ExclamationTriangleIcon className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
         ) : (
-          <CheckCircleIcon className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
+          <CheckCircleIcon className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
         )}
         <div>
-          <span className={`text-xs font-medium ${!allIlkelerFilled ? 'text-red-700' : 'text-gray-700'}`}>
+          <span className={`text-xs font-medium ${!allIlkelerFilled ? 'text-red-700' : 'text-foreground'}`}>
             Topluluk İlkeleri
           </span>
-          <p className={`text-xs mt-0.5 ${!allIlkelerFilled ? 'text-red-600' : 'text-gray-500'}`}>
+          <p className={`text-xs mt-0.5 ${!allIlkelerFilled ? 'text-red-600' : 'text-muted-foreground'}`}>
             {allIlkelerFilled
               ? `${filledIlkeler.length}/${TOPLULUK_ILKELERI_KEYS.length} dolu`
               : `${emptyIlkelerCount} alan boş (${filledIlkeler.length}/${TOPLULUK_ILKELERI_KEYS.length})`}
@@ -180,26 +180,26 @@ export default function BasvuruDetailModal({ data, onClose }: BasvuruDetailModal
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ duration: 0.3, ease: [0.32, 0.72, 0, 1] }}
-            className="relative w-full max-w-5xl h-full bg-white shadow-2xl flex flex-col md:flex-row"
+            className="relative w-full max-w-5xl h-full bg-card shadow-2xl flex flex-col md:flex-row"
           >
             {/* === MOBILE LAYOUT (< md): single scrollable panel === */}
             <div className="md:hidden flex-1 overflow-y-auto">
               {/* Mobile Profile Header */}
-              <div className="border-b border-gray-200 p-5">
+              <div className="border-b border-border p-5">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-full flex items-center justify-center bg-gray-200 text-gray-600 text-base font-bold">
+                    <div className="w-12 h-12 rounded-full flex items-center justify-center bg-secondary text-muted-foreground text-base font-bold">
                       {initials}
                     </div>
                     <div>
-                      <h2 className="text-base font-semibold text-gray-900">{name}</h2>
-                      <p className="text-xs text-gray-500 mt-0.5">
+                      <h2 className="text-base font-semibold text-foreground">{name}</h2>
+                      <p className="text-xs text-muted-foreground mt-0.5">
                         {[gender, timestamp ? formatDate(timestamp) : ''].filter(Boolean).join(' · ')}
                       </p>
                     </div>
                   </div>
-                  <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100 transition-colors">
-                    <XMarkIcon className="w-5 h-5 text-gray-500" />
+                  <button onClick={onClose} className="p-2 rounded-lg hover:bg-muted transition-colors">
+                    <XMarkIcon className="w-5 h-5 text-muted-foreground" />
                   </button>
                 </div>
 
@@ -209,12 +209,12 @@ export default function BasvuruDetailModal({ data, onClose }: BasvuruDetailModal
                 {/* Contact */}
                 <div className="flex flex-wrap gap-3 mt-3">
                   {email && (
-                    <a href={`mailto:${email}`} className="inline-flex items-center gap-1.5 text-xs text-gray-600 hover:text-gray-900">
+                    <a href={`mailto:${email}`} className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
                       <EnvelopeIcon className="w-3.5 h-3.5" /> {email}
                     </a>
                   )}
                   {phone && (
-                    <a href={`tel:${phone}`} className="inline-flex items-center gap-1.5 text-xs text-gray-600 hover:text-gray-900">
+                    <a href={`tel:${phone}`} className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
                       <PhoneIcon className="w-3.5 h-3.5" /> {phone}
                     </a>
                   )}
@@ -251,83 +251,83 @@ export default function BasvuruDetailModal({ data, onClose }: BasvuruDetailModal
             </div>
 
             {/* Right Panel: Minimal Profile + Priority Checks */}
-            <div className="hidden md:flex w-80 flex-col border-l border-gray-200 overflow-y-auto">
+            <div className="hidden md:flex w-80 flex-col border-l border-border overflow-y-auto">
               {/* Close Button */}
               <div className="flex justify-end p-4 pb-0">
-                <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100 transition-colors">
-                  <XMarkIcon className="w-5 h-5 text-gray-500" />
+                <button onClick={onClose} className="p-2 rounded-lg hover:bg-muted transition-colors">
+                  <XMarkIcon className="w-5 h-5 text-muted-foreground" />
                 </button>
               </div>
 
               <div className="px-5 pb-6 space-y-0">
                 {/* Profile Header */}
                 <div className="flex flex-col items-center">
-                  <div className="w-16 h-16 rounded-full flex items-center justify-center bg-gray-200 text-gray-600 text-xl font-bold mb-2">
+                  <div className="w-16 h-16 rounded-full flex items-center justify-center bg-secondary text-muted-foreground text-xl font-bold mb-2">
                     {initials}
                   </div>
-                  <h2 className="text-base font-semibold text-gray-900 text-center">{name}</h2>
-                  <p className="text-xs text-gray-500 mt-0.5">
+                  <h2 className="text-base font-semibold text-foreground text-center">{name}</h2>
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     {[gender, timestamp ? formatDate(timestamp) : ''].filter(Boolean).join(' · ')}
                   </p>
                 </div>
 
-                <div className="border-t border-gray-100 my-4" />
+                <div className="border-t border-border my-4" />
 
                 {/* Priority Checks */}
                 <PriorityChecks />
 
-                <div className="border-t border-gray-100 my-4" />
+                <div className="border-t border-border my-4" />
 
                 {/* Contact */}
                 <div className="space-y-2">
                   {email && (
                     <a
                       href={`mailto:${email}`}
-                      className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
+                      className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
                     >
-                      <EnvelopeIcon className="w-4 h-4 shrink-0 text-gray-400" />
+                      <EnvelopeIcon className="w-4 h-4 shrink-0 text-muted-foreground" />
                       <span className="truncate">{email}</span>
                     </a>
                   )}
                   {phone && (
                     <a
                       href={`tel:${phone}`}
-                      className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
+                      className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
                     >
-                      <PhoneIcon className="w-4 h-4 shrink-0 text-gray-400" />
+                      <PhoneIcon className="w-4 h-4 shrink-0 text-muted-foreground" />
                       <span>{phone}</span>
                     </a>
                   )}
                 </div>
 
-                <div className="border-t border-gray-100 my-4" />
+                <div className="border-t border-border my-4" />
 
                 {/* Details - compact list */}
                 <div className="space-y-3 text-sm">
                   {mainRole && (
                     <div>
-                      <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Rol</label>
-                      <p className="text-gray-700 mt-0.5">{mainRole}</p>
+                      <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Rol</label>
+                      <p className="text-foreground mt-0.5">{mainRole}</p>
                     </div>
                   )}
                   {subRoles.length > 0 && (
                     <div>
-                      <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Alt Roller</label>
-                      <p className="text-gray-700 mt-0.5">{subRoles.join(', ')}</p>
+                      <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Alt Roller</label>
+                      <p className="text-foreground mt-0.5">{subRoles.join(', ')}</p>
                     </div>
                   )}
                   {valueField && (
                     <div>
-                      <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Değer</label>
-                      <p className="text-gray-700 mt-0.5">{valueField}</p>
+                      <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Değer</label>
+                      <p className="text-foreground mt-0.5">{valueField}</p>
                     </div>
                   )}
                   {displayUniversity && (
                     <div>
-                      <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Eğitim</label>
-                      <p className="text-gray-700 mt-0.5">{displayUniversity}</p>
+                      <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Eğitim</label>
+                      <p className="text-foreground mt-0.5">{displayUniversity}</p>
                       {(department || profStatus) && (
-                        <p className="text-gray-500 text-xs mt-0.5">
+                        <p className="text-muted-foreground text-xs mt-0.5">
                           {[department, profStatus].filter(Boolean).join(' · ')}
                         </p>
                       )}
@@ -335,8 +335,8 @@ export default function BasvuruDetailModal({ data, onClose }: BasvuruDetailModal
                   )}
                   {!displayUniversity && profStatus && (
                     <div>
-                      <label className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Profesyonel Durum</label>
-                      <p className="text-gray-700 mt-0.5">{profStatus}</p>
+                      <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Profesyonel Durum</label>
+                      <p className="text-foreground mt-0.5">{profStatus}</p>
                     </div>
                   )}
                 </div>

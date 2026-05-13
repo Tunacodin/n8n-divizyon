@@ -1,44 +1,31 @@
 import { NextResponse } from 'next/server'
-import { createClient, updateApplication } from '@/lib/supabase'
+import { prisma } from '@/lib/prisma'
+import { updateApplication, changeStatus } from '@/lib/supabase'
 import { requirePermission } from '@/lib/permissions'
 
 // GET /api/applications/[id]
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
-  const db = createClient()
-
   try {
-    const { data, error } = await db
-      .from('applications')
-      .select('*')
-      .eq('id', params.id)
-      .single()
-
-    if (error || !data) {
+    const data = await prisma.applications.findUnique({ where: { id: params.id } })
+    if (!data) {
       return NextResponse.json({ success: false, error: 'Başvuru bulunamadı' }, { status: 404 })
     }
 
-    // Iliskili verileri de cek
     const [evaluations, warnings, tasks, mailLogs, inventoryTests] = await Promise.all([
-      db.from('evaluations').select('*').eq('application_id', params.id).order('created_at', { ascending: false }),
-      db.from('warnings').select('*').eq('application_id', params.id).order('warned_at', { ascending: false }),
-      db.from('task_completions').select('*').eq('application_id', params.id),
-      db.from('mail_logs').select('*').eq('application_id', params.id).order('sent_at', { ascending: false }),
-      db.from('inventory_tests')
-        .select('id, email, test_type, discipline, total_score, submitted_at')
-        .eq('application_id', params.id)
-        .order('submitted_at', { ascending: false }),
+      prisma.evaluations.findMany({ where: { application_id: params.id }, orderBy: { created_at: 'desc' } }),
+      prisma.warnings.findMany({ where: { application_id: params.id }, orderBy: { warned_at: 'desc' } }),
+      prisma.task_completions.findMany({ where: { application_id: params.id } }),
+      prisma.mail_logs.findMany({ where: { application_id: params.id }, orderBy: { sent_at: 'desc' } }),
+      prisma.inventory_tests.findMany({
+        where: { application_id: params.id },
+        select: { id: true, email: true, test_type: true, discipline: true, total_score: true, submitted_at: true },
+        orderBy: { submitted_at: 'desc' },
+      }),
     ])
 
     return NextResponse.json({
       success: true,
-      data: {
-        ...data,
-        evaluations: evaluations.data || [],
-        warnings: warnings.data || [],
-        tasks: tasks.data || [],
-        mail_logs: mailLogs.data || [],
-        inventory_tests: inventoryTests.data || [],
-      },
+      data: { ...data, evaluations, warnings, tasks, mail_logs: mailLogs, inventory_tests: inventoryTests },
     })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Bilinmeyen hata'
@@ -51,8 +38,6 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const denied = await requirePermission(req, 'mutate:application')
   if (denied) return denied
 
-  const db = createClient()
-
   try {
     const body = await req.json()
     const { updated_by, ...updates } = body
@@ -61,7 +46,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       return NextResponse.json({ success: false, error: 'updated_by zorunlu' }, { status: 400 })
     }
 
-    const result = await updateApplication(db, {
+    const result = await updateApplication({
       applicationId: params.id,
       updates,
       updatedBy: updated_by,
@@ -71,9 +56,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       return NextResponse.json(result, { status: 400 })
     }
 
-    // Guncel veriyi don
-    const { data } = await db.from('applications').select('*').eq('id', params.id).single()
-
+    const data = await prisma.applications.findUnique({ where: { id: params.id } })
     return NextResponse.json({ success: true, data })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Bilinmeyen hata'
@@ -81,19 +64,16 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   }
 }
 
-// DELETE /api/applications/[id] (soft delete — deaktive statuse tasi)
+// DELETE /api/applications/[id]
 export async function DELETE(req: Request, { params }: { params: { id: string } }) {
   const denied = await requirePermission(req, 'mutate:application')
   if (denied) return denied
-
-  const db = createClient()
 
   try {
     const body = await req.json().catch(() => ({}))
     const deletedBy = body.deleted_by || 'system'
 
-    const { changeStatus } = await import('@/lib/supabase')
-    const result = await changeStatus(db, {
+    const result = await changeStatus({
       applicationId: params.id,
       toStatus: 'deaktive',
       changedBy: deletedBy,

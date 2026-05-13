@@ -1,0 +1,384 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model AdminUser {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  passwordSalt String    @map("password_salt")
+  role         String    @default("admin")
+  createdAt    DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  lastLoginAt  DateTime? @map("last_login_at") @db.Timestamptz(6)
+
+  @@index([role], map: "idx_admin_users_role")
+  @@map("admin_users")
+}
+
+model application_snapshots {
+  id             String       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  application_id String       @db.Uuid
+  snapshot       Json
+  trigger_action String
+  created_by     String?
+  created_at     DateTime?    @default(now()) @db.Timestamptz(6)
+  applications   applications @relation(fields: [application_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([application_id], map: "idx_snapshots_app")
+  @@index([created_at], map: "idx_snapshots_created")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model applications {
+  id                          String                  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  email                       String
+  status                      String                  @default("basvuru")
+  full_name                   String
+  birth_date                  String?
+  gender                      String?
+  phone                       String?
+  professional_status         String?
+  university                  String?
+  university_other            String?
+  department                  String?
+  education_type              String?
+  work_detail                 String?
+  main_role                   String?
+  role_creative_content       String?
+  role_visual_designer        String?
+  role_animation              String?
+  role_video_content          String?
+  role_audio_music            String?
+  role_digital_asset          String?
+  role_digital_product        String?
+  role_web_app                String?
+  role_advanced_tech          String?
+  role_game                   String?
+  role_digital_experience     String?
+  role_uiux                   String?
+  role_interactive            String?
+  role_installation           String?
+  role_interdisciplinary      String?
+  core_values                 String?
+  community_contribution      String?
+  ecosystem_contribution      String?
+  self_expression             String?
+  video_link                  String?
+  plan_description            String?
+  principle_1                 String?
+  principle_2                 String?
+  principle_3                 String?
+  principle_4                 String?
+  principle_5                 String?
+  principle_6                 String?
+  principle_7                 String?
+  principle_8                 String?
+  principle_9                 String?
+  principle_10                String?
+  future_ideas                String?
+  feedback_experience         String?
+  project_steps               String?
+  curiosity_topic             String?
+  additional_notes            String?
+  reviewer                    String?
+  review_note                 String?
+  mail_template               String?
+  mail_sent                   Boolean?                @default(false)
+  approval_status             String?
+  warning_count               Int?                    @default(0)
+  source                      String?                 @default("form")
+  source_event_id             String?                 @db.Uuid
+  form_token                  String?
+  submitted_at                DateTime?               @db.Timestamptz(6)
+  created_at                  DateTime?               @default(now()) @db.Timestamptz(6)
+  updated_at                  DateTime?               @default(now()) @db.Timestamptz(6)
+  approved_at                 DateTime?               @db.Timestamptz(6)
+  is_protected                Boolean                 @default(false)
+  circle_id                   Int?
+  protected_source            String?
+  tags                        String[]                @default([])
+  avatar_url                  String?
+  bio                         String?
+  location                    String?
+  linkedin_url                String?
+  instagram_url               String?
+  website_url                 String?
+  circle_headline             String?
+  activity_score              Int?
+  last_seen_at                DateTime?               @db.Timestamptz(6)
+  profile_confirmed_at        DateTime?               @db.Timestamptz(6)
+  accepted_invitation_at      DateTime?               @db.Timestamptz(6)
+  circle_active               Boolean?
+  circle_posts_count          Int?                    @default(0)
+  circle_comments_count       Int?                    @default(0)
+  circle_topics_count         Int?                    @default(0)
+  circle_company              String?
+  circle_disciplines          String[]
+  circle_birth_date           String?
+  circle_university           String?
+  circle_department           String?
+  circle_phone                String?
+  status_changed_at           DateTime?               @default(now()) @db.Timestamptz(6)
+  deadline_at                 DateTime?               @db.Timestamptz(6)
+  last_deadline_notice_at     DateTime?               @db.Timestamptz(6)
+  circle_removed_at           DateTime?               @db.Timestamptz(6)
+  circle_last_seen_in_sync_at DateTime?               @db.Timestamptz(6)
+  application_snapshots       application_snapshots[]
+  events                      events?                 @relation(fields: [source_event_id], references: [id], onUpdate: NoAction, map: "fk_applications_source_event")
+  evaluations                 evaluations[]
+  event_attendees             event_attendees[]
+  inventory_tests             inventory_tests[]
+  mail_logs                   mail_logs[]
+  status_history              status_history[]
+  task_completions            task_completions[]
+  warnings                    warnings[]
+
+  @@index([email], map: "idx_applications_email")
+  @@index([email], map: "idx_applications_email_nonunique")
+  @@index([main_role], map: "idx_applications_main_role")
+  @@index([status], map: "idx_applications_status")
+  @@index([submitted_at], map: "idx_applications_submitted_at")
+  @@index([tags], map: "idx_applications_tags", type: Gin)
+}
+
+model approval_idempotency {
+  key        String    @id
+  email      String
+  action     String
+  response   Json?
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@index([created_at(sort: Desc)], map: "idx_approval_idempotency_created_at")
+}
+
+model audit_log {
+  id          String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  entity_type String
+  entity_id   String
+  action      String
+  actor       String
+  old_values  Json?
+  new_values  Json?
+  metadata    Json?
+  created_at  DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@index([action], map: "idx_audit_action")
+  @@index([created_at], map: "idx_audit_created")
+  @@index([entity_type, entity_id], map: "idx_audit_entity")
+}
+
+model circle_members {
+  id           String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  circle_id    Int       @unique
+  name         String?
+  email        String?
+  avatar_url   String?
+  headline     String?
+  bio          String?
+  is_admin     Boolean?  @default(false)
+  is_moderator Boolean?  @default(false)
+  roles        String[]
+  joined_at    DateTime? @db.Timestamptz(6)
+  last_seen_at DateTime? @db.Timestamptz(6)
+  public_uid   String?
+  synced_at    DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@index([email], map: "idx_circle_members_email")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model evaluations {
+  id             String       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  application_id String       @db.Uuid
+  reviewer       String
+  decision       String
+  notes          String?
+  created_at     DateTime?    @default(now()) @db.Timestamptz(6)
+  applications   applications @relation(fields: [application_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([application_id], map: "idx_evaluations_app")
+}
+
+model event_attendees {
+  id             String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  event_id       String        @db.Uuid
+  application_id String?       @db.Uuid
+  full_name      String?
+  email          String
+  phone          String?
+  source         String?       @default("qr_scan")
+  checked_in_at  DateTime?     @default(now()) @db.Timestamptz(6)
+  applications   applications? @relation(fields: [application_id], references: [id], onUpdate: NoAction)
+  events         events        @relation(fields: [event_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([event_id, email])
+  @@index([email], map: "idx_event_attendees_email")
+  @@index([event_id], map: "idx_event_attendees_event")
+}
+
+model events {
+  id              String            @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name            String
+  description     String?
+  event_date      DateTime?         @db.Date
+  location        String?
+  qr_token        String            @unique
+  is_active       Boolean?          @default(true)
+  created_at      DateTime?         @default(now()) @db.Timestamptz(6)
+  applications    applications[]
+  event_attendees event_attendees[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model inventory_tests {
+  id             String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  application_id String?       @db.Uuid
+  email          String
+  test_token     String?
+  disciplines    String[]
+  answers        Json          @default("{}")
+  scores         Json          @default("{}")
+  total_score    Int?          @default(0)
+  response_type  String?
+  network_id     String?
+  tags           String?
+  started_at     DateTime?     @db.Timestamptz(6)
+  staged_at      DateTime?     @db.Timestamptz(6)
+  submitted_at   DateTime?     @db.Timestamptz(6)
+  created_at     DateTime?     @default(now()) @db.Timestamptz(6)
+  test_type      String?       @default("karakteristik_envanter")
+  discipline     String?
+  applications   applications? @relation(fields: [application_id], references: [id], onUpdate: NoAction)
+
+  @@index([application_id], map: "idx_inventory_tests_app")
+  @@index([email], map: "idx_inventory_tests_email")
+  @@index([test_type], map: "idx_inventory_tests_type")
+}
+
+model mail_events {
+  id          String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  resend_id   String?
+  event_type  String
+  email_to    String?
+  payload     Json?
+  received_at DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@index([email_to], map: "idx_mail_events_email_to")
+  @@index([resend_id], map: "idx_mail_events_resend_id")
+  @@index([event_type], map: "idx_mail_events_type")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model mail_logs {
+  id             String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  application_id String?       @db.Uuid
+  email_to       String
+  template_name  String?
+  subject        String?
+  body_preview   String?
+  status         String?       @default("sent")
+  provider       String?       @default("mailchimp")
+  batch_id       String?
+  metadata       Json?
+  sent_at        DateTime?     @default(now()) @db.Timestamptz(6)
+  sent_by        String?
+  delivered_at   DateTime?     @db.Timestamptz(6)
+  opened_at      DateTime?     @db.Timestamptz(6)
+  clicked_at     DateTime?     @db.Timestamptz(6)
+  bounced_at     DateTime?     @db.Timestamptz(6)
+  complained_at  DateTime?     @db.Timestamptz(6)
+  failed_at      DateTime?     @db.Timestamptz(6)
+  error_message  String?
+  last_event_at  DateTime?     @db.Timestamptz(6)
+  applications   applications? @relation(fields: [application_id], references: [id], onUpdate: NoAction)
+
+  @@index([application_id], map: "idx_mail_logs_app")
+  @@index([email_to], map: "idx_mail_logs_email")
+  @@index([sent_by], map: "idx_mail_logs_sent_by")
+}
+
+model member_tags {
+  id                   Int       @id
+  name                 String
+  color                String?
+  category             String?
+  display_format       String?
+  is_public            Boolean?  @default(true)
+  tagged_members_count Int?      @default(0)
+  created_at           DateTime? @default(now()) @db.Timestamptz(6)
+  synced_at            DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@index([category], map: "idx_member_tags_category")
+  @@index([name], map: "idx_member_tags_name")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model notifications {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  type          String
+  severity      String
+  title         String
+  count         Int       @default(0)
+  link_href     String?
+  first_seen_at DateTime  @default(now()) @db.Timestamptz(6)
+  last_seen_at  DateTime  @default(now()) @db.Timestamptz(6)
+  resolved_at   DateTime? @db.Timestamptz(6)
+
+  @@index([last_seen_at(sort: Desc)], map: "idx_notifications_last_seen")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model status_history {
+  id             String       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  application_id String       @db.Uuid
+  from_status    String?
+  to_status      String
+  changed_by     String
+  reason         String?
+  change_type    String?      @default("normal")
+  created_at     DateTime?    @default(now()) @db.Timestamptz(6)
+  applications   applications @relation(fields: [application_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([application_id], map: "idx_status_history_app")
+  @@index([created_at], map: "idx_status_history_created")
+  @@index([to_status], map: "idx_status_history_to_status")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model task_completions {
+  id             String       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  application_id String       @db.Uuid
+  task_type      String
+  completed      Boolean?     @default(false)
+  completed_at   DateTime?    @db.Timestamptz(6)
+  verified_by    String?
+  created_at     DateTime?    @default(now()) @db.Timestamptz(6)
+  applications   applications @relation(fields: [application_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([application_id, task_type], map: "uq_task_completions_app_type")
+  @@index([application_id], map: "idx_task_completions_app")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model warnings {
+  id             String       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  application_id String       @db.Uuid
+  warning_number Int
+  warned_by      String
+  reason         String?
+  warned_at      DateTime?    @default(now()) @db.Timestamptz(6)
+  is_active      Boolean?     @default(true)
+  created_at     DateTime?    @default(now()) @db.Timestamptz(6)
+  form_type      String?
+  applications   applications @relation(fields: [application_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([application_id], map: "idx_warnings_app")
+  @@index([application_id, form_type, warned_at(sort: Desc)], map: "idx_warnings_form_type")
+}

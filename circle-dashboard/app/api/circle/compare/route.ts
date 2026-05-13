@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase'
+import { prisma } from '@/lib/prisma'
 
 const CIRCLE_API_KEY = process.env.Circle_API_KEY || ''
 const CIRCLE_BASE = 'https://app.circle.so/api/v1'
@@ -21,8 +21,19 @@ async function getCommunityId(): Promise<number> {
   return communities[0].id
 }
 
-async function fetchAllMembers(communityId: number) {
-  const all: any[] = []
+interface CircleMemberRaw {
+  id: number
+  name?: string
+  first_name?: string
+  last_name?: string
+  email?: string
+  avatar_url?: string
+  created_at?: string
+  last_seen_at?: string
+}
+
+async function fetchAllMembers(communityId: number): Promise<CircleMemberRaw[]> {
+  const all: CircleMemberRaw[] = []
   let page = 1
   while (true) {
     const data = await circleGet(`/community_members?community_id=${communityId}&per_page=100&page=${page}`)
@@ -36,31 +47,31 @@ async function fetchAllMembers(communityId: number) {
   return all
 }
 
-// GET /api/circle/compare — Circle üyeleri vs DB karşılaştırması
+// GET /api/circle/compare
 export async function GET() {
   if (!CIRCLE_API_KEY) {
     return NextResponse.json({ success: false, error: 'Circle API key eksik' }, { status: 500 })
   }
 
   try {
-    const db = createClient()
     const communityId = await getCommunityId()
 
-    // Paralel çek
-    const [circleMembers, dbResult] = await Promise.all([
+    const [circleMembers, dbApps] = await Promise.all([
       fetchAllMembers(communityId),
-      db.from('applications').select('email, full_name, status'),
+      prisma.applications.findMany({ select: { email: true, full_name: true, status: true } }),
     ])
 
     const dbEmails = new Set(
-      (dbResult.data || []).map((a: { email: string }) => a.email?.toLowerCase().trim()).filter(Boolean)
+      dbApps.map((a) => a.email?.toLowerCase().trim()).filter(Boolean) as string[],
     )
     const dbByEmail = new Map(
-      (dbResult.data || []).map((a: { email: string; full_name: string; status: string }) => [a.email?.toLowerCase().trim(), a])
+      dbApps
+        .map((a) => [a.email?.toLowerCase().trim(), a] as const)
+        .filter(([k]) => !!k) as Array<[string, { email: string; full_name: string; status: string }]>,
     )
 
-    const basvurudan: any[] = []
-    const circleOnly: any[] = []
+    const basvurudan: Array<Record<string, unknown>> = []
+    const circleOnly: Array<Record<string, unknown>> = []
 
     for (const m of circleMembers) {
       const email = (m.email || '').toLowerCase().trim()
@@ -82,10 +93,7 @@ export async function GET() {
           db_name: dbRecord?.full_name || null,
         })
       } else {
-        circleOnly.push({
-          ...formatted,
-          source: 'circle',
-        })
+        circleOnly.push({ ...formatted, source: 'circle' })
       }
     }
 
@@ -96,7 +104,6 @@ export async function GET() {
       total_circle_only: circleOnly.length,
       basvurudan,
       circleOnly,
-      // backward compat
       etkinlikten: circleOnly,
       total_etkinlik: circleOnly.length,
     })

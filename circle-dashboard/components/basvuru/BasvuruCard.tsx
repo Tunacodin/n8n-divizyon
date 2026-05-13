@@ -54,7 +54,7 @@ export default function BasvuruCard({ data, index, onClick }: BasvuruCardProps) 
       transition={{ duration: 0.3, delay: index * 0.05 }}
       whileHover={{ y: -2 }}
       onClick={onClick}
-      className="bg-white rounded-xl border border-gray-200 p-5 cursor-pointer hover:shadow-md transition-shadow"
+      className="bg-card rounded-xl border border-border p-5 cursor-pointer hover:shadow-md transition-shadow"
     >
       {/* Header: Avatar + Name */}
       <div className="flex items-start gap-3 mb-3">
@@ -62,9 +62,9 @@ export default function BasvuruCard({ data, index, onClick }: BasvuruCardProps) 
           {initials}
         </div>
         <div className="min-w-0 flex-1">
-          <h3 className="font-semibold text-gray-900 truncate">{name}</h3>
+          <h3 className="font-semibold text-foreground truncate">{name}</h3>
           {university && (
-            <p className="text-xs text-gray-500 truncate mt-0.5">{university}</p>
+            <p className="text-xs text-muted-foreground truncate mt-0.5">{university}</p>
           )}
         </div>
       </div>
@@ -84,13 +84,13 @@ export default function BasvuruCard({ data, index, onClick }: BasvuruCardProps) 
           {visibleRoles.map((role, i) => (
             <span
               key={i}
-              className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-600"
+              className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-muted text-muted-foreground"
             >
               {role}
             </span>
           ))}
           {extraCount > 0 && (
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-200 text-gray-500">
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-secondary text-muted-foreground">
               +{extraCount}
             </span>
           )}
@@ -98,12 +98,12 @@ export default function BasvuruCard({ data, index, onClick }: BasvuruCardProps) 
       )}
 
       {/* Footer: Gender + Date */}
-      <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+      <div className="flex items-center justify-between pt-3 border-t border-border">
         {gender && (
-          <span className="text-xs text-gray-500">{gender}</span>
+          <span className="text-xs text-muted-foreground">{gender}</span>
         )}
         {timestamp && (
-          <div className="flex items-center gap-1 text-xs text-gray-400 ml-auto">
+          <div className="flex items-center gap-1 text-xs text-muted-foreground ml-auto">
             <CalendarIcon className="w-3.5 h-3.5" />
             {formatCardDate(timestamp)}
           </div>

@@ -294,13 +294,13 @@ export default function KesinKabulContent() {
   ]
 
   return (
-    <div className="min-h-screen bg-[#FAFBFC]">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="bg-white border-b border-gray-100 px-8 py-6">
+      <div className="bg-card border-b border-border px-8 py-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Kesin Kabul</h1>
-            <p className="text-sm text-gray-500 mt-1">Kabul edilen üyeler ve Circle giriş durumu</p>
+            <h1 className="text-2xl font-bold text-foreground">Kesin Kabul</h1>
+            <p className="text-sm text-muted-foreground mt-1">Kabul edilen üyeler ve Circle giriş durumu</p>
           </div>
           <Badge className="bg-green-50 text-green-700 border-green-200 text-sm px-3 py-1">
             {data.length} kayit
@@ -310,17 +310,17 @@ export default function KesinKabulContent() {
 
       <div className="p-8">
         {/* Tabs */}
-        <div className="flex gap-1 mb-4 bg-gray-100 rounded-lg p-1 w-fit">
+        <div className="flex gap-1 mb-4 bg-muted rounded-lg p-1 w-fit">
           {tabs.map((tab) => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${
-                activeTab === tab.key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                activeTab === tab.key ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               {tab.label}
-              <span className={`text-xs px-1.5 py-0.5 rounded-full ${activeTab === tab.key ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>
+              <span className={`text-xs px-1.5 py-0.5 rounded-full ${activeTab === tab.key ? 'bg-green-100 text-green-700' : 'bg-secondary text-muted-foreground'}`}>
                 {tab.count}
               </span>
             </button>
@@ -334,13 +334,13 @@ export default function KesinKabulContent() {
             placeholder="Ad soyad veya e-posta ara..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="px-4 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none min-w-[220px]"
+            className="px-4 py-2 text-sm border border-border rounded-lg bg-card focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none min-w-[220px]"
           />
 
           <select
             value={degerlendirenFilter}
             onChange={(e) => setDegerlendirenFilter(e.target.value)}
-            className="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-green-500 outline-none"
+            className="px-3 py-2 text-sm border border-border rounded-lg bg-card focus:ring-2 focus:ring-green-500 outline-none"
           >
             <option value="">Değerlendiren (Tümü)</option>
             {degerlendirenList.map((v) => (
@@ -352,14 +352,14 @@ export default function KesinKabulContent() {
             type="date"
             value={dateFrom}
             onChange={(e) => setDateFrom(e.target.value)}
-            className="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-green-500 outline-none"
+            className="px-3 py-2 text-sm border border-border rounded-lg bg-card focus:ring-2 focus:ring-green-500 outline-none"
             title="Başlangıç tarihi"
           />
           <input
             type="date"
             value={dateTo}
             onChange={(e) => setDateTo(e.target.value)}
-            className="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-green-500 outline-none"
+            className="px-3 py-2 text-sm border border-border rounded-lg bg-card focus:ring-2 focus:ring-green-500 outline-none"
             title="Bitiş tarihi"
           />
 
@@ -370,7 +370,7 @@ export default function KesinKabulContent() {
             </button>
           )}
 
-          <span className="text-sm text-gray-400 ml-auto">{filtered.length} kayıt</span>
+          <span className="text-sm text-muted-foreground ml-auto">{filtered.length} kayıt</span>
         </div>
 
         {/* Bulk Action Bar */}
@@ -405,34 +405,34 @@ export default function KesinKabulContent() {
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500" />
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="bg-card rounded-xl border border-border overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-gray-50 border-b border-gray-200">
+                  <tr className="bg-muted/50 border-b border-border">
                     <th className="px-4 py-3">
                       <input
                         type="checkbox"
                         checked={allPageSelected}
                         ref={(el) => { if (el) el.indeterminate = somePageSelected && !allPageSelected }}
                         onChange={toggleSelectAll}
-                        className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+                        className="rounded border-border text-green-600 focus:ring-green-500"
                       />
                     </th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">Ad Soyad</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">E-Posta</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">Değerlendiren</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">Not</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">Mail Template</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">Mail Atıldı mı?</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">Circle Giriş</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">İşlem</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Ad Soyad</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">E-Posta</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Değerlendiren</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Not</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Mail Template</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Mail Atıldı mı?</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Circle Giriş</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">İşlem</th>
                   </tr>
                 </thead>
                 <tbody>
                   {paged.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="text-center py-12 text-gray-400">Kayit bulunamadi</td>
+                      <td colSpan={9} className="text-center py-12 text-muted-foreground">Kayit bulunamadi</td>
                     </tr>
                   ) : (
                     paged.map((row, i) => {
@@ -445,24 +445,24 @@ export default function KesinKabulContent() {
                       const isSelected = selectedEmails.has(email)
 
                       return (
-                        <tr key={i} className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${isSelected ? 'bg-green-50' : ''}`}>
+                        <tr key={i} className={`border-b border-border hover:bg-muted/50 transition-colors ${isSelected ? 'bg-green-50' : ''}`}>
                           <td className="px-4 py-3">
                             <input
                               type="checkbox"
                               checked={isSelected}
                               onChange={() => toggleSelectItem(email)}
-                              className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+                              className="rounded border-border text-green-600 focus:ring-green-500"
                             />
                           </td>
-                          <td className="px-4 py-3 font-medium text-gray-900">{name}</td>
-                          <td className="px-4 py-3 text-gray-600">{email}</td>
+                          <td className="px-4 py-3 font-medium text-foreground">{name}</td>
+                          <td className="px-4 py-3 text-muted-foreground">{email}</td>
                           <td className="px-4 py-3">
                             <Badge className="bg-blue-100 text-blue-700 border-blue-200">{degerlendiren}</Badge>
                           </td>
-                          <td className="px-4 py-3 text-gray-500 text-xs max-w-[200px] truncate">
+                          <td className="px-4 py-3 text-muted-foreground text-xs max-w-[200px] truncate">
                             {not.length > 50 ? not.slice(0, 50) + '...' : not}
                           </td>
-                          <td className="px-4 py-3 text-gray-500 text-xs">{mailTemplate}</td>
+                          <td className="px-4 py-3 text-muted-foreground text-xs">{mailTemplate}</td>
                           <td className="px-4 py-3">
                             {isMailSent ? (
                               <Badge className="bg-green-100 text-green-700 border-green-200">Evet</Badge>
@@ -471,7 +471,7 @@ export default function KesinKabulContent() {
                             )}
                           </td>
                           <td className="px-4 py-3">
-                            <Badge className="bg-gray-100 text-gray-500 border-gray-200">Bilgi Yok</Badge>
+                            <Badge className="bg-muted text-muted-foreground border-border">Bilgi Yok</Badge>
                           </td>
                           <td className="px-4 py-3">
                             {!isMailSent && (
@@ -493,21 +493,21 @@ export default function KesinKabulContent() {
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 bg-gray-50">
-                <p className="text-sm text-gray-500">
+              <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-muted/50">
+                <p className="text-sm text-muted-foreground">
                   {filtered.length} sonuctan {(page - 1) * PER_PAGE + 1}-{Math.min(page * PER_PAGE, filtered.length)} arası
                 </p>
                 <div className="flex gap-1">
-                  <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 text-sm rounded-md border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">Önceki</button>
+                  <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="px-3 py-1.5 text-sm rounded-md border border-border bg-card hover:bg-muted/50 disabled:opacity-50 disabled:cursor-not-allowed">Önceki</button>
                   {Array.from({ length: totalPages }, (_, i) => i + 1)
                     .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
                     .map((p, idx, arr) => (
                       <span key={p}>
-                        {idx > 0 && arr[idx - 1] !== p - 1 && <span className="px-1 text-gray-400">...</span>}
-                        <button onClick={() => setPage(p)} className={`px-3 py-1.5 text-sm rounded-md border ${p === page ? 'bg-green-500 text-white border-green-500' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>{p}</button>
+                        {idx > 0 && arr[idx - 1] !== p - 1 && <span className="px-1 text-muted-foreground">...</span>}
+                        <button onClick={() => setPage(p)} className={`px-3 py-1.5 text-sm rounded-md border ${p === page ? 'bg-green-500 text-white border-green-500' : 'border-border bg-card hover:bg-muted/50'}`}>{p}</button>
                       </span>
                     ))}
-                  <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="px-3 py-1.5 text-sm rounded-md border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">Sonraki</button>
+                  <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="px-3 py-1.5 text-sm rounded-md border border-border bg-card hover:bg-muted/50 disabled:opacity-50 disabled:cursor-not-allowed">Sonraki</button>
                 </div>
               </div>
             )}
@@ -519,9 +519,9 @@ export default function KesinKabulContent() {
       {mailTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setMailTarget(null)} />
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 mx-4">
-            <h3 className="text-lg font-bold text-gray-900 mb-1">Mail Gönder</h3>
-            <p className="text-sm text-gray-500 mb-4">
+          <div className="relative bg-card rounded-2xl shadow-2xl w-full max-w-md p-6 mx-4">
+            <h3 className="text-lg font-bold text-foreground mb-1">Mail Gönder</h3>
+            <p className="text-sm text-muted-foreground mb-4">
               {(mailTarget.full_name || '')} ({(mailTarget.email || '')})
             </p>
             {sendStatus === 'success' ? (
@@ -537,30 +537,30 @@ export default function KesinKabulContent() {
               <>
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">Template</label>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">Template</label>
                     <select
                       value={selectedTemplateId ?? ''}
                       onChange={(e) => setSelectedTemplateId(e.target.value ? Number(e.target.value) : null)}
-                      className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-green-500 outline-none"
+                      className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-card focus:ring-2 focus:ring-green-500 outline-none"
                     >
                       <option value="">-- Template Seç --</option>
                       {templates.map((t) => (<option key={t.id} value={t.id}>{t.name}</option>))}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">Konu</label>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">Konu</label>
                     <input
                       type="text"
                       value={subject}
                       onChange={(e) => setSubject(e.target.value)}
                       placeholder="Mail konusu"
-                      className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-green-500 outline-none"
+                      className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-card focus:ring-2 focus:ring-green-500 outline-none"
                     />
                   </div>
                 </div>
                 {errorMessage && <p className="text-sm text-red-600 mt-2">{errorMessage}</p>}
                 <div className="flex gap-2 mt-4">
-                  <button onClick={() => setMailTarget(null)} className="flex-1 px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">İptal</button>
+                  <button onClick={() => setMailTarget(null)} className="flex-1 px-4 py-2 text-sm border border-border rounded-lg hover:bg-muted/50 transition-colors">İptal</button>
                   <button
                     onClick={handleSendMail}
                     disabled={sendStatus === 'loading'}
@@ -579,9 +579,9 @@ export default function KesinKabulContent() {
       {bulkMailOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => !bulkMailProcessing && setBulkMailOpen(false)} />
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 mx-4">
-            <h3 className="text-lg font-bold text-gray-900 mb-1">Toplu Mail Gönder</h3>
-            <p className="text-sm text-gray-500 mb-4">
+          <div className="relative bg-card rounded-2xl shadow-2xl w-full max-w-md p-6 mx-4">
+            <h3 className="text-lg font-bold text-foreground mb-1">Toplu Mail Gönder</h3>
+            <p className="text-sm text-muted-foreground mb-4">
               {bulkMailTargets.length} kişiye mail gönderilecek
               {bulkMailTargets.length < selectedEmails.size && (
                 <span className="text-orange-600"> (Mail gönderilmiş olanlar hariç)</span>
@@ -590,44 +590,44 @@ export default function KesinKabulContent() {
 
             {bulkMailProcessing ? (
               <div className="space-y-3">
-                <div className="w-full bg-gray-100 rounded-full h-2">
+                <div className="w-full bg-muted rounded-full h-2">
                   <div className="bg-green-500 h-2 rounded-full transition-all" style={{ width: `${(bulkMailProgress.done / bulkMailProgress.total) * 100}%` }} />
                 </div>
-                <p className="text-sm text-gray-600 text-center">{bulkMailProgress.done} / {bulkMailProgress.total} gönderildi</p>
+                <p className="text-sm text-muted-foreground text-center">{bulkMailProgress.done} / {bulkMailProgress.total} gönderildi</p>
                 {bulkMailProgress.errors.length > 0 && <p className="text-xs text-red-600">{bulkMailProgress.errors.length} hata</p>}
               </div>
             ) : bulkMailTargets.length === 0 ? (
               <div className="text-center py-6">
-                <p className="text-gray-500 text-sm">Seçili kişilerin tümüne zaten mail gönderilmiş.</p>
-                <button onClick={() => setBulkMailOpen(false)} className="mt-4 px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50">Kapat</button>
+                <p className="text-muted-foreground text-sm">Seçili kişilerin tümüne zaten mail gönderilmiş.</p>
+                <button onClick={() => setBulkMailOpen(false)} className="mt-4 px-4 py-2 text-sm border border-border rounded-lg hover:bg-muted/50">Kapat</button>
               </div>
             ) : (
               <>
                 <div className="space-y-3 mb-4">
                   <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">Template</label>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">Template</label>
                     <select
                       value={bulkMailTemplateId ?? ''}
                       onChange={(e) => setBulkMailTemplateId(e.target.value ? Number(e.target.value) : null)}
-                      className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-green-500 outline-none"
+                      className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-card focus:ring-2 focus:ring-green-500 outline-none"
                     >
                       <option value="">-- Template Seç --</option>
                       {templates.map((t) => (<option key={t.id} value={t.id}>{t.name}</option>))}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">Konu</label>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">Konu</label>
                     <input
                       type="text"
                       value={bulkMailSubject}
                       onChange={(e) => setBulkMailSubject(e.target.value)}
                       placeholder="Mail konusu"
-                      className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-green-500 outline-none"
+                      className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-card focus:ring-2 focus:ring-green-500 outline-none"
                     />
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={() => setBulkMailOpen(false)} className="flex-1 px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">İptal</button>
+                  <button onClick={() => setBulkMailOpen(false)} className="flex-1 px-4 py-2 text-sm border border-border rounded-lg hover:bg-muted/50 transition-colors">İptal</button>
                   <button
                     onClick={handleBulkMail}
                     disabled={!bulkMailTemplateId || !bulkMailSubject.trim()}

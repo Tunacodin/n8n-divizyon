@@ -153,8 +153,17 @@ React UI (KontrolDetailModal "Mail Gonder")
 2. Iki ayri n8n client (`lib/n8n-client.ts` ve `lib/n8n.ts`) — ileride birlestirilebilir.
 
 ## UI / Tasarim Kurallari
-- **Header (Navbar)**: Dark tema (`bg-[#1E1E2E]`), buyuk boyut — `h-20`, `px-10`, nav linkleri `text-base`, `gap-2`, logo `h-7`, avatar `w-9 h-9`, ikon `w-6 h-6`
-- Navbar kucultulemez, her zaman bu boyutlarda kalmali
+- **Header (Navbar)**: Glass sticky header — `h-16`, `bg-background/70 backdrop-blur`, theme-aware (light/dark). Sağ üstte ThemeToggle (güneş/ay) ve user menu dropdown bulunur.
+- **Tema sistemi**: Tailwind `darkMode: 'class'` + `<html>` üzerinde `.dark` sınıfı. Tüm renkler `globals.css` HSL CSS değişkenleri üzerinden çözülür (`--background`, `--foreground`, `--card`, `--muted`, `--border`, `--primary` vb.).
+- **Renk kullanımı (zorunlu)**: Sayfa/komponent yazarken **hardcoded renk kullanma** (`bg-white`, `text-gray-900`, `bg-[#FAFBFC]`, `border-gray-200` vb. yasak). Bunun yerine semantic token'lar:
+  - Sayfa arka planı → `bg-background`
+  - Kart/panel arka planı → `bg-card`
+  - Vurgulu/secondary alan → `bg-muted` veya `bg-secondary`
+  - Birincil metin → `text-foreground`
+  - İkincil/açıklama metni → `text-muted-foreground`
+  - Border → `border-border`
+  - Marka rengi → `bg-primary` / `text-primary`
+- Tema değişimi `components/ThemeProvider.tsx` üzerinden, `divizyon-theme` localStorage anahtarıyla kalıcı. FOUC önleme inline script `app/layout.tsx`'de.
 
 ## Gelistirme Notlari
 - `npm run dev` ile calistir

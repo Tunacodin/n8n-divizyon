@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
-import { createClient, withAuditLog, PROTECTED_BLOCK_MSG } from '@/lib/supabase'
+import { prisma } from '@/lib/prisma'
+import { withAuditLog, PROTECTED_BLOCK_MSG } from '@/lib/supabase'
 import { requirePermission } from '@/lib/permissions'
-// Task completion endpoint - verified_by column used
 
 const VALID_TASK_TYPES = [
   'karakteristik_envanter',
@@ -14,13 +14,9 @@ type TaskType = (typeof VALID_TASK_TYPES)[number]
 const VALID_DISCIPLINES = ['kreatif_yapim', 'dijital_deneyim', 'dijital_urun'] as const
 
 // POST /api/applications/[id]/tasks
-// Body: { task_type, completed?, completed_by?, discipline?, manual_note?, source? }
-// source: 'admin_manual' | 'dashboard' | 'typeform' (audit icin etiket)
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   const denied = await requirePermission(req, 'mutate:tasks')
   if (denied) return denied
-
-  const db = createClient()
 
   try {
     const body = await req.json()
@@ -36,7 +32,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     if (!task_type || !VALID_TASK_TYPES.includes(task_type as TaskType)) {
       return NextResponse.json(
         { success: false, error: `Geçersiz task_type. Geçerli: ${VALID_TASK_TYPES.join(', ')}` },
-        { status: 400 }
+        { status: 400 },
       )
     }
 
@@ -44,22 +40,21 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       if (!VALID_DISCIPLINES.includes(discipline)) {
         return NextResponse.json(
           { success: false, error: `Gecersiz discipline. Gecerli: ${VALID_DISCIPLINES.join(', ')}` },
-          { status: 400 }
+          { status: 400 },
         )
       }
     }
 
-    const { data: app, error: appError } = await db
-      .from('applications')
-      .select('id, full_name, is_protected')
-      .eq('id', params.id)
-      .single()
+    const app = await prisma.applications.findUnique({
+      where: { id: params.id },
+      select: { id: true, full_name: true, is_protected: true },
+    })
 
-    if (appError || !app) {
+    if (!app) {
       return NextResponse.json({ success: false, error: 'Başvuru bulunamadı' }, { status: 404 })
     }
 
-    if ((app as { is_protected?: boolean }).is_protected) {
+    if (app.is_protected) {
       return NextResponse.json({ success: false, error: PROTECTED_BLOCK_MSG }, { status: 403 })
     }
 
@@ -67,48 +62,23 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       ? `admin_manual:${completed_by}`
       : completed_by
 
-    const { data: existing } = await db
-      .from('task_completions')
-      .select('id')
-      .eq('application_id', params.id)
-      .eq('task_type', task_type)
-      .single()
+    const data = await prisma.task_completions.upsert({
+      where: { application_id_task_type: { application_id: params.id, task_type } },
+      update: {
+        completed,
+        completed_at: completed ? new Date() : null,
+        verified_by: completed ? verifiedBy : null,
+      },
+      create: {
+        application_id: params.id,
+        task_type,
+        completed,
+        completed_at: completed ? new Date() : null,
+        verified_by: completed ? verifiedBy : null,
+      },
+    })
 
-    let data
-    let error
-
-    if (existing) {
-      const result = await db
-        .from('task_completions')
-        .update({
-          completed,
-          completed_at: completed ? new Date().toISOString() : null,
-          verified_by: completed ? verifiedBy : null,
-        })
-        .eq('id', existing.id)
-        .select()
-        .single()
-      data = result.data
-      error = result.error
-    } else {
-      const result = await db
-        .from('task_completions')
-        .insert({
-          application_id: params.id,
-          task_type,
-          completed,
-          completed_at: completed ? new Date().toISOString() : null,
-          verified_by: completed ? verifiedBy : null,
-        })
-        .select()
-        .single()
-      data = result.data
-      error = result.error
-    }
-
-    if (error) throw error
-
-    await withAuditLog(db, {
+    await withAuditLog({
       entityType: 'application',
       entityId: params.id,
       action: completed

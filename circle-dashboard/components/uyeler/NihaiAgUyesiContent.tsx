@@ -78,7 +78,7 @@ function getTagConfigByName(tagName: string) {
       return config
     }
   }
-  return { bg: 'bg-gray-100', text: 'text-gray-600', dot: 'bg-gray-400', label: tagName, keywords: [] }
+  return { bg: 'bg-muted', text: 'text-muted-foreground', dot: 'bg-gray-400', label: tagName, keywords: [] }
 }
 
 function matchesTagFilter(tag: string, filterKey: string): boolean {
@@ -273,13 +273,13 @@ export default function NihaiAgUyesiContent({
   const showPlaceholder = !loading && data.length === 0
 
   return (
-    <div className="min-h-screen bg-[#FAFBFC]">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="bg-white border-b border-gray-100 px-8 py-6">
+      <div className="bg-card border-b border-border px-8 py-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Nihai Ağ Üyeleri</h1>
-            <p className="text-sm text-gray-500 mt-1">
+            <h1 className="text-2xl font-bold text-foreground">Nihai Ağ Üyeleri</h1>
+            <p className="text-sm text-muted-foreground mt-1">
               Tüm süreci tamamlamış ve tag atanmış aktif üyeler
             </p>
           </div>
@@ -294,36 +294,36 @@ export default function NihaiAgUyesiContent({
       <div className="p-8">
         {showPlaceholder ? (
           /* Placeholder */
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
             <div className="flex flex-col items-center justify-center py-24 px-8">
               <div className="w-16 h-16 rounded-2xl bg-amber-100 flex items-center justify-center mb-6">
                 <StarIcon className="w-8 h-8 text-amber-500" />
               </div>
-              <h2 className="text-lg font-semibold text-gray-900 mb-2">
+              <h2 className="text-lg font-semibold text-foreground mb-2">
                 Henüz nihai ağ üyesi yok
               </h2>
-              <p className="text-sm text-gray-500 text-center max-w-md mb-6">
+              <p className="text-sm text-muted-foreground text-center max-w-md mb-6">
                 Başvuru, değerlendirme, envanter testleri ve oryantasyon süreçlerini tamamlayan
                 üyeler burada listelenecek. Tag ataması yapıldıktan sonra bu sayfada görünürler.
               </p>
 
               {/* Tag yapısı bilgisi */}
-              <div className="bg-gray-50 rounded-lg border border-gray-200 p-4 max-w-lg w-full">
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">5 Ana Tag</p>
+              <div className="bg-muted/50 rounded-lg border border-border p-4 max-w-lg w-full">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">5 Ana Tag</p>
                 <div className="space-y-2">
                   {Object.entries(TAG_CONFIG).map(([key, config]) => {
                     const karakteristikler = Object.entries(KARAKTERISTIK_TAG_MAP)
                       .filter(([, tag]) => tag === config.label)
                       .map(([k]) => k.replace(/_/g, ' '))
                     return (
-                      <div key={key} className="flex items-start gap-3 p-2 bg-white rounded-md border border-gray-100">
+                      <div key={key} className="flex items-start gap-3 p-2 bg-card rounded-md border border-border">
                         <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${config.bg} ${config.text} flex-shrink-0 mt-0.5`}>
                           <span className={`w-1.5 h-1.5 rounded-full ${config.dot}`} />
                           {config.label}
                         </span>
                         <div className="flex flex-wrap gap-1">
                           {karakteristikler.map(k => (
-                            <span key={k} className="px-1.5 py-0.5 bg-gray-50 border border-gray-200 rounded text-[10px] text-gray-500 capitalize">{k}</span>
+                            <span key={k} className="px-1.5 py-0.5 bg-muted/50 border border-border rounded text-[10px] text-muted-foreground capitalize">{k}</span>
                           ))}
                         </div>
                       </div>
@@ -332,17 +332,17 @@ export default function NihaiAgUyesiContent({
                 </div>
               </div>
 
-              <div className="mt-6 bg-gray-50 rounded-lg border border-gray-200 p-4 max-w-lg w-full">
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Beklenen Kolonlar</p>
+              <div className="mt-6 bg-muted/50 rounded-lg border border-border p-4 max-w-lg w-full">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Beklenen Kolonlar</p>
                 <div className="flex flex-wrap gap-2">
                   {['Ad Soyad', 'E-Posta', 'Telefon', 'Cinsiyet', 'Atanan Tag', 'Tag Atama Tarihi', 'En Yüksek Skor', 'Nereden Geldi'].map(col => (
-                    <span key={col} className="px-2.5 py-1 bg-white border border-gray-200 rounded-md text-xs text-gray-600">{col}</span>
+                    <span key={col} className="px-2.5 py-1 bg-card border border-border rounded-md text-xs text-muted-foreground">{col}</span>
                   ))}
                 </div>
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 mt-4">Süreç Takibi</p>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 mt-4">Süreç Takibi</p>
                 <div className="flex flex-wrap gap-2">
                   {['İlk Başvuru Tarihi', 'Kesin Kabul Tarihi', 'Circle Giriş Tarihi', 'Oryantasyon Tarihi', 'Toplam Süreç Gün'].map(col => (
-                    <span key={col} className="px-2.5 py-1 bg-white border border-dashed border-gray-300 rounded-md text-xs text-gray-400">{col}</span>
+                    <span key={col} className="px-2.5 py-1 bg-card border border-dashed border-border rounded-md text-xs text-muted-foreground">{col}</span>
                   ))}
                 </div>
               </div>
@@ -360,7 +360,7 @@ export default function NihaiAgUyesiContent({
           <div className="space-y-4">
             {/* Tabs + Search */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div className="flex gap-1 bg-white rounded-lg border border-gray-200 p-1 overflow-x-auto">
+              <div className="flex gap-1 bg-card rounded-lg border border-border p-1 overflow-x-auto">
                 {tabs.map(tab => (
                   <button
                     key={tab.key}
@@ -368,12 +368,12 @@ export default function NihaiAgUyesiContent({
                     className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
                       activeTab === tab.key
                         ? 'bg-amber-50 text-amber-700'
-                        : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
                     }`}
                   >
                     {tab.label}
                     <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-xs ${
-                      activeTab === tab.key ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'
+                      activeTab === tab.key ? 'bg-amber-100 text-amber-700' : 'bg-muted text-muted-foreground'
                     }`}>
                       {tab.count}
                     </span>
@@ -382,43 +382,43 @@ export default function NihaiAgUyesiContent({
               </div>
 
               <div className="relative">
-                <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <input
                   type="text"
                   placeholder="İsim, e-posta veya tag ara..."
                   value={searchTerm}
                   onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1) }}
-                  className="pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm w-64 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                  className="pl-9 pr-4 py-2 border border-border rounded-lg text-sm w-64 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
                 />
               </div>
             </div>
 
             {/* Table */}
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-gray-100 bg-gray-50/50">
-                    <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-3">Üye</th>
-                    <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-3">E-Posta</th>
-                    <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-3">Atanan Tag</th>
-                    <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-3">Nereden Geldi</th>
-                    <th className="text-right text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-3">İşlem</th>
+                  <tr className="border-b border-border bg-muted/50/50">
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-6 py-3">Üye</th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-6 py-3">E-Posta</th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-6 py-3">Atanan Tag</th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-6 py-3">Nereden Geldi</th>
+                    <th className="text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider px-6 py-3">İşlem</th>
                   </tr>
                 </thead>
                 <tbody>
                   {loading ? (
                     Array.from({ length: 5 }).map((_, i) => (
                       <tr key={i} className="border-b border-gray-50">
-                        <td className="px-6 py-4"><div className="h-4 w-32 bg-gray-200 rounded animate-pulse" /></td>
-                        <td className="px-6 py-4"><div className="h-4 w-40 bg-gray-200 rounded animate-pulse" /></td>
-                        <td className="px-6 py-4"><div className="h-4 w-24 bg-gray-200 rounded animate-pulse" /></td>
-                        <td className="px-6 py-4"><div className="h-4 w-20 bg-gray-200 rounded animate-pulse" /></td>
-                        <td className="px-6 py-4"><div className="h-4 w-16 bg-gray-200 rounded animate-pulse ml-auto" /></td>
+                        <td className="px-6 py-4"><div className="h-4 w-32 bg-secondary rounded animate-pulse" /></td>
+                        <td className="px-6 py-4"><div className="h-4 w-40 bg-secondary rounded animate-pulse" /></td>
+                        <td className="px-6 py-4"><div className="h-4 w-24 bg-secondary rounded animate-pulse" /></td>
+                        <td className="px-6 py-4"><div className="h-4 w-20 bg-secondary rounded animate-pulse" /></td>
+                        <td className="px-6 py-4"><div className="h-4 w-16 bg-secondary rounded animate-pulse ml-auto" /></td>
                       </tr>
                     ))
                   ) : paginatedData.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="text-center py-12 text-gray-400 text-sm">
+                      <td colSpan={5} className="text-center py-12 text-muted-foreground text-sm">
                         Kayıt bulunamadı
                       </td>
                     </tr>
@@ -457,19 +457,19 @@ export default function NihaiAgUyesiContent({
                         <tr
                           key={idx}
                           onClick={() => setSelected(item)}
-                          className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors cursor-pointer"
+                          className="border-b border-gray-50 hover:bg-muted/50/50 transition-colors cursor-pointer"
                         >
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-3">
                               {avatarUrl ? (
                                 // eslint-disable-next-line @next/next/no-img-element
-                                <img src={avatarUrl} alt={name} className="w-8 h-8 rounded-full object-cover border border-gray-100" />
+                                <img src={avatarUrl} alt={name} className="w-8 h-8 rounded-full object-cover border border-border" />
                               ) : (
                                 <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center text-xs font-semibold text-amber-700">
                                   {initials}
                                 </div>
                               )}
-                              <span className="text-sm font-medium text-gray-900">{name}</span>
+                              <span className="text-sm font-medium text-foreground">{name}</span>
                               {(item as any).is_protected && (
                                 <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 font-semibold" title="Korumalı (Circle üyesi)">
                                   🔒
@@ -496,7 +496,7 @@ export default function NihaiAgUyesiContent({
                             </div>
                           </td>
                           <td className="px-6 py-4">
-                            <span className="text-sm text-gray-600">{email}</span>
+                            <span className="text-sm text-muted-foreground">{email}</span>
                           </td>
                           <td className="px-6 py-4">
                             {itemTags.length > 0 ? (
@@ -514,7 +514,7 @@ export default function NihaiAgUyesiContent({
                                   )
                                 })}
                                 {itemTags.length > 4 && (
-                                  <span className="text-[10px] text-gray-500 px-2 py-0.5"
+                                  <span className="text-[10px] text-muted-foreground px-2 py-0.5"
                                     title={itemTags.slice(4).join(', ')}>
                                     +{itemTags.length - 4}
                                   </span>
@@ -526,7 +526,7 @@ export default function NihaiAgUyesiContent({
                                 {tag}
                               </span>
                             ) : (
-                              <span className="text-xs text-gray-400">—</span>
+                              <span className="text-xs text-muted-foreground">—</span>
                             )}
                           </td>
                           <td className="px-6 py-4">
@@ -539,7 +539,7 @@ export default function NihaiAgUyesiContent({
                                 {nereden}
                               </span>
                             ) : (
-                              <span className="text-xs text-gray-400">—</span>
+                              <span className="text-xs text-muted-foreground">—</span>
                             )}
                           </td>
                           <td className="px-6 py-4 text-right">
@@ -580,17 +580,17 @@ export default function NihaiAgUyesiContent({
 
               {/* Pagination */}
               {totalPages > 1 && (
-                <div className="flex items-center justify-between px-6 py-3 border-t border-gray-100 bg-gray-50/50">
-                  <span className="text-xs text-gray-500">
+                <div className="flex items-center justify-between px-6 py-3 border-t border-border bg-muted/50/50">
+                  <span className="text-xs text-muted-foreground">
                     {filtered.length} kayıttan {(currentPage - 1) * itemsPerPage + 1}–{Math.min(currentPage * itemsPerPage, filtered.length)} gösteriliyor
                   </span>
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                       disabled={currentPage === 1}
-                      className="p-1.5 rounded-md hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                      className="p-1.5 rounded-md hover:bg-secondary disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                     >
-                      <ChevronLeftIcon className="w-4 h-4 text-gray-600" />
+                      <ChevronLeftIcon className="w-4 h-4 text-muted-foreground" />
                     </button>
                     {(() => {
                       // Compact pagination: 1 … (cur-1) cur (cur+1) … last
@@ -608,7 +608,7 @@ export default function NihaiAgUyesiContent({
                       if (totalPages > 1) push(totalPages)
                       return pages.map((p, i) =>
                         p === 'dots' ? (
-                          <span key={`d${i}`} className="px-1 text-xs text-gray-400 select-none">…</span>
+                          <span key={`d${i}`} className="px-1 text-xs text-muted-foreground select-none">…</span>
                         ) : (
                           <button
                             key={p}
@@ -616,7 +616,7 @@ export default function NihaiAgUyesiContent({
                             className={`w-8 h-8 rounded-md text-xs font-medium transition-colors ${
                               currentPage === p
                                 ? 'bg-amber-600 text-white'
-                                : 'text-gray-600 hover:bg-gray-200'
+                                : 'text-muted-foreground hover:bg-secondary'
                             }`}
                           >
                             {p}
@@ -627,9 +627,9 @@ export default function NihaiAgUyesiContent({
                     <button
                       onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                       disabled={currentPage === totalPages}
-                      className="p-1.5 rounded-md hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                      className="p-1.5 rounded-md hover:bg-secondary disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                     >
-                      <ChevronRightIcon className="w-4 h-4 text-gray-600" />
+                      <ChevronRightIcon className="w-4 h-4 text-muted-foreground" />
                     </button>
                   </div>
                 </div>
@@ -645,24 +645,24 @@ export default function NihaiAgUyesiContent({
       {pendingDeactivate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/30" onClick={() => setPendingDeactivate(null)} />
-          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-sm p-5 mx-4">
-            <h3 className="text-sm font-semibold text-gray-900 mb-1">Deaktive Et</h3>
-            <p className="text-xs text-gray-500 mb-3">
+          <div className="relative bg-card rounded-xl shadow-xl w-full max-w-sm p-5 mx-4">
+            <h3 className="text-sm font-semibold text-foreground mb-1">Deaktive Et</h3>
+            <p className="text-xs text-muted-foreground mb-3">
               {pendingDeactivate.name} nihai ağ üyeliğinden çıkarılacak.
             </p>
-            <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">
+            <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1 block">
               Onaylayan kişi <span className="text-red-500">*</span>
             </label>
             <select
               value={deactivatePerson}
               onChange={(e) => setDeactivatePerson(e.target.value)}
-              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-red-400 outline-none mb-3"
+              className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-card focus:ring-2 focus:ring-red-400 outline-none mb-3"
             >
               <option value="">Kişi seç...</option>
               <option value="Tuna">Tuna</option>
               <option value="Taha">Taha</option>
             </select>
-            <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-1 block">
+            <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1 block">
               Sebep <span className="text-red-500">*</span>
             </label>
             <textarea
@@ -670,10 +670,10 @@ export default function NihaiAgUyesiContent({
               onChange={(e) => setDeactivateNote(e.target.value)}
               rows={3}
               placeholder="Neden deaktive ediliyor?"
-              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-red-400 outline-none mb-3 resize-none"
+              className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-card focus:ring-2 focus:ring-red-400 outline-none mb-3 resize-none"
             />
             <div className="flex gap-2">
-              <button onClick={() => setPendingDeactivate(null)} className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50">İptal</button>
+              <button onClick={() => setPendingDeactivate(null)} className="flex-1 px-3 py-2 text-sm border border-border rounded-lg hover:bg-muted/50">İptal</button>
               <button
                 onClick={submitDeactivate}
                 disabled={!deactivatePerson.trim() || !deactivateNote.trim()}

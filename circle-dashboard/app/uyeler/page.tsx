@@ -30,9 +30,9 @@ function UyelerContent() {
   }
 
   return (
-    <div className="min-h-screen bg-[#FAFBFC]">
-      <div className="sticky top-20 z-30 bg-white border-b border-gray-100 px-8 py-4">
-        <h1 className="text-xl font-bold text-gray-900 mb-3">Ağ Üyeleri</h1>
+    <div className="min-h-screen bg-background">
+      <div className="sticky top-20 z-30 bg-card border-b border-border px-8 py-4">
+        <h1 className="text-xl font-bold text-foreground mb-3">Ağ Üyeleri</h1>
         <TabBar tabs={TABS} activeTab={activeTab} onChange={handleTabChange} />
       </div>
 

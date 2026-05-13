@@ -1,12 +1,15 @@
-import { createClient as createSupabaseClient } from '@supabase/supabase-js'
+// Eski Supabase API'sinin yerine Prisma kullanan helper'lar.
+// Geriye uyumluluk için aynı isimlerle export ediyoruz; ama imzalar farklı:
+//   - createClient() artık Prisma client döner
+//   - changeStatus/updateApplication/withAuditLog/createSnapshot artık db parametresi almaz
+import { prisma } from './prisma'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+export { prisma }
 
+// createClient: legacy çağrılar için Prisma instance'ı döner.
+// Yeni kodda doğrudan `import { prisma } from '@/lib/prisma'` kullan.
 export function createClient() {
-  return createSupabaseClient(supabaseUrl, supabaseServiceKey, {
-    auth: { persistSession: false },
-  })
+  return prisma
 }
 
 // ─── Status Tanimlari ───
@@ -46,145 +49,123 @@ export const STATUS_COLORS: Record<ApplicationStatus, string> = {
   nihai_uye: '#D97706',
 }
 
-// ─── KORUMALI KAYITLAR (is_protected) ───
-// Circle'dan senkronize edilmiş gerçek üyeler — mutation YASAK.
-// Hata mesajı standart, frontend tanıyabilsin diye sabit string.
+// ─── KORUMALI KAYITLAR ───
+
 export const PROTECTED_BLOCK_MSG =
   'Bu kayıt korumalı (Circle üyesi). Üzerinde mail/status/update/delete işlemi yapılamaz.'
 
-export async function isProtectedApplication(
-  db: ReturnType<typeof createClient>,
-  applicationId: string,
-): Promise<boolean> {
-  const { data } = await db
-    .from('applications')
-    .select('is_protected')
-    .eq('id', applicationId)
-    .maybeSingle()
-  return !!(data && (data as { is_protected?: boolean }).is_protected)
+export async function isProtectedApplication(applicationId: string): Promise<boolean> {
+  const row = await prisma.applications.findUnique({
+    where: { id: applicationId },
+    select: { is_protected: true },
+  })
+  return !!row?.is_protected
 }
 
 // ─── Audit Log Helper ───
 
-export async function withAuditLog(
-  db: ReturnType<typeof createClient>,
-  params: {
-    entityType: string
-    entityId: string
-    action: string
-    actor: string
-    oldValues?: Record<string, unknown>
-    newValues?: Record<string, unknown>
-    metadata?: Record<string, unknown>
+export async function withAuditLog(params: {
+  entityType: string
+  entityId: string
+  action: string
+  actor: string
+  oldValues?: Record<string, unknown> | null
+  newValues?: Record<string, unknown> | null
+  metadata?: Record<string, unknown> | null
+}) {
+  try {
+    await prisma.audit_log.create({
+      data: {
+        entity_type: params.entityType,
+        entity_id: params.entityId,
+        action: params.action,
+        actor: params.actor,
+        old_values: (params.oldValues ?? null) as never,
+        new_values: (params.newValues ?? null) as never,
+        metadata: (params.metadata ?? null) as never,
+      },
+    })
+  } catch (e) {
+    console.error('Audit log error:', e)
   }
-) {
-  const { error } = await db.from('audit_log').insert({
-    entity_type: params.entityType,
-    entity_id: params.entityId,
-    action: params.action,
-    actor: params.actor,
-    old_values: params.oldValues ?? null,
-    new_values: params.newValues ?? null,
-    metadata: params.metadata ?? null,
-  })
-  if (error) console.error('Audit log error:', error)
 }
 
 // ─── Snapshot Helper ───
 
 export async function createSnapshot(
-  db: ReturnType<typeof createClient>,
   applicationId: string,
   triggerAction: string,
-  createdBy: string
+  createdBy: string,
 ) {
-  const { data: app } = await db
-    .from('applications')
-    .select('*')
-    .eq('id', applicationId)
-    .single()
-
+  const app = await prisma.applications.findUnique({ where: { id: applicationId } })
   if (!app) return null
 
-  // Iliskili child tablolari da snapshot'a dahil et — rollback sirasinda
-  // bagimli verilerin (degerlendirme, uyari, gorev, mail) o anki halini
-  // gorebiliyor olmamiz icin. Restore mantigi şu an sadece parent (app)
-  // alanlarini geri aliyor; child'lar audit/history amacli saklaniyor.
   const [tasks, warnings, evaluations, mailLogs] = await Promise.all([
-    db.from('task_completions').select('*').eq('application_id', applicationId),
-    db.from('warnings').select('*').eq('application_id', applicationId),
-    db.from('evaluations').select('*').eq('application_id', applicationId),
-    db.from('mail_logs').select('*').eq('application_id', applicationId),
+    prisma.task_completions.findMany({ where: { application_id: applicationId } }),
+    prisma.warnings.findMany({ where: { application_id: applicationId } }),
+    prisma.evaluations.findMany({ where: { application_id: applicationId } }),
+    prisma.mail_logs.findMany({ where: { application_id: applicationId } }),
   ])
 
   const fullSnapshot = {
     ...app,
     _related: {
-      tasks: tasks.data || [],
-      warnings: warnings.data || [],
-      evaluations: evaluations.data || [],
-      mail_logs: mailLogs.data || [],
+      tasks,
+      warnings,
+      evaluations,
+      mail_logs: mailLogs,
     },
   }
 
-  const { error } = await db.from('application_snapshots').insert({
-    application_id: applicationId,
-    snapshot: fullSnapshot,
-    trigger_action: triggerAction,
-    created_by: createdBy,
-  })
-  if (error) console.error('Snapshot error:', error)
+  try {
+    await prisma.application_snapshots.create({
+      data: {
+        application_id: applicationId,
+        snapshot: fullSnapshot as never,
+        trigger_action: triggerAction,
+        created_by: createdBy,
+      },
+    })
+  } catch (e) {
+    console.error('Snapshot error:', e)
+  }
   return app
 }
 
 // ─── Status Degistirme ───
 
-export async function changeStatus(
-  db: ReturnType<typeof createClient>,
-  params: {
-    applicationId: string
-    toStatus: ApplicationStatus
-    changedBy: string
-    reason?: string
-    extraUpdates?: Record<string, unknown>
-    force?: boolean  // Eksik task uyarısını bypass et (admin override)
-  }
-) {
-  // 1. Mevcut basvuruyu al
-  const { data: app, error: fetchError } = await db
-    .from('applications')
-    .select('*')
-    .eq('id', params.applicationId)
-    .single()
-
-  if (fetchError || !app) {
-    return { success: false, error: 'Başvuru bulunamadı' }
+export async function changeStatus(params: {
+  applicationId: string
+  toStatus: ApplicationStatus
+  changedBy: string
+  reason?: string
+  extraUpdates?: Record<string, unknown>
+  force?: boolean
+}) {
+  const app = await prisma.applications.findUnique({ where: { id: params.applicationId } })
+  if (!app) {
+    return { success: false as const, error: 'Başvuru bulunamadı' }
   }
 
-  // KORUMA: is_protected ise mutation reddedilir
-  if ((app as { is_protected?: boolean }).is_protected) {
-    return { success: false, error: PROTECTED_BLOCK_MSG }
+  if (app.is_protected) {
+    return { success: false as const, error: PROTECTED_BLOCK_MSG }
   }
 
   const fromStatus = app.status
 
-  // 2. İs kurali: kesin_kabul/kesin_ret icin degerlendiren zorunlu
   if (['kesin_kabul', 'kesin_ret'].includes(params.toStatus)) {
-    const reviewer = params.extraUpdates?.reviewer || app.reviewer
+    const reviewer = (params.extraUpdates?.reviewer as string | undefined) || app.reviewer
     if (!reviewer || reviewer === 'Otomasyon') {
-      return { success: false, error: 'Kesin kabul/ret için değerlendiren gerekli' }
+      return { success: false as const, error: 'Kesin kabul/ret için değerlendiren gerekli' }
     }
   }
 
-  // 2b. İs kurali: nihai_uye icin 3 task zorunlu (force=true bypass eder)
   if (params.toStatus === 'nihai_uye' && !params.force) {
-    const { data: tasks } = await db
-      .from('task_completions')
-      .select('task_type, completed')
-      .eq('application_id', params.applicationId)
-      .eq('completed', true)
-
-    const completedTypes = new Set((tasks || []).map((t: { task_type: string }) => t.task_type))
+    const tasks = await prisma.task_completions.findMany({
+      where: { application_id: params.applicationId, completed: true },
+      select: { task_type: true },
+    })
+    const completedTypes = new Set(tasks.map((t) => t.task_type))
     const required = ['karakteristik_envanter', 'disipliner_envanter', 'oryantasyon']
     const missing = required.filter((t) => !completedTypes.has(t))
 
@@ -196,59 +177,56 @@ export async function changeStatus(
       }
       const missingLabels = missing.map((m) => labels[m]).join(', ')
       return {
-        success: false,
+        success: false as const,
         error: `Nihai ağ üyesine taşınamaz. Eksik: ${missingLabels}`,
         missing_tasks: missing,
       }
     }
   }
 
-  // 3. Snapshot al
-  await createSnapshot(db, params.applicationId, 'status_change', params.changedBy)
+  await createSnapshot(params.applicationId, 'status_change', params.changedBy)
 
-  // 4. Status guncelle
   const updates: Record<string, unknown> = {
     status: params.toStatus,
-    ...params.extraUpdates,
+    ...(params.extraUpdates || {}),
   }
 
-  const { error: updateError } = await db
-    .from('applications')
-    .update(updates)
-    .eq('id', params.applicationId)
-
-  if (updateError) {
-    return { success: false, error: updateError.message }
+  try {
+    await prisma.applications.update({
+      where: { id: params.applicationId },
+      data: updates as never,
+    })
+  } catch (e: unknown) {
+    return { success: false as const, error: (e as Error).message }
   }
 
-  // 5. Status history kaydet
-  await db.from('status_history').insert({
-    application_id: params.applicationId,
-    from_status: fromStatus,
-    to_status: params.toStatus,
-    changed_by: params.changedBy,
-    reason: params.reason ?? null,
-    change_type: 'normal',
+  await prisma.status_history.create({
+    data: {
+      application_id: params.applicationId,
+      from_status: fromStatus,
+      to_status: params.toStatus,
+      changed_by: params.changedBy,
+      reason: params.reason ?? null,
+      change_type: 'normal',
+    },
   })
 
-  // 6. Audit log
-  await withAuditLog(db, {
+  await withAuditLog({
     entityType: 'application',
     entityId: params.applicationId,
     action: 'status_change',
     actor: params.changedBy,
     oldValues: { status: fromStatus },
-    newValues: { status: params.toStatus, ...params.extraUpdates },
+    newValues: { status: params.toStatus, ...(params.extraUpdates || {}) },
   })
 
-  // 7. Nihai üye'ye geçince otomatik tag atama (leaf + parent, bkz: TAG_ASSIGNMENT_RULES.md)
   let autoTag: { leaf: string | null; parent: string | null; added: string[]; reason: string } | null = null
   if (params.toStatus === 'nihai_uye' && fromStatus !== 'nihai_uye') {
     try {
       const { autoAssignCharacterTag } = await import('./character-tags')
-      autoTag = await autoAssignCharacterTag(db, params.applicationId)
+      autoTag = await autoAssignCharacterTag(params.applicationId)
       if (autoTag.added.length > 0) {
-        await withAuditLog(db, {
+        await withAuditLog({
           entityType: 'application',
           entityId: params.applicationId,
           action: 'auto_tag_assigned',
@@ -267,49 +245,36 @@ export async function changeStatus(
     }
   }
 
-  return { success: true, fromStatus, toStatus: params.toStatus, autoTag }
+  return { success: true as const, fromStatus, toStatus: params.toStatus, autoTag }
 }
 
 // ─── Application Guncelleme ───
 
-export async function updateApplication(
-  db: ReturnType<typeof createClient>,
-  params: {
-    applicationId: string
-    updates: Record<string, unknown>
-    updatedBy: string
-  }
-) {
-  // 1. Mevcut hali al
-  const { data: app, error: fetchError } = await db
-    .from('applications')
-    .select('*')
-    .eq('id', params.applicationId)
-    .single()
-
-  if (fetchError || !app) {
-    return { success: false, error: 'Başvuru bulunamadı' }
+export async function updateApplication(params: {
+  applicationId: string
+  updates: Record<string, unknown>
+  updatedBy: string
+}) {
+  const app = await prisma.applications.findUnique({ where: { id: params.applicationId } })
+  if (!app) {
+    return { success: false as const, error: 'Başvuru bulunamadı' }
   }
 
-  // KORUMA: is_protected ise mutation reddedilir
-  if ((app as { is_protected?: boolean }).is_protected) {
-    return { success: false, error: PROTECTED_BLOCK_MSG }
+  if (app.is_protected) {
+    return { success: false as const, error: PROTECTED_BLOCK_MSG }
   }
 
-  // 2. Snapshot
-  await createSnapshot(db, params.applicationId, 'field_update', params.updatedBy)
+  await createSnapshot(params.applicationId, 'field_update', params.updatedBy)
 
-  // 3. Guncelle
-  const { error: updateError } = await db
-    .from('applications')
-    .update(params.updates)
-    .eq('id', params.applicationId)
-
-  if (updateError) {
-    return { success: false, error: updateError.message }
+  try {
+    await prisma.applications.update({
+      where: { id: params.applicationId },
+      data: params.updates as never,
+    })
+  } catch (e: unknown) {
+    return { success: false as const, error: (e as Error).message }
   }
 
-  // 4. Audit log
   const changedFields: Record<string, unknown> = {}
   for (const [key, value] of Object.entries(params.updates)) {
     if ((app as Record<string, unknown>)[key] !== value) {
@@ -317,7 +282,7 @@ export async function updateApplication(
     }
   }
 
-  await withAuditLog(db, {
+  await withAuditLog({
     entityType: 'application',
     entityId: params.applicationId,
     action: 'update',
@@ -326,157 +291,131 @@ export async function updateApplication(
     newValues: params.updates,
   })
 
-  return { success: true }
+  return { success: true as const }
 }
 
 // ─── Rollback ───
 
-export async function rollbackApplication(
-  db: ReturnType<typeof createClient>,
-  applicationId: string,
-  rolledBackBy: string
-) {
-  // Son snapshot'i al
-  const { data: snapshot } = await db
-    .from('application_snapshots')
-    .select('*')
-    .eq('application_id', applicationId)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .single()
-
+export async function rollbackApplication(applicationId: string, rolledBackBy: string) {
+  const snapshot = await prisma.application_snapshots.findFirst({
+    where: { application_id: applicationId },
+    orderBy: { created_at: 'desc' },
+  })
   if (!snapshot) {
-    return { success: false, error: 'Geri alınacak snapshot bulunamadı' }
+    return { success: false as const, error: 'Geri alınacak snapshot bulunamadı' }
   }
 
   const snapshotData = snapshot.snapshot as Record<string, unknown>
-  const { data: currentApp } = await db
-    .from('applications')
-    .select('*')
-    .eq('id', applicationId)
-    .single()
+  const currentApp = await prisma.applications.findUnique({ where: { id: applicationId } })
 
-  // KORUMA: protected kayıt rollback edilemez
-  if (currentApp && (currentApp as { is_protected?: boolean }).is_protected) {
-    return { success: false, error: PROTECTED_BLOCK_MSG }
+  if (currentApp?.is_protected) {
+    return { success: false as const, error: PROTECTED_BLOCK_MSG }
   }
 
-  // Snapshot'tan restore et (id, created_at, _related haric — _related child
-  // tablo verisi audit amacli; restore'da uygulanmaz)
   const { id: _id, created_at: _ca, _related: _rel, ...restoreData } = snapshotData
-  await db.from('applications').update(restoreData).eq('id', applicationId)
+  void _id; void _ca; void _rel
+  // updated_at'i Prisma trigger'a bıraksın diye çıkar
+  delete (restoreData as Record<string, unknown>).updated_at
 
-  // Status degistiyse history ekle
+  await prisma.applications.update({
+    where: { id: applicationId },
+    data: restoreData as never,
+  })
+
   if (currentApp && snapshotData.status !== currentApp.status) {
-    await db.from('status_history').insert({
-      application_id: applicationId,
-      from_status: currentApp.status,
-      to_status: snapshotData.status as string,
-      changed_by: rolledBackBy,
-      change_type: 'rollback',
-      reason: 'Geri alma işlemi',
+    await prisma.status_history.create({
+      data: {
+        application_id: applicationId,
+        from_status: currentApp.status,
+        to_status: snapshotData.status as string,
+        changed_by: rolledBackBy,
+        change_type: 'rollback',
+        reason: 'Geri alma işlemi',
+      },
     })
   }
 
-  await withAuditLog(db, {
+  await withAuditLog({
     entityType: 'application',
     entityId: applicationId,
     action: 'rollback',
     actor: rolledBackBy,
-    oldValues: currentApp as Record<string, unknown>,
+    oldValues: currentApp as never,
     newValues: snapshotData,
     metadata: { snapshot_id: snapshot.id },
   })
 
-  return { success: true, restoredStatus: snapshotData.status }
+  return { success: true as const, restoredStatus: snapshotData.status }
 }
 
 // ─── Query Helpers ───
 
 export async function getApplicationsByStatus(
-  db: ReturnType<typeof createClient>,
   status: ApplicationStatus,
-  options?: { search?: string; sort?: string; order?: 'asc' | 'desc'; page?: number; limit?: number }
+  options?: { search?: string; sort?: string; order?: 'asc' | 'desc'; page?: number; limit?: number },
 ) {
   const { search, sort = 'submitted_at', order = 'desc', page = 1, limit = 50 } = options || {}
-  const offset = (page - 1) * limit
+  const skip = (page - 1) * limit
 
-  let query = db
-    .from('applications')
-    .select('*', { count: 'exact' })
-    .eq('status', status)
-    .order(sort, { ascending: order === 'asc' })
-    .range(offset, offset + limit - 1)
-
+  const where: Record<string, unknown> = { status }
   if (search) {
-    query = query.or(`full_name.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%`)
+    where.OR = [
+      { full_name: { contains: search, mode: 'insensitive' } },
+      { email: { contains: search, mode: 'insensitive' } },
+      { phone: { contains: search, mode: 'insensitive' } },
+    ]
   }
 
-  return query
+  const [data, count] = await Promise.all([
+    prisma.applications.findMany({
+      where: where as never,
+      orderBy: { [sort]: order } as never,
+      skip,
+      take: limit,
+    }),
+    prisma.applications.count({ where: where as never }),
+  ])
+
+  return { data, count, error: null as null }
 }
 
-export async function getAllApplicationsGrouped(db: ReturnType<typeof createClient>) {
-  const { data, error } = await db
-    .from('applications')
-    .select('*')
-    .order('submitted_at', { ascending: false })
-
-  if (error) return { data: null, error }
-
+export async function getAllApplicationsGrouped() {
+  const data = await prisma.applications.findMany({ orderBy: { submitted_at: 'desc' } })
   const grouped: Record<string, typeof data> = {}
-  for (const status of APPLICATION_STATUSES) {
-    grouped[status] = []
-  }
-  for (const app of data || []) {
+  for (const status of APPLICATION_STATUSES) grouped[status] = []
+  for (const app of data) {
     const s = app.status as ApplicationStatus
     if (grouped[s]) grouped[s].push(app)
   }
-
-  return { data: grouped, error: null }
+  return { data: grouped, error: null as null }
 }
 
-export async function getDashboardStats(db: ReturnType<typeof createClient>) {
-  const { data, error } = await db
-    .from('applications')
-    .select('status')
-
-  if (error) return { data: null, error }
-
+export async function getDashboardStats() {
+  const data = await prisma.applications.findMany({ select: { status: true } })
   const counts: Record<string, number> = {}
-  for (const status of APPLICATION_STATUSES) {
-    counts[status] = 0
-  }
-  for (const row of data || []) {
-    counts[row.status] = (counts[row.status] || 0) + 1
-  }
-
+  for (const status of APPLICATION_STATUSES) counts[status] = 0
+  for (const row of data) counts[row.status] = (counts[row.status] || 0) + 1
   return {
-    data: {
-      total: data?.length || 0,
-      breakdown: counts,
-    },
-    error: null,
+    data: { total: data.length, breakdown: counts },
+    error: null as null,
   }
 }
 
-export async function getTimelineData(
-  db: ReturnType<typeof createClient>,
-  filters?: { from?: string; to?: string; status?: string }
-) {
-  let query = db
-    .from('status_history')
-    .select('*, applications(full_name, email)')
-    .order('created_at', { ascending: false })
-
-  if (filters?.from) {
-    query = query.gte('created_at', filters.from)
-  }
+export async function getTimelineData(filters?: { from?: string; to?: string; status?: string }) {
+  const where: Record<string, unknown> = {}
+  if (filters?.from) (where as Record<string, unknown>).created_at = { gte: new Date(filters.from) }
   if (filters?.to) {
-    query = query.lte('created_at', filters.to)
+    const ca = (where.created_at as Record<string, unknown>) || {}
+    ca.lte = new Date(filters.to)
+    where.created_at = ca
   }
-  if (filters?.status) {
-    query = query.eq('to_status', filters.status)
-  }
+  if (filters?.status) where.to_status = filters.status
 
-  return query
+  const rows = await prisma.status_history.findMany({
+    where: where as never,
+    orderBy: { created_at: 'desc' },
+    include: { applications: { select: { full_name: true, email: true } } },
+  })
+
+  return { data: rows, error: null as null }
 }

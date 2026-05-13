@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { getBrowserClient } from '@/lib/supabase-browser'
+import { ThemeToggle } from './ThemeToggle'
 
 interface Notification {
   type: string
@@ -23,10 +23,25 @@ const navItems = [
 ]
 
 const severityStyles = {
-  error:   { bar: 'bg-red-500',   iconBg: 'bg-red-50',   iconColor: 'text-red-600',   count: 'bg-red-50 text-red-700 border-red-200' },
-  warning: { bar: 'bg-amber-500', iconBg: 'bg-amber-50', iconColor: 'text-amber-600', count: 'bg-amber-50 text-amber-700 border-amber-200' },
-  info:    { bar: 'bg-blue-500',  iconBg: 'bg-blue-50',  iconColor: 'text-blue-600',  count: 'bg-blue-50 text-blue-700 border-blue-200' },
-}
+  error: {
+    bar: 'bg-destructive',
+    iconBg: 'bg-destructive/10',
+    iconColor: 'text-destructive',
+    count: 'bg-destructive/10 text-destructive border-destructive/20',
+  },
+  warning: {
+    bar: 'bg-warning',
+    iconBg: 'bg-warning/10',
+    iconColor: 'text-warning',
+    count: 'bg-warning/10 text-warning border-warning/20',
+  },
+  info: {
+    bar: 'bg-info',
+    iconBg: 'bg-info/10',
+    iconColor: 'text-info',
+    count: 'bg-info/10 text-info border-info/20',
+  },
+} as const
 
 const SEVERITY_ORDER = { error: 0, warning: 1, info: 2 } as const
 
@@ -38,10 +53,10 @@ const notificationLinks: Record<string, string> = {
 }
 
 const notificationMeta: Record<string, { title: string; label: string }> = {
-  mail_bekleyen:        { title: 'Red maili gönderilmedi',       label: 'Kesin Ret' },
-  kontrol_bekleyen:     { title: '1+ gündür kontrol bekliyor',   label: 'Kontrol' },
-  oryantasyon_bekleyen: { title: 'Oryantasyon yapılmadı',        label: 'Oryantasyon' },
-  uyari_gerekli:        { title: 'Haftalık uyarı gerekli',       label: 'Ağ Üyeleri' },
+  mail_bekleyen: { title: 'Red maili gönderilmedi', label: 'Kesin Ret' },
+  kontrol_bekleyen: { title: '1+ gündür kontrol bekliyor', label: 'Kontrol' },
+  oryantasyon_bekleyen: { title: 'Oryantasyon yapılmadı', label: 'Oryantasyon' },
+  uyari_gerekli: { title: 'Haftalık uyarı gerekli', label: 'Ağ Üyeleri' },
 }
 
 function SeverityIcon({ severity, className }: { severity: 'error' | 'warning' | 'info'; className?: string }) {
@@ -78,108 +93,110 @@ interface HistoryRow {
   resolved_at: string | null
 }
 
+interface SessionInfo {
+  email: string
+  role: string
+}
+
 export function Header() {
   const pathname = usePathname()
   const router = useRouter()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [open, setOpen] = useState(false)
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [lastFetch, setLastFetch] = useState<Date | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
   const [history, setHistory] = useState<HistoryRow[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
+  const [session, setSession] = useState<SessionInfo | null>(null)
+  const notifRef = useRef<HTMLDivElement>(null)
+  const userRef = useRef<HTMLDivElement>(null)
 
   const loadHistory = async () => {
     setHistoryLoading(true)
     try {
-      const res = await fetch('/api/notifications/history?status=resolved&limit=100').then(r => r.json())
+      const res = await fetch('/api/notifications/history?status=resolved&limit=100').then((r) => r.json())
       if (res.success) setHistory(res.data || [])
-    } catch {
-      // sessiz
-    } finally {
-      setHistoryLoading(false)
-    }
+    } catch {}
+    finally { setHistoryLoading(false) }
   }
 
-  const isActive = (href: string) =>
-    href === '/' ? pathname === '/' : pathname.startsWith(href)
+  const isActive = (href: string) => (href === '/' ? pathname === '/' : pathname.startsWith(href))
 
   const handleLogout = async () => {
-    try {
-      await fetch('/api/auth/logout', { method: 'POST' })
-    } catch {}
+    try { await fetch('/api/auth/logout', { method: 'POST' }) } catch {}
     router.replace('/login')
   }
 
   const fetchNotifications = async () => {
     setRefreshing(true)
     try {
-      const res = await fetch('/api/notifications').then(r => r.json())
+      const res = await fetch('/api/notifications').then((r) => r.json())
       if (res.success) setNotifications(res.notifications || [])
       setLastFetch(new Date())
-    } catch {
-      // sessiz başarısızlık — bildirim zaten yan bileşen
-    } finally {
-      setRefreshing(false)
-    }
+    } catch {}
+    finally { setRefreshing(false) }
   }
 
-  // Bildirimleri çek — ilk yükleme + yavaş backup polling
-  // Asıl anlık güncellemeler Realtime subscription üzerinden.
+  const fetchSession = async () => {
+    try {
+      const res = await fetch('/api/auth/me').then((r) => r.json())
+      if (res.authenticated && res.session) setSession(res.session)
+    } catch {}
+  }
+
   useEffect(() => {
     fetchNotifications()
-    const interval = setInterval(fetchNotifications, 60000)
+    fetchSession()
+    const interval = setInterval(fetchNotifications, 30000)
     return () => clearInterval(interval)
   }, [])
 
-  // Realtime: applications / task_completions / warnings değişince anında yenile
-  useEffect(() => {
-    const supabase = getBrowserClient()
-    let debounce: NodeJS.Timeout | null = null
-    const refresh = () => {
-      if (debounce) clearTimeout(debounce)
-      debounce = setTimeout(() => fetchNotifications(), 500)
-    }
-    const channel = supabase
-      .channel('header-notifications')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'applications' }, refresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_completions' }, refresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'warnings' }, refresh)
-      .subscribe()
-    return () => {
-      if (debounce) clearTimeout(debounce)
-      supabase.removeChannel(channel)
-    }
-  }, [])
-
-  // Dışarı tıklayınca kapat
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) setOpen(false)
+      if (userRef.current && !userRef.current.contains(e.target as Node)) setUserMenuOpen(false)
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
   const totalCount = notifications.reduce((s, n) => s + n.count, 0)
-  const hasError = notifications.some(n => n.severity === 'error')
+  const hasError = notifications.some((n) => n.severity === 'error')
   const sortedNotifications = [...notifications].sort(
     (a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity],
   )
 
   if (pathname === '/login') return null
 
+  const userInitials = session?.email
+    ? session.email
+        .split('@')[0]
+        .split(/[._-]/)
+        .filter(Boolean)
+        .map((p) => p[0]?.toUpperCase() || '')
+        .join('')
+        .slice(0, 2) || session.email[0]?.toUpperCase()
+    : 'U'
+
+  const roleLabel = session?.role === 'admin' ? 'Admin' : session?.role === 'evaluator' ? 'Değerlendirici' : 'Görüntüleyen'
+
   return (
-    <header className="fixed top-0 left-0 right-0 z-40 bg-[#1E1E2E] border-b border-gray-800">
-      <div className="flex items-center h-20 px-10 gap-10">
+    <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-xl">
+      <div className="flex h-16 items-center gap-6 px-6 lg:px-8">
         {/* Logo */}
-        <Link href="/" className="flex items-center shrink-0">
-          <img src="/logo-light@2x.png" alt="Divizyon" className="h-7" />
+        <Link href="/" className="flex shrink-0 items-center gap-2.5 group">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary via-violet-500 to-fuchsia-500 shadow-glow transition-transform group-hover:scale-105">
+            <span className="text-sm font-bold text-white">D</span>
+          </div>
+          <span className="hidden text-base font-semibold tracking-tight text-foreground sm:block">
+            Divizyon
+          </span>
         </Link>
 
         {/* Nav */}
-        <nav className="flex items-center gap-2">
+        <nav className="hidden flex-1 items-center gap-1 lg:flex">
           {navItems.map((item) => {
             const active = isActive(item.href)
             return (
@@ -187,10 +204,34 @@ export function Header() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  'px-4 py-2.5 rounded-lg text-base font-medium transition-colors',
+                  'relative cursor-pointer rounded-lg px-3 py-2 text-sm font-medium transition-colors',
                   active
-                    ? 'bg-white/10 text-white'
-                    : 'text-gray-400 hover:text-white hover:bg-white/5'
+                    ? 'text-foreground'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                )}
+              >
+                {item.label}
+                {active && (
+                  <span className="absolute inset-x-3 -bottom-[17px] h-[2px] rounded-full bg-gradient-to-r from-primary to-fuchsia-500" />
+                )}
+              </Link>
+            )
+          })}
+        </nav>
+
+        {/* Mobile nav (compact) */}
+        <nav className="flex flex-1 items-center gap-0.5 overflow-x-auto lg:hidden">
+          {navItems.map((item) => {
+            const active = isActive(item.href)
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  'cursor-pointer whitespace-nowrap rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors',
+                  active
+                    ? 'bg-muted text-foreground'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                 )}
               >
                 {item.label}
@@ -200,54 +241,54 @@ export function Header() {
         </nav>
 
         {/* Right side */}
-        <div className="ml-auto flex items-center gap-4">
-          {/* Bildirim zili */}
-          <div ref={ref} className="relative">
+        <div className="ml-auto flex items-center gap-1">
+          <ThemeToggle />
+
+          {/* Notifications */}
+          <div ref={notifRef} className="relative">
             <button
               onClick={() => setOpen(!open)}
               className={cn(
-                'relative p-2 rounded-lg transition-colors',
-                open ? 'bg-white/10' : 'hover:bg-white/5'
+                'relative flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg transition-colors',
+                open ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
               )}
+              aria-label="Bildirimler"
             >
-              <svg className="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+              <svg className="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
               </svg>
               {totalCount > 0 && (
-                <span className={cn(
-                  'absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-[10px] font-bold text-white px-1',
-                  hasError ? 'bg-red-500' : 'bg-amber-500'
-                )}>
+                <span
+                  className={cn(
+                    'absolute -right-0.5 -top-0.5 flex min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-bold text-white',
+                    hasError ? 'bg-destructive animate-pulse-ring' : 'bg-warning',
+                    'h-[18px]',
+                  )}
+                >
                   {totalCount > 99 ? '99+' : totalCount}
                 </span>
               )}
             </button>
 
-            {/* Dropdown */}
             {open && (
-              <div className="absolute right-0 top-full mt-2 w-[380px] bg-white rounded-xl border border-gray-200 shadow-xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+              <div className="absolute right-0 top-full z-50 mt-2 w-[380px] origin-top-right overflow-hidden rounded-2xl border border-border bg-popover shadow-elevated animate-scale-in">
                 {/* Header */}
-                <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+                <div className="flex items-center justify-between border-b border-border px-4 py-3">
                   <div className="flex items-baseline gap-2">
-                    <h3 className="text-sm font-semibold text-gray-900">Bildirimler</h3>
+                    <h3 className="text-sm font-semibold text-foreground">Bildirimler</h3>
                     {totalCount > 0 && (
-                      <span className="text-[11px] text-gray-400">
-                        {totalCount} acil iş
-                      </span>
+                      <span className="text-[11px] text-muted-foreground">{totalCount} acil iş</span>
                     )}
                   </div>
                   <button
                     onClick={(e) => { e.stopPropagation(); fetchNotifications() }}
                     disabled={refreshing}
                     title="Yenile"
-                    className="p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                    className="cursor-pointer rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
                   >
                     <svg
-                      className={cn('w-3.5 h-3.5', refreshing && 'animate-spin')}
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={2}
+                      className={cn('h-3.5 w-3.5', refreshing && 'animate-spin')}
+                      fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
                     >
                       <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
                     </svg>
@@ -256,14 +297,14 @@ export function Header() {
 
                 {/* Body */}
                 {sortedNotifications.length === 0 && !showHistory ? (
-                  <div className="px-4 py-10 text-center">
-                    <div className="mx-auto w-10 h-10 rounded-full bg-green-50 flex items-center justify-center mb-2">
-                      <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <div className="px-4 py-12 text-center">
+                    <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-success/10">
+                      <svg className="h-6 w-6 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                       </svg>
                     </div>
-                    <p className="text-sm font-medium text-gray-700">Bildirim yok</p>
-                    <p className="text-xs text-gray-400 mt-0.5">Her şey yolunda</p>
+                    <p className="text-sm font-medium text-foreground">Bildirim yok</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">Her şey yolunda</p>
                   </div>
                 ) : (
                   <div className="max-h-[70vh] overflow-y-auto">
@@ -277,97 +318,74 @@ export function Header() {
                       return (
                         <button
                           key={n.type}
-                          onClick={() => {
-                            if (link) {
-                              router.push(link)
-                              setOpen(false)
-                            }
-                          }}
+                          onClick={() => { if (link) { router.push(link); setOpen(false) } }}
                           className={cn(
-                            'group relative w-full text-left flex items-start gap-3 pl-4 pr-3 py-3 border-b border-gray-50 last:border-b-0 transition-colors',
-                            link ? 'hover:bg-gray-50 cursor-pointer' : 'cursor-default'
+                            'group relative flex w-full items-start gap-3 border-b border-border/50 py-3 pl-4 pr-3 text-left transition-colors last:border-b-0',
+                            link ? 'cursor-pointer hover:bg-muted/60' : 'cursor-default',
                           )}
                         >
-                          {/* Sol severity bar */}
-                          <span className={cn('absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full', s.bar)} />
-
-                          {/* Severity icon */}
-                          <div className={cn('mt-0.5 w-8 h-8 rounded-lg flex items-center justify-center shrink-0', s.iconBg)}>
-                            <SeverityIcon severity={n.severity} className={cn('w-4 h-4', s.iconColor)} />
+                          <span className={cn('absolute bottom-2 left-0 top-2 w-[3px] rounded-r-full', s.bar)} />
+                          <div className={cn('mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', s.iconBg)}>
+                            <SeverityIcon severity={n.severity} className={cn('h-4 w-4', s.iconColor)} />
                           </div>
-
-                          {/* İçerik */}
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-900 leading-snug">{title}</p>
-                            <div className="flex items-center gap-1.5 mt-1 text-[11px] text-gray-400">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-foreground leading-snug">{title}</p>
+                            <div className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
                               {label && <span>{label}</span>}
-                              {label && link && <span className="text-gray-300">·</span>}
+                              {label && link && <span className="opacity-50">·</span>}
                               {link && (
-                                <span className="inline-flex items-center gap-0.5 text-gray-500 group-hover:text-gray-900 transition-colors">
+                                <span className="inline-flex items-center gap-0.5 transition-colors group-hover:text-foreground">
                                   İncele
-                                  <svg className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                  <svg className="h-3 w-3 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
                                   </svg>
                                 </span>
                               )}
                             </div>
                           </div>
-
-                          {/* Count pill */}
-                          <span
-                            className={cn(
-                              'shrink-0 self-center min-w-[26px] h-[22px] px-1.5 text-[11px] font-semibold rounded-full border flex items-center justify-center',
-                              s.count,
-                            )}
-                          >
+                          <span className={cn('flex h-[22px] min-w-[26px] shrink-0 items-center justify-center self-center rounded-full border px-1.5 text-[11px] font-semibold', s.count)}>
                             {n.count}
                           </span>
                         </button>
                       )
                     })}
 
-                    {/* Geçmiş (çözülmüş) bildirimler */}
                     {showHistory && (
                       <>
-                        <div className="px-4 py-2 bg-gray-50/50 border-t border-b border-gray-100">
-                          <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
+                        <div className="border-b border-t border-border bg-muted/30 px-4 py-2">
+                          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                             Geçmiş ({history.length})
                           </span>
                         </div>
                         {historyLoading ? (
-                          <div className="px-4 py-6 text-center text-xs text-gray-400">Yükleniyor…</div>
+                          <div className="px-4 py-6 text-center text-xs text-muted-foreground">Yükleniyor…</div>
                         ) : history.length === 0 ? (
-                          <div className="px-4 py-6 text-center text-xs text-gray-400">Geçmiş kayıt yok</div>
+                          <div className="px-4 py-6 text-center text-xs text-muted-foreground">Geçmiş kayıt yok</div>
                         ) : (
                           history.map((h) => {
                             const s = severityStyles[h.severity]
                             return (
                               <button
                                 key={h.id}
-                                onClick={() => {
-                                  if (h.link_href) {
-                                    router.push(h.link_href)
-                                    setOpen(false)
-                                  }
-                                }}
+                                onClick={() => { if (h.link_href) { router.push(h.link_href); setOpen(false) } }}
                                 className={cn(
-                                  'group relative w-full text-left flex items-start gap-3 pl-4 pr-3 py-3 border-b border-gray-50 last:border-b-0 transition-colors opacity-70',
-                                  h.link_href ? 'hover:bg-gray-50 hover:opacity-100 cursor-pointer' : 'cursor-default',
+                                  'group relative flex w-full items-start gap-3 border-b border-border/50 py-3 pl-4 pr-3 text-left opacity-70 transition-colors last:border-b-0',
+                                  h.link_href ? 'cursor-pointer hover:bg-muted/60 hover:opacity-100' : 'cursor-default',
                                 )}
                               >
-                                <span className={cn('absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full bg-gray-300')} />
-                                <div className={cn('mt-0.5 w-8 h-8 rounded-lg flex items-center justify-center shrink-0', s.iconBg)}>
-                                  <SeverityIcon severity={h.severity} className={cn('w-4 h-4', s.iconColor)} />
+                                <span className="absolute bottom-2 left-0 top-2 w-[3px] rounded-r-full bg-muted-foreground/30" />
+                                <div className={cn('mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', s.iconBg)}>
+                                  <SeverityIcon severity={h.severity} className={cn('h-4 w-4', s.iconColor)} />
                                 </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm text-gray-700 leading-snug line-through decoration-gray-300">
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm leading-snug text-muted-foreground line-through decoration-muted-foreground/40">
                                     {h.title}
                                   </p>
-                                  <div className="flex items-center gap-1.5 mt-1 text-[11px] text-gray-400">
-                                    <span>Çözüldü · {new Date(h.resolved_at || h.last_seen_at).toLocaleString('tr-TR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+                                  <div className="mt-1 text-[11px] text-muted-foreground">
+                                    Çözüldü · {new Date(h.resolved_at || h.last_seen_at).toLocaleString('tr-TR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                                   </div>
                                 </div>
-                                <span className="shrink-0 self-center min-w-[26px] h-[22px] px-1.5 text-[11px] font-semibold rounded-full border bg-gray-50 text-gray-500 border-gray-200 flex items-center justify-center">
+                                <span className="flex h-[22px] min-w-[26px] shrink-0 items-center justify-center self-center rounded-full border border-border bg-muted px-1.5 text-[11px] font-semibold text-muted-foreground">
                                   {h.count}
                                 </span>
                               </button>
@@ -380,20 +398,20 @@ export function Header() {
                 )}
 
                 {/* Footer */}
-                <div className="px-4 py-2 border-t border-gray-100 bg-gray-50/50 flex items-center justify-between">
+                <div className="flex items-center justify-between border-t border-border bg-muted/30 px-4 py-2">
                   <button
                     onClick={() => {
                       const next = !showHistory
                       setShowHistory(next)
                       if (next && history.length === 0) loadHistory()
                     }}
-                    className="text-[11px] font-medium text-indigo-600 hover:text-indigo-700"
+                    className="cursor-pointer text-[11px] font-medium text-primary transition-colors hover:text-primary/80"
                   >
                     {showHistory ? 'Geçmişi gizle' : 'Daha fazla ↓'}
                   </button>
                   {lastFetch && (
-                    <span className="text-[10px] text-gray-400">
-                      {lastFetch.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })} · 60sn yenilenir
+                    <span className="text-[10px] text-muted-foreground">
+                      {lastFetch.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })} · 30sn yenilenir
                     </span>
                   )}
                 </div>
@@ -401,16 +419,50 @@ export function Header() {
             )}
           </div>
 
-          <button
-            onClick={handleLogout}
-            title="Çıkış yap"
-            className="w-9 h-9 rounded-full flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
-            </svg>
-          </button>
+          {/* User menu */}
+          <div ref={userRef} className="relative">
+            <button
+              onClick={() => setUserMenuOpen(!userMenuOpen)}
+              className={cn(
+                'flex h-9 cursor-pointer items-center gap-2 rounded-lg pl-1 pr-2 transition-colors',
+                userMenuOpen ? 'bg-muted' : 'hover:bg-muted',
+              )}
+            >
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 text-[10px] font-bold text-white">
+                {userInitials}
+              </span>
+              <svg className="hidden h-3.5 w-3.5 text-muted-foreground sm:block" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+              </svg>
+            </button>
 
+            {userMenuOpen && (
+              <div className="absolute right-0 top-full z-50 mt-2 w-64 origin-top-right overflow-hidden rounded-xl border border-border bg-popover shadow-elevated animate-scale-in">
+                {/* User info */}
+                {session && (
+                  <div className="border-b border-border px-3 py-3">
+                    <p className="truncate text-sm font-medium text-foreground">{session.email}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-accent px-2 py-0.5 text-[10px] font-medium text-accent-foreground">
+                        {roleLabel}
+                      </span>
+                    </p>
+                  </div>
+                )}
+                <div className="p-1">
+                  <button
+                    onClick={handleLogout}
+                    className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2.5 py-2 text-sm text-foreground transition-colors hover:bg-muted"
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
+                    </svg>
+                    Çıkış Yap
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </header>

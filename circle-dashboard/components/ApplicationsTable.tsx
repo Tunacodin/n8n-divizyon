@@ -331,27 +331,27 @@ export default function ApplicationsTable() {
   return (
     <div className="space-y-6">
       {/* Filters */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+      <div className="bg-card rounded-2xl border border-border shadow-sm p-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Search */}
           <div className="relative">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
             <input
               type="text"
               placeholder="İsim, email veya telefon ara..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
             />
           </div>
 
           {/* Sheet Filter */}
           <div className="relative">
-            <FunnelIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <FunnelIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
             <select
               value={selectedSheet}
               onChange={(e) => setSelectedSheet(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent appearance-none bg-white"
+              className="w-full pl-10 pr-4 py-2.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent appearance-none bg-card"
             >
               <option value="all">Tümü</option>
               <option value="Div. Açık İnovasyon Ağı | Başvuru Formu">Div. Açık İnovasyon Ağı | Başvuru Formu</option>
@@ -365,11 +365,11 @@ export default function ApplicationsTable() {
 
           {/* Date Filter */}
           <div className="relative">
-            <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
             <select
               value={dateFilter}
               onChange={(e) => setDateFilter(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent appearance-none bg-white"
+              className="w-full pl-10 pr-4 py-2.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent appearance-none bg-card"
             >
               <option value="all">Tüm Zamanlar</option>
               <option value="today">Bugün</option>
@@ -382,19 +382,19 @@ export default function ApplicationsTable() {
 
         {/* Results count & Items per page */}
         <div className="mt-4 flex items-center justify-between">
-          <div className="text-sm text-gray-600">
+          <div className="text-sm text-muted-foreground">
             <span className="font-medium">{filteredData.length}</span> kayıt bulundu
           </div>
           {selectedSheet !== 'Div. Açık İnovasyon Ağı | Başvuru Formu' && (
             <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600">Sayfa başına:</span>
+              <span className="text-sm text-muted-foreground">Sayfa başına:</span>
               <select
                 value={itemsPerPage}
                 onChange={(e) => {
                   setItemsPerPage(Number(e.target.value))
                   setCurrentPage(1)
                 }}
-                className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="px-3 py-1.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
               >
                 <option value={5}>5</option>
                 <option value={10}>10</option>
@@ -412,7 +412,7 @@ export default function ApplicationsTable() {
         <BasvuruDateList data={filteredData} />
       ) : (
       /* Table */
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           {(() => {
             const visibleColumns = SHEET_COLUMNS[selectedSheet] || SHEET_COLUMNS['all']
@@ -420,12 +420,12 @@ export default function ApplicationsTable() {
 
             return (
               <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
+                <thead className="bg-muted/50 border-b border-border">
                   <tr>
                     {show('sheet') && (
                       <th
                         onClick={() => handleSort('sheet')}
-                        className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                        className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted transition-colors"
                       >
                         <div className="flex items-center gap-2">
                           Durum
@@ -436,7 +436,7 @@ export default function ApplicationsTable() {
                     {show('name') && (
                       <th
                         onClick={() => handleSort('name')}
-                        className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                        className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted transition-colors"
                       >
                         <div className="flex items-center gap-2">
                           Ad Soyad
@@ -447,7 +447,7 @@ export default function ApplicationsTable() {
                     {show('email') && (
                       <th
                         onClick={() => handleSort('email')}
-                        className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                        className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted transition-colors"
                       >
                         <div className="flex items-center gap-2">
                           E-Posta
@@ -456,14 +456,14 @@ export default function ApplicationsTable() {
                       </th>
                     )}
                     {show('phone') && (
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                         Telefon
                       </th>
                     )}
                     {show('date') && (
                       <th
                         onClick={() => handleSort('date')}
-                        className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                        className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted transition-colors"
                       >
                         <div className="flex items-center gap-2">
                           Tarih
@@ -474,7 +474,7 @@ export default function ApplicationsTable() {
                     {show('birthdate') && (
                       <th
                         onClick={() => handleSort('birthdate')}
-                        className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                        className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted transition-colors"
                       >
                         <div className="flex items-center gap-2">
                           Doğum Tarihi
@@ -485,7 +485,7 @@ export default function ApplicationsTable() {
                     {show('reviewer') && (
                       <th
                         onClick={() => handleSort('reviewer')}
-                        className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                        className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted transition-colors"
                       >
                         <div className="flex items-center gap-2">
                           Değerlendiren
@@ -496,7 +496,7 @@ export default function ApplicationsTable() {
                     {show('note') && (
                       <th
                         onClick={() => handleSort('note')}
-                        className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                        className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted transition-colors"
                       >
                         <div className="flex items-center gap-2">
                           Not
@@ -507,7 +507,7 @@ export default function ApplicationsTable() {
                     {show('gender') && (
                       <th
                         onClick={() => handleSort('gender')}
-                        className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                        className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted transition-colors"
                       >
                         <div className="flex items-center gap-2">
                           Cinsiyet
@@ -518,7 +518,7 @@ export default function ApplicationsTable() {
                     {show('mailTemplate') && (
                       <th
                         onClick={() => handleSort('mailTemplate')}
-                        className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                        className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted transition-colors"
                       >
                         <div className="flex items-center gap-2">
                           Mail Template
@@ -529,7 +529,7 @@ export default function ApplicationsTable() {
                     {show('mailSent') && (
                       <th
                         onClick={() => handleSort('mailSent')}
-                        className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                        className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted transition-colors"
                       >
                         <div className="flex items-center gap-2">
                           Mail Durumu
@@ -540,7 +540,7 @@ export default function ApplicationsTable() {
                     {show('warningCount') && (
                       <th
                         onClick={() => handleSort('warningCount')}
-                        className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                        className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted transition-colors"
                       >
                         <div className="flex items-center gap-2">
                           Uyarı Sayısı
@@ -551,7 +551,7 @@ export default function ApplicationsTable() {
                     {show('onayDurumu') && (
                       <th
                         onClick={() => handleSort('onayDurumu')}
-                        className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                        className="px-6 py-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted transition-colors"
                       >
                         <div className="flex items-center gap-2">
                           Onay Durumu
@@ -561,7 +561,7 @@ export default function ApplicationsTable() {
                     )}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200">
+                <tbody className="divide-y divide-border">
                   <AnimatePresence mode="popLayout">
                     {paginatedData.map((item, index) => (
                       <motion.tr
@@ -570,7 +570,7 @@ export default function ApplicationsTable() {
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -20 }}
                         transition={{ duration: 0.2 }}
-                        className={`hover:bg-gray-50 transition-colors ${item.sheet === 'Kontrol' ? 'cursor-pointer' : ''}`}
+                        className={`hover:bg-muted/50 transition-colors ${item.sheet === 'Kontrol' ? 'cursor-pointer' : ''}`}
                         onClick={() => {
                           if (item.sheet === 'Kontrol') setSelectedKontrolItem(item)
                         }}
@@ -583,8 +583,8 @@ export default function ApplicationsTable() {
                         {show('name') && (
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-2">
-                              <UserIcon className="w-4 h-4 text-gray-400" />
-                              <span className="text-sm font-medium text-gray-900">
+                              <UserIcon className="w-4 h-4 text-muted-foreground" />
+                              <span className="text-sm font-medium text-foreground">
                                 {item['Adın Soyadın'] || '-'}
                               </span>
                             </div>
@@ -593,8 +593,8 @@ export default function ApplicationsTable() {
                         {show('email') && (
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-2">
-                              <EnvelopeIcon className="w-4 h-4 text-gray-400" />
-                              <span className="text-sm text-gray-600">
+                              <EnvelopeIcon className="w-4 h-4 text-muted-foreground" />
+                              <span className="text-sm text-muted-foreground">
                                 {item['E-Posta Adresin'] || '-'}
                               </span>
                             </div>
@@ -603,8 +603,8 @@ export default function ApplicationsTable() {
                         {show('phone') && (
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-2">
-                              <PhoneIcon className="w-4 h-4 text-gray-400" />
-                              <span className="text-sm text-gray-600">
+                              <PhoneIcon className="w-4 h-4 text-muted-foreground" />
+                              <span className="text-sm text-muted-foreground">
                                 {item['Telefon Numaran'] || '-'}
                               </span>
                             </div>
@@ -612,7 +612,7 @@ export default function ApplicationsTable() {
                         )}
                         {show('date') && (
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="text-sm text-gray-600">
+                            <span className="text-sm text-muted-foreground">
                               {formatDate(item.Timestamp || item.timestamp || '')}
                             </span>
                           </td>
@@ -620,8 +620,8 @@ export default function ApplicationsTable() {
                         {show('birthdate') && (
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center gap-2">
-                              <CakeIcon className="w-4 h-4 text-gray-400" />
-                              <span className="text-sm text-gray-600">
+                              <CakeIcon className="w-4 h-4 text-muted-foreground" />
+                              <span className="text-sm text-muted-foreground">
                                 {formatBirthDate(item['Doğum Tarihin (GG/AA/YYYY)'] || '')}
                               </span>
                             </div>
@@ -630,8 +630,8 @@ export default function ApplicationsTable() {
                         {show('reviewer') && (
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center gap-2">
-                              <ClipboardDocumentCheckIcon className="w-4 h-4 text-gray-400" />
-                              <span className="text-sm text-gray-600">
+                              <ClipboardDocumentCheckIcon className="w-4 h-4 text-muted-foreground" />
+                              <span className="text-sm text-muted-foreground">
                                 {item['Değerlendiren'] || '-'}
                               </span>
                             </div>
@@ -640,8 +640,8 @@ export default function ApplicationsTable() {
                         {show('note') && (
                           <td className="px-6 py-4 max-w-[250px]">
                             <div className="flex items-start gap-2">
-                              <ChatBubbleLeftIcon className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
-                              <span className="text-sm text-gray-600 truncate" title={item['Not'] || ''}>
+                              <ChatBubbleLeftIcon className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
+                              <span className="text-sm text-muted-foreground truncate" title={item['Not'] || ''}>
                                 {item['Not'] || '-'}
                               </span>
                             </div>
@@ -649,14 +649,14 @@ export default function ApplicationsTable() {
                         )}
                         {show('gender') && (
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="text-sm text-gray-600">
+                            <span className="text-sm text-muted-foreground">
                               {item['Cinsiyetin'] || '-'}
                             </span>
                           </td>
                         )}
                         {show('mailTemplate') && (
                           <td className="px-6 py-4 max-w-[200px]">
-                            <span className="text-sm text-gray-600 truncate block" title={item['Mail Template'] || ''}>
+                            <span className="text-sm text-muted-foreground truncate block" title={item['Mail Template'] || ''}>
                               {item['Mail Template'] || '-'}
                             </span>
                           </td>
@@ -670,8 +670,8 @@ export default function ApplicationsTable() {
                               </div>
                             ) : (
                               <div className="flex items-center gap-1.5">
-                                <XCircleIcon className="w-4 h-4 text-gray-400" />
-                                <span className="text-sm text-gray-400">Atılmadı</span>
+                                <XCircleIcon className="w-4 h-4 text-muted-foreground" />
+                                <span className="text-sm text-muted-foreground">Atılmadı</span>
                               </div>
                             )}
                           </td>
@@ -683,7 +683,7 @@ export default function ApplicationsTable() {
                                 ? 'bg-red-100 text-red-700'
                                 : parseInt(item['Uyarı Sayısı']) >= 1
                                   ? 'bg-yellow-100 text-yellow-700'
-                                  : 'bg-gray-100 text-gray-600'
+                                  : 'bg-muted text-muted-foreground'
                             }`}>
                               {item['Uyarı Sayısı'] ?? '0'}
                             </span>
@@ -711,7 +711,7 @@ export default function ApplicationsTable() {
                                   </div>
                                 )
                               }
-                              return <span className="text-sm text-gray-400">-</span>
+                              return <span className="text-sm text-muted-foreground">-</span>
                             })()}
                           </td>
                         )}
@@ -725,17 +725,17 @@ export default function ApplicationsTable() {
 
           {paginatedData.length === 0 && (
             <div className="text-center py-12">
-              <DocumentTextIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600">Kayıt bulunamadı</p>
-              <p className="text-sm text-gray-400 mt-1">Filtreleri değiştirmeyi deneyin</p>
+              <DocumentTextIcon className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground">Kayıt bulunamadı</p>
+              <p className="text-sm text-muted-foreground mt-1">Filtreleri değiştirmeyi deneyin</p>
             </div>
           )}
         </div>
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-            <div className="text-sm text-gray-600">
+          <div className="px-6 py-4 border-t border-border flex items-center justify-between">
+            <div className="text-sm text-muted-foreground">
               Sayfa <span className="font-medium">{currentPage}</span> / <span className="font-medium">{totalPages}</span>
               {' '}({filteredData.length} kayıttan {((currentPage - 1) * itemsPerPage) + 1}-{Math.min(currentPage * itemsPerPage, filteredData.length)} arası)
             </div>
@@ -744,14 +744,14 @@ export default function ApplicationsTable() {
               <button
                 onClick={() => goToPage(1)}
                 disabled={currentPage === 1}
-                className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="px-3 py-2 text-sm font-medium text-foreground bg-card border border-border rounded-lg hover:bg-muted/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 İlk
               </button>
               <button
                 onClick={() => goToPage(currentPage - 1)}
                 disabled={currentPage === 1}
-                className="p-2 text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="p-2 text-foreground bg-card border border-border rounded-lg hover:bg-muted/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 <ChevronLeftIcon className="w-5 h-5" />
               </button>
@@ -777,7 +777,7 @@ export default function ApplicationsTable() {
                       className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
                         currentPage === pageNum
                           ? 'bg-purple-600 text-white'
-                          : 'text-gray-700 bg-white border border-gray-200 hover:bg-gray-50'
+                          : 'text-foreground bg-card border border-border hover:bg-muted/50'
                       }`}
                     >
                       {pageNum}
@@ -789,14 +789,14 @@ export default function ApplicationsTable() {
               <button
                 onClick={() => goToPage(currentPage + 1)}
                 disabled={currentPage === totalPages}
-                className="p-2 text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="p-2 text-foreground bg-card border border-border rounded-lg hover:bg-muted/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 <ChevronRightIcon className="w-5 h-5" />
               </button>
               <button
                 onClick={() => goToPage(totalPages)}
                 disabled={currentPage === totalPages}
-                className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="px-3 py-2 text-sm font-medium text-foreground bg-card border border-border rounded-lg hover:bg-muted/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Son
               </button>
@@ -817,7 +817,7 @@ export default function ApplicationsTable() {
 
 function SortIcon({ field, currentField, direction }: { field: SortField; currentField: SortField; direction: SortDirection }) {
   if (field !== currentField) {
-    return <ChevronUpDownIcon className="w-4 h-4 text-gray-400" />
+    return <ChevronUpDownIcon className="w-4 h-4 text-muted-foreground" />
   }
 
   return direction === 'asc' ? (
@@ -830,16 +830,16 @@ function SortIcon({ field, currentField, direction }: { field: SortField; curren
 function TableSkeleton() {
   return (
     <div className="space-y-6 animate-pulse">
-      <div className="bg-white rounded-2xl border border-gray-200 p-6">
+      <div className="bg-card rounded-2xl border border-border p-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-11 bg-gray-200 rounded-lg" />
+            <div key={i} className="h-11 bg-secondary rounded-lg" />
           ))}
         </div>
       </div>
-      <div className="bg-white rounded-2xl border border-gray-200 p-6">
+      <div className="bg-card rounded-2xl border border-border p-6">
         {[1, 2, 3, 4, 5].map((i) => (
-          <div key={i} className="h-16 bg-gray-200 rounded-lg mb-4" />
+          <div key={i} className="h-16 bg-secondary rounded-lg mb-4" />
         ))}
       </div>
     </div>

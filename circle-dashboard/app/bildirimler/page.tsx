@@ -85,12 +85,12 @@ export default function BildirimlerPage() {
   }, [rows])
 
   return (
-    <div className="min-h-screen bg-[#FAFBFC]">
-      <div className="sticky top-20 z-30 bg-white border-b border-gray-100 px-8 py-4">
+    <div className="min-h-screen bg-background">
+      <div className="sticky top-20 z-30 bg-card border-b border-border px-8 py-4">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div>
-            <h1 className="text-xl font-bold text-gray-900">Bildirimler</h1>
-            <p className="text-xs text-gray-500 mt-1">
+            <h1 className="text-xl font-bold text-foreground">Bildirimler</h1>
+            <p className="text-xs text-muted-foreground mt-1">
               {counts.total} kayıt · <span className="text-red-600 font-medium">{counts.active} aktif</span> · {counts.resolved} çözülmüş
             </p>
           </div>
@@ -99,19 +99,19 @@ export default function BildirimlerPage() {
             placeholder="Başlık veya tip ara..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="px-4 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none w-64"
+            className="px-4 py-2 text-sm border border-border rounded-lg bg-card focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none w-64"
           />
         </div>
       </div>
 
       <div className="p-6 space-y-4">
-        <div className="flex gap-1 bg-white rounded-lg border border-gray-200 p-1 w-fit">
+        <div className="flex gap-1 bg-card rounded-lg border border-border p-1 w-fit">
           {(['all', 'active', 'resolved'] as StatusFilter[]).map(f => (
             <button
               key={f}
               onClick={() => setFilter(f)}
               className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                filter === f ? 'bg-indigo-50 text-indigo-700' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                filter === f ? 'bg-indigo-50 text-indigo-700' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
               }`}
             >
               {f === 'all' ? 'Tümü' : f === 'active' ? 'Aktif' : 'Çözülmüş'}
@@ -119,47 +119,47 @@ export default function BildirimlerPage() {
           ))}
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="bg-card rounded-xl border border-border overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="text-left px-4 py-3 font-medium text-gray-600 w-24">Durum</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Başlık</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600 w-20">Adet</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600 w-44">İlk Görülme</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600 w-44">Son Görülme / Çözülme</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600 w-28">Süre</th>
-                <th className="text-center px-4 py-3 font-medium text-gray-600 w-28">İncele</th>
+              <tr className="bg-muted/50 border-b border-border">
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground w-24">Durum</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Başlık</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground w-20">Adet</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground w-44">İlk Görülme</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground w-44">Son Görülme / Çözülme</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground w-28">Süre</th>
+                <th className="text-center px-4 py-3 font-medium text-muted-foreground w-28">İncele</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={7} className="text-center py-10 text-gray-400">Yükleniyor…</td></tr>
+                <tr><td colSpan={7} className="text-center py-10 text-muted-foreground">Yükleniyor…</td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={7} className="text-center py-10 text-gray-400">Kayıt bulunamadı</td></tr>
+                <tr><td colSpan={7} className="text-center py-10 text-muted-foreground">Kayıt bulunamadı</td></tr>
               ) : (
                 filtered.map(r => {
                   const closed = !!r.resolved_at
                   const duration = durationBetween(r.first_seen_at, r.resolved_at || r.last_seen_at)
                   return (
-                    <tr key={r.id} className="border-b border-gray-50 hover:bg-gray-50/50">
+                    <tr key={r.id} className="border-b border-gray-50 hover:bg-muted/50/50">
                       <td className="px-4 py-3">
                         <span className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium border ${severityBadge[r.severity]}`}>
                           {severityLabel[r.severity]}
                         </span>
                         {closed && (
-                          <span className="ml-1 inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-100 text-gray-500 border border-gray-200">
+                          <span className="ml-1 inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium bg-muted text-muted-foreground border border-border">
                             ✓
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-gray-800">{r.title}</td>
-                      <td className="px-4 py-3 text-gray-600">{r.count}</td>
-                      <td className="px-4 py-3 text-gray-500 text-xs">{formatDate(r.first_seen_at)}</td>
-                      <td className="px-4 py-3 text-gray-500 text-xs">
+                      <td className="px-4 py-3 text-foreground">{r.title}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{r.count}</td>
+                      <td className="px-4 py-3 text-muted-foreground text-xs">{formatDate(r.first_seen_at)}</td>
+                      <td className="px-4 py-3 text-muted-foreground text-xs">
                         {formatDate(r.resolved_at || r.last_seen_at)}
                       </td>
-                      <td className="px-4 py-3 text-gray-500 text-xs">{duration}</td>
+                      <td className="px-4 py-3 text-muted-foreground text-xs">{duration}</td>
                       <td className="px-4 py-3 text-center">
                         {r.link_href ? (
                           <Link

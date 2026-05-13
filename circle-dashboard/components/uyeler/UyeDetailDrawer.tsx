@@ -77,25 +77,25 @@ export function UyeDetailDrawer({ member, onClose }: { member: Member | null; on
   return (
     <>
       <div className="fixed inset-0 top-[5rem] bg-black/20 z-40 animate-fade-in" onClick={onClose} />
-      <div className="fixed right-0 top-[5rem] bottom-0 w-[480px] bg-white border-l border-gray-200 shadow-xl z-50 flex flex-col overflow-hidden animate-slide-in-right">
+      <div className="fixed right-0 top-[5rem] bottom-0 w-[480px] bg-card border-l border-border shadow-xl z-50 flex flex-col overflow-hidden animate-slide-in-right">
         {/* Header */}
-        <div className="flex items-start justify-between px-6 py-4 border-b border-gray-100">
+        <div className="flex items-start justify-between px-6 py-4 border-b border-border">
           <div className="flex items-center gap-3 flex-1 min-w-0">
             {member.avatar_url ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={member.avatar_url} alt={member.full_name || ''} className="w-14 h-14 rounded-full object-cover border border-gray-100" />
+              <img src={member.avatar_url} alt={member.full_name || ''} className="w-14 h-14 rounded-full object-cover border border-border" />
             ) : (
               <div className="w-14 h-14 rounded-full bg-gradient-to-br from-amber-100 to-amber-200 flex items-center justify-center text-amber-800 font-semibold text-lg">
                 {initials}
               </div>
             )}
             <div className="flex-1 min-w-0">
-              <h3 className="text-base font-semibold text-gray-900 truncate">{member.full_name || '—'}</h3>
-              {member.circle_headline && <p className="text-xs text-gray-500 truncate">{member.circle_headline}</p>}
-              <p className="text-xs text-gray-400 mt-0.5">{member.email || '—'}</p>
+              <h3 className="text-base font-semibold text-foreground truncate">{member.full_name || '—'}</h3>
+              {member.circle_headline && <p className="text-xs text-muted-foreground truncate">{member.circle_headline}</p>}
+              <p className="text-xs text-muted-foreground mt-0.5">{member.email || '—'}</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-600 shrink-0">
+          <button onClick={onClose} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-muted-foreground shrink-0">
             <XMarkIcon className="w-5 h-5" />
           </button>
         </div>
@@ -107,8 +107,8 @@ export function UyeDetailDrawer({ member, onClose }: { member: Member | null; on
             <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
               member.status === 'nihai_uye' ? 'bg-amber-100 text-amber-700' :
               member.status === 'etkinlik' ? 'bg-cyan-100 text-cyan-700' :
-              member.status === 'deaktive' ? 'bg-gray-100 text-gray-600' :
-              'bg-gray-100 text-gray-600'
+              member.status === 'deaktive' ? 'bg-muted text-muted-foreground' :
+              'bg-muted text-muted-foreground'
             }`}>{member.status || 'belirsiz'}</span>
             {nereden !== '—' && (
               <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
@@ -125,15 +125,15 @@ export function UyeDetailDrawer({ member, onClose }: { member: Member | null; on
           {/* Aktivite özeti (yeni) */}
           {(member.activity_score != null || member.last_seen_at || member.circle_posts_count != null) && (
             <section className="px-6 py-4 border-b border-gray-50">
-              <h4 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Topluluk Aktivitesi</h4>
+              <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">Topluluk Aktivitesi</h4>
 
               {member.activity_score != null && (
                 <div className="mb-3">
                   <div className="flex items-center justify-between text-xs mb-1">
-                    <span className="text-gray-600">Aktivite Skoru</span>
-                    <span className="font-semibold text-gray-900">{member.activity_score}</span>
+                    <span className="text-muted-foreground">Aktivite Skoru</span>
+                    <span className="font-semibold text-foreground">{member.activity_score}</span>
                   </div>
-                  <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                     <div
                       className="h-full bg-gradient-to-r from-emerald-400 to-emerald-600 transition-all"
                       style={{ width: `${Math.min(100, Math.max(0, member.activity_score))}%` }}
@@ -142,7 +142,7 @@ export function UyeDetailDrawer({ member, onClose }: { member: Member | null; on
                 </div>
               )}
 
-              <div className="flex items-center gap-4 text-xs text-gray-700">
+              <div className="flex items-center gap-4 text-xs text-foreground">
                 <div className="flex items-center gap-1.5">
                   <span className={`inline-block w-1.5 h-1.5 rounded-full ${
                     member.last_seen_at && Date.now() - new Date(member.last_seen_at).getTime() < 7 * 86400_000
@@ -175,8 +175,8 @@ export function UyeDetailDrawer({ member, onClose }: { member: Member | null; on
           {/* Bio */}
           {member.bio && (
             <section className="px-6 py-4 border-b border-gray-50">
-              <h4 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Biyografi</h4>
-              <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{member.bio}</p>
+              <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">Biyografi</h4>
+              <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{member.bio}</p>
             </section>
           )}
 
@@ -184,7 +184,7 @@ export function UyeDetailDrawer({ member, onClose }: { member: Member | null; on
           {(member.circle_university || member.circle_department || member.circle_company ||
             member.circle_birth_date || member.circle_disciplines?.length) && (
             <section className="px-6 py-4 border-b border-gray-50">
-              <h4 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Profil Bilgileri</h4>
+              <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">Profil Bilgileri</h4>
               <dl className="space-y-1.5">
                 {member.circle_company && <Row label="Şirket" value={member.circle_company} />}
                 {member.circle_university && <Row label="Üniversite" value={member.circle_university} />}
@@ -200,7 +200,7 @@ export function UyeDetailDrawer({ member, onClose }: { member: Member | null; on
           {/* Başvurudan Gelen (ayrı) */}
           {(member.birth_date || member.university || member.department || member.gender) && (
             <section className="px-6 py-4 border-b border-gray-50">
-              <h4 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Başvuru Formu Bilgileri</h4>
+              <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">Başvuru Formu Bilgileri</h4>
               <dl className="space-y-1.5">
                 {member.birth_date && <Row label="Doğum" value={member.birth_date} />}
                 {member.gender && <Row label="Cinsiyet" value={member.gender} />}
@@ -213,7 +213,7 @@ export function UyeDetailDrawer({ member, onClose }: { member: Member | null; on
           {/* İletişim */}
           {hasAny(member.phone, member.circle_phone, member.location, member.email) && (
             <section className="px-6 py-4 border-b border-gray-50">
-              <h4 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-2">İletişim</h4>
+              <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">İletişim</h4>
               <dl className="space-y-1.5">
                 {member.email && <Row label="E-posta" value={member.email} />}
                 {(member.phone || member.circle_phone) && (
@@ -227,7 +227,7 @@ export function UyeDetailDrawer({ member, onClose }: { member: Member | null; on
           {/* Sosyal */}
           {hasAny(member.linkedin_url, member.instagram_url, member.website_url) && (
             <section className="px-6 py-4 border-b border-gray-50">
-              <h4 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Sosyal & Web</h4>
+              <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">Sosyal & Web</h4>
               <div className="space-y-1.5">
                 {member.linkedin_url && <LinkRow label="LinkedIn" href={member.linkedin_url} />}
                 {member.instagram_url && <LinkRow label="Instagram" href={member.instagram_url} />}
@@ -239,7 +239,7 @@ export function UyeDetailDrawer({ member, onClose }: { member: Member | null; on
           {/* Tag'ler */}
           {tags.length > 0 && (
             <section className="px-6 py-4 border-b border-gray-50">
-              <h4 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-2">
+              <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">
                 Tag'ler ({tags.length})
               </h4>
               <div className="flex flex-wrap gap-1.5">
@@ -254,7 +254,7 @@ export function UyeDetailDrawer({ member, onClose }: { member: Member | null; on
 
           {/* Meta */}
           <section className="px-6 py-4 border-b border-gray-50">
-            <h4 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Meta</h4>
+            <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">Meta</h4>
             <dl className="space-y-1.5">
               <Row label="Başvuru tarihi" value={member.submitted_at ? new Date(member.submitted_at).toLocaleString('tr-TR') : '—'} />
               <Row label="Uygulama ID" value={member.id} mono />
@@ -283,9 +283,9 @@ export function UyeDetailDrawer({ member, onClose }: { member: Member | null; on
 
 function Stat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="text-center rounded-md bg-gray-50 py-2 px-1">
-      <div className="text-lg font-semibold text-gray-900 leading-tight">{value}</div>
-      <div className="text-[10px] text-gray-500 uppercase tracking-wide">{label}</div>
+    <div className="text-center rounded-md bg-muted/50 py-2 px-1">
+      <div className="text-lg font-semibold text-foreground leading-tight">{value}</div>
+      <div className="text-[10px] text-muted-foreground uppercase tracking-wide">{label}</div>
     </div>
   )
 }
@@ -293,8 +293,8 @@ function Stat({ label, value }: { label: string; value: number }) {
 function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <div className="flex items-start gap-2 text-xs">
-      <dt className="text-gray-500 w-24 shrink-0">{label}</dt>
-      <dd className={`text-gray-800 flex-1 ${mono ? 'font-mono text-[10px]' : ''}`}>{value}</dd>
+      <dt className="text-muted-foreground w-24 shrink-0">{label}</dt>
+      <dd className={`text-foreground flex-1 ${mono ? 'font-mono text-[10px]' : ''}`}>{value}</dd>
     </div>
   )
 }
@@ -302,7 +302,7 @@ function Row({ label, value, mono }: { label: string; value: string; mono?: bool
 function LinkRow({ label, href }: { label: string; href: string }) {
   return (
     <div className="flex items-start gap-2 text-xs">
-      <dt className="text-gray-500 w-24 shrink-0">{label}</dt>
+      <dt className="text-muted-foreground w-24 shrink-0">{label}</dt>
       <dd className="flex-1 min-w-0">
         <a href={href} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline truncate block">
           {href}

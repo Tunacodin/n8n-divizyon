@@ -37,7 +37,7 @@ const STATUS_COLORS: Record<string, string> = {
   kesin_ret: 'bg-red-100 text-red-700',
   nihai_olmayan: 'bg-green-100 text-green-700',
   yas_kucuk: 'bg-orange-100 text-orange-700',
-  deaktive: 'bg-gray-100 text-gray-700',
+  deaktive: 'bg-muted text-foreground',
   nihai_uye: 'bg-amber-100 text-amber-700',
   etkinlik: 'bg-cyan-100 text-cyan-700',
 }
@@ -89,12 +89,12 @@ export default function TimelinePage() {
   const statuses = Object.keys(STATUS_LABELS)
 
   return (
-    <div className="min-h-screen bg-[#FAFBFC]">
-      <div className="sticky top-20 z-30 bg-white border-b border-gray-100 px-8 py-6">
+    <div className="min-h-screen bg-background">
+      <div className="sticky top-20 z-30 bg-card border-b border-border px-8 py-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Zaman Cizelgesi</h1>
-            <p className="text-sm text-gray-500 mt-0.5">Status gecis gecmisi</p>
+            <h1 className="text-2xl font-bold text-foreground">Zaman Cizelgesi</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">Status gecis gecmisi</p>
           </div>
           <Badge className="bg-indigo-50 text-indigo-700 border-indigo-200 text-sm px-3 py-1">
             {data.length} kayit
@@ -108,7 +108,7 @@ export default function TimelinePage() {
           <button
             onClick={() => setStatusFilter('all')}
             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              statusFilter === 'all' ? 'bg-indigo-100 text-indigo-700' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+              statusFilter === 'all' ? 'bg-indigo-100 text-indigo-700' : 'bg-card border border-border text-muted-foreground hover:bg-muted/50'
             }`}
           >
             Tumu
@@ -118,7 +118,7 @@ export default function TimelinePage() {
               key={s}
               onClick={() => setStatusFilter(s)}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                statusFilter === s ? STATUS_COLORS[s] : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                statusFilter === s ? STATUS_COLORS[s] : 'bg-card border border-border text-muted-foreground hover:bg-muted/50'
               }`}
             >
               {STATUS_LABELS[s]}
@@ -132,7 +132,7 @@ export default function TimelinePage() {
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500" />
           </div>
         ) : data.length === 0 ? (
-          <div className="bg-white rounded-xl border border-gray-200 p-12 text-center text-gray-400">
+          <div className="bg-card rounded-xl border border-border p-12 text-center text-muted-foreground">
             Kayit bulunamadi
           </div>
         ) : (
@@ -146,45 +146,45 @@ export default function TimelinePage() {
                     </svg>
                   </div>
                   <div>
-                    <h2 className="text-lg font-bold text-gray-900">{date}</h2>
-                    <p className="text-xs text-gray-500">{entries.length} islem</p>
+                    <h2 className="text-lg font-bold text-foreground">{date}</h2>
+                    <p className="text-xs text-muted-foreground">{entries.length} islem</p>
                   </div>
-                  <div className="flex-1 h-px bg-gray-200" />
+                  <div className="flex-1 h-px bg-secondary" />
                 </div>
 
-                <div className="ml-5 border-l-2 border-gray-100 pl-6 space-y-3">
+                <div className="ml-5 border-l-2 border-border pl-6 space-y-3">
                   {entries.map((entry) => (
-                    <div key={entry.id} className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-sm transition-shadow">
+                    <div key={entry.id} className="bg-card rounded-lg border border-border p-4 hover:shadow-sm transition-shadow">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <div>
-                            <p className="text-sm font-medium text-gray-900">
+                            <p className="text-sm font-medium text-foreground">
                               {entry.applications?.full_name || 'Bilinmiyor'}
                             </p>
-                            <p className="text-xs text-gray-500">{entry.applications?.email || ''}</p>
+                            <p className="text-xs text-muted-foreground">{entry.applications?.email || ''}</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
                           {entry.from_status && (
                             <>
-                              <Badge className={STATUS_COLORS[entry.from_status] || 'bg-gray-100 text-gray-600'}>
+                              <Badge className={STATUS_COLORS[entry.from_status] || 'bg-muted text-muted-foreground'}>
                                 {STATUS_LABELS[entry.from_status] || entry.from_status}
                               </Badge>
-                              <span className="text-gray-400 text-xs">→</span>
+                              <span className="text-muted-foreground text-xs">→</span>
                             </>
                           )}
-                          <Badge className={STATUS_COLORS[entry.to_status] || 'bg-gray-100 text-gray-600'}>
+                          <Badge className={STATUS_COLORS[entry.to_status] || 'bg-muted text-muted-foreground'}>
                             {STATUS_LABELS[entry.to_status] || entry.to_status}
                           </Badge>
                         </div>
                       </div>
-                      <div className="flex items-center gap-3 mt-2 text-xs text-gray-400">
+                      <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
                         <span>{new Date(entry.created_at).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}</span>
                         <span>by {entry.changed_by}</span>
                         {entry.change_type === 'rollback' && (
                           <Badge className="bg-orange-100 text-orange-600 text-[10px]">Geri Alma</Badge>
                         )}
-                        {entry.reason && <span className="text-gray-500">— {entry.reason}</span>}
+                        {entry.reason && <span className="text-muted-foreground">— {entry.reason}</span>}
                       </div>
                     </div>
                   ))}

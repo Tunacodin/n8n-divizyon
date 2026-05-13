@@ -87,12 +87,12 @@ export default function WorkflowsPage() {
   const tagName = (t: unknown) => (typeof t === 'string' ? t : (t as { name?: string })?.name || '')
 
   return (
-    <div className="min-h-screen bg-[#FAFBFC]">
-      <div className="sticky top-20 z-30 bg-white border-b border-gray-100 px-8 py-4">
+    <div className="min-h-screen bg-background">
+      <div className="sticky top-20 z-30 bg-card border-b border-border px-8 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-gray-900">Workflowlar</h1>
-            <p className="text-xs text-gray-500 mt-1">
+            <h1 className="text-xl font-bold text-foreground">Workflowlar</h1>
+            <p className="text-xs text-muted-foreground mt-1">
               {workflows.length} workflow · <span className="text-emerald-600 font-medium">{activeCount} aktif</span> · {workflows.length - activeCount} pasif
             </p>
           </div>
@@ -101,7 +101,7 @@ export default function WorkflowsPage() {
             placeholder="Workflow ara..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="px-4 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none w-64"
+            className="px-4 py-2 text-sm border border-border rounded-lg bg-card focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none w-64"
           />
         </div>
       </div>
@@ -112,32 +112,32 @@ export default function WorkflowsPage() {
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500" />
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="bg-card rounded-xl border border-border overflow-hidden">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Workflow</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600 w-24">Durum</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Son Execution</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Tag</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600 w-40">Güncelleme</th>
-                  <th className="text-center px-4 py-3 font-medium text-gray-600 w-56">Aksiyon</th>
+                <tr className="bg-muted/50 border-b border-border">
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Workflow</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground w-24">Durum</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Son Execution</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground">Tag</th>
+                  <th className="text-left px-4 py-3 font-medium text-muted-foreground w-40">Güncelleme</th>
+                  <th className="text-center px-4 py-3 font-medium text-muted-foreground w-56">Aksiyon</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={6} className="text-center py-12 text-gray-400">Workflow bulunamadı</td></tr>
+                  <tr><td colSpan={6} className="text-center py-12 text-muted-foreground">Workflow bulunamadı</td></tr>
                 ) : filtered.map((w) => {
                   const execs = execMap[w.id] || []
                   const last = execs[0]
                   return (
-                    <tr key={w.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                    <tr key={w.id} className="border-b border-border hover:bg-muted/50 transition-colors">
                       <td className="px-4 py-3">
-                        <div className="font-medium text-gray-900">{w.name}</div>
-                        <div className="text-[10px] text-gray-400 font-mono">{w.id}</div>
+                        <div className="font-medium text-foreground">{w.name}</div>
+                        <div className="text-[10px] text-muted-foreground font-mono">{w.id}</div>
                       </td>
                       <td className="px-4 py-3">
-                        <Badge className={w.active ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-gray-100 text-gray-600 border-gray-200'}>
+                        <Badge className={w.active ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-muted text-muted-foreground border-border'}>
                           {w.active ? '● aktif' : '○ pasif'}
                         </Badge>
                       </td>
@@ -151,28 +151,28 @@ export default function WorkflowsPage() {
                                 last.status === 'running' ? 'bg-blue-500 animate-pulse' :
                                 'bg-gray-400'
                               }`} />
-                              <span className="text-xs text-gray-700">
+                              <span className="text-xs text-foreground">
                                 {last.status} · {last.mode}
                               </span>
                             </div>
-                            <span className="text-[10px] text-gray-400">
+                            <span className="text-[10px] text-muted-foreground">
                               {last.startedAt ? formatRelativeTime(last.startedAt) : '—'}
                             </span>
                           </div>
                         ) : (
-                          <span className="text-xs text-gray-400">Hiç çalışmadı</span>
+                          <span className="text-xs text-muted-foreground">Hiç çalışmadı</span>
                         )}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap gap-1">
                           {(w.tags || []).slice(0, 3).map((t, i) => (
-                            <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">
+                            <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
                               {tagName(t)}
                             </span>
                           ))}
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-xs text-gray-500">
+                      <td className="px-4 py-3 text-xs text-muted-foreground">
                         {formatRelativeTime(w.updatedAt)}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">

@@ -164,12 +164,12 @@ export default function UyeDetailModal({ data, onClose, onUpdate }: UyeDetailMod
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ duration: 0.3, ease: [0.32, 0.72, 0, 1] }}
-            className="relative w-full max-w-md h-full bg-white shadow-2xl flex flex-col overflow-y-auto"
+            className="relative w-full max-w-md h-full bg-card shadow-2xl flex flex-col overflow-y-auto"
           >
             {/* Header */}
             <div className="flex justify-end p-4 pb-0">
-              <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-200 transition-colors">
-                <XMarkIcon className="w-5 h-5 text-gray-500" />
+              <button onClick={onClose} className="p-2 rounded-lg hover:bg-secondary transition-colors">
+                <XMarkIcon className="w-5 h-5 text-muted-foreground" />
               </button>
             </div>
 
@@ -178,9 +178,9 @@ export default function UyeDetailModal({ data, onClose, onUpdate }: UyeDetailMod
               <div className={`w-20 h-20 rounded-full flex items-center justify-center text-white text-2xl font-bold mb-3 ${avatarColor}`}>
                 {initials}
               </div>
-              <h2 className="text-lg font-bold text-gray-900 text-center">{name}</h2>
-              {email && <p className="text-xs text-gray-400 mt-0.5">{email}</p>}
-              {phone && <p className="text-xs text-gray-400">{phone}</p>}
+              <h2 className="text-lg font-bold text-foreground text-center">{name}</h2>
+              {email && <p className="text-xs text-muted-foreground mt-0.5">{email}</p>}
+              {phone && <p className="text-xs text-muted-foreground">{phone}</p>}
 
               {/* Status badge */}
               <div className="mt-2">
@@ -195,11 +195,11 @@ export default function UyeDetailModal({ data, onClose, onUpdate }: UyeDetailMod
                 )}
               </div>
 
-              <div className="w-full border-t border-gray-200 my-5" />
+              <div className="w-full border-t border-border my-5" />
 
               {/* Görevler */}
               <div className="w-full">
-                <h3 className="text-sm font-semibold text-gray-700 mb-3">Görev Durumu</h3>
+                <h3 className="text-sm font-semibold text-foreground mb-3">Görev Durumu</h3>
 
                 {loading ? (
                   <div className="flex justify-center py-6">
@@ -215,15 +215,15 @@ export default function UyeDetailModal({ data, onClose, onUpdate }: UyeDetailMod
                         <div
                           key={taskType}
                           className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${
-                            done ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'
+                            done ? 'bg-green-50 border-green-200' : 'bg-muted/50 border-border'
                           }`}
                         >
                           <div className="flex-1 min-w-0">
-                            <p className={`text-sm font-medium ${done ? 'text-green-700' : 'text-gray-700'}`}>
+                            <p className={`text-sm font-medium ${done ? 'text-green-700' : 'text-foreground'}`}>
                               {TASK_LABELS[taskType]}
                             </p>
                             {done && task?.completed_by && (
-                              <p className="text-[11px] text-gray-400 mt-0.5">
+                              <p className="text-[11px] text-muted-foreground mt-0.5">
                                 {task.completed_by}
                                 {task.completed_at && ` — ${new Date(task.completed_at).toLocaleDateString('tr-TR')}`}
                               </p>
@@ -236,14 +236,14 @@ export default function UyeDetailModal({ data, onClose, onUpdate }: UyeDetailMod
                             title={done ? 'Geri al' : 'Tamamla'}
                           >
                             {isToggling ? (
-                              <svg className="animate-spin h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <svg className="animate-spin h-5 w-5 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                               </svg>
                             ) : done ? (
                               <CheckCircleSolid className="w-6 h-6 text-green-500 hover:text-green-600 transition-colors" />
                             ) : (
-                              <CheckCircleIcon className="w-6 h-6 text-gray-300 hover:text-gray-400 transition-colors" />
+                              <CheckCircleIcon className="w-6 h-6 text-gray-300 hover:text-muted-foreground transition-colors" />
                             )}
                           </button>
                         </div>
@@ -261,7 +261,7 @@ export default function UyeDetailModal({ data, onClose, onUpdate }: UyeDetailMod
                     <select
                       value={selectedPerson}
                       onChange={(e) => setSelectedPerson(e.target.value)}
-                      className="w-full text-sm border border-indigo-200 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-indigo-400 outline-none"
+                      className="w-full text-sm border border-indigo-200 rounded-lg px-3 py-2 bg-card focus:ring-2 focus:ring-indigo-400 outline-none"
                     >
                       <option value="">Kişi seç...</option>
                       <option value="Tuna">Tuna</option>
@@ -270,7 +270,7 @@ export default function UyeDetailModal({ data, onClose, onUpdate }: UyeDetailMod
                     <div className="flex gap-2">
                       <button
                         onClick={() => setPendingTask(null)}
-                        className="flex-1 px-3 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50"
+                        className="flex-1 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-card border border-border rounded-lg hover:bg-muted/50"
                       >
                         İptal
                       </button>
@@ -286,12 +286,12 @@ export default function UyeDetailModal({ data, onClose, onUpdate }: UyeDetailMod
                 )}
               </div>
 
-              <div className="w-full border-t border-gray-200 my-5" />
+              <div className="w-full border-t border-border my-5" />
 
               {/* Uyarı Geçmişi */}
               <div className="w-full">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold text-gray-700">Uyarı Geçmişi ({warningCount})</h3>
+                  <h3 className="text-sm font-semibold text-foreground">Uyarı Geçmişi ({warningCount})</h3>
                   {warningCount < 2 && (
                     <button
                       onClick={addWarning}
@@ -312,19 +312,19 @@ export default function UyeDetailModal({ data, onClose, onUpdate }: UyeDetailMod
                 </div>
 
                 {warnings.length === 0 ? (
-                  <p className="text-xs text-gray-400 italic py-3">Henüz uyarı verilmemiş</p>
+                  <p className="text-xs text-muted-foreground italic py-3">Henüz uyarı verilmemiş</p>
                 ) : (
                   <div className="space-y-2">
                     {warnings.map((w) => (
                       <div key={w.id} className="p-3 rounded-lg border border-amber-200 bg-amber-50/50">
                         <div className="flex items-center justify-between mb-1">
                           <span className="text-xs font-semibold text-amber-700">Uyarı #{w.warning_number}</span>
-                          <span className="text-[11px] text-gray-400">
+                          <span className="text-[11px] text-muted-foreground">
                             {new Date(w.created_at).toLocaleDateString('tr-TR', { day: '2-digit', month: 'short', year: 'numeric' })}
                           </span>
                         </div>
-                        <p className="text-xs text-gray-600">{w.reason || 'Sebep belirtilmemiş'}</p>
-                        <p className="text-[11px] text-gray-400 mt-1">Uyaran: {w.warned_by}</p>
+                        <p className="text-xs text-muted-foreground">{w.reason || 'Sebep belirtilmemiş'}</p>
+                        <p className="text-[11px] text-muted-foreground mt-1">Uyaran: {w.warned_by}</p>
                       </div>
                     ))}
                   </div>

@@ -1,64 +1,58 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase'
+import { prisma } from '@/lib/prisma'
 
 export const revalidate = 60
 
 // GET /api/applications/etkinlikten-gelen
-// Mantık: Circle'da kayıtlı (is_protected=true) ama n8n başvuru akışında
-// (is_protected IS NOT TRUE) aynı email ile kayıt olmayan üyeleri döndür.
-// Yani: Circle üyeleri − n8n başvurusu yapmış olanlar.
+// Circle'da kayitli (is_protected=true) ama applications'da basvuru yapmamis uyeler.
 export async function GET(req: Request) {
-  const db = createClient()
   const { searchParams } = new URL(req.url)
   const search = (searchParams.get('search') || '').trim().toLowerCase()
 
   try {
-    const [{ data: protectedRows, error: e1 }, { data: appliedRows, error: e2 }] = await Promise.all([
-      db.from('applications')
-        .select('*')
-        .eq('is_protected', true)
-        .order('updated_at', { ascending: false, nullsFirst: false }),
-      db.from('applications')
-        .select('email')
-        .or('is_protected.is.null,is_protected.eq.false'),
+    const [protectedRows, appliedRows] = await Promise.all([
+      prisma.applications.findMany({
+        where: { is_protected: true },
+        orderBy: { updated_at: 'desc' },
+      }),
+      prisma.applications.findMany({
+        where: { is_protected: false },
+        select: { email: true },
+      }),
     ])
-    if (e1) throw e1
-    if (e2) throw e2
 
     const appliedEmails = new Set<string>()
-    for (const r of appliedRows ?? []) {
-      const em = String((r as { email?: string }).email ?? '').toLowerCase().trim()
+    for (const r of appliedRows) {
+      const em = String(r.email ?? '').toLowerCase().trim()
       if (em) appliedEmails.add(em)
     }
 
-    let items = (protectedRows ?? []).filter((r) => {
-      const em = String((r as { email?: string }).email ?? '').toLowerCase().trim()
+    let items = protectedRows.filter((r) => {
+      const em = String(r.email ?? '').toLowerCase().trim()
       return !em || !appliedEmails.has(em)
     })
 
     if (search) {
       items = items.filter((r) => {
-        const row = r as Record<string, unknown>
-        const name = String(row.full_name ?? '').toLowerCase()
-        const email = String(row.email ?? '').toLowerCase()
-        const phone = String(row.phone ?? row.circle_phone ?? '').toLowerCase()
+        const name = String(r.full_name ?? '').toLowerCase()
+        const email = String(r.email ?? '').toLowerCase()
+        const phone = String(r.phone ?? r.circle_phone ?? '').toLowerCase()
         return name.includes(search) || email.includes(search) || phone.includes(search)
       })
     }
 
-    // Son sync zamanı: Circle-sync her kayıt için updated_at'i yeniler,
-    // dolayısıyla is_protected kayıtlarının max(updated_at) değeri son kontrol zamanıdır.
-    let lastSyncedAt: string | null = null
-    for (const r of protectedRows ?? []) {
-      const u = (r as { updated_at?: string }).updated_at
-      if (u && (!lastSyncedAt || u > lastSyncedAt)) lastSyncedAt = u
+    let lastSyncedAt: Date | null = null
+    for (const r of protectedRows) {
+      if (r.updated_at && (!lastSyncedAt || r.updated_at > lastSyncedAt)) {
+        lastSyncedAt = r.updated_at
+      }
     }
 
     return NextResponse.json({
       success: true,
       total: items.length,
-      totalCircleMembers: (protectedRows ?? []).length,
-      lastSyncedAt,
+      totalCircleMembers: protectedRows.length,
+      lastSyncedAt: lastSyncedAt ? lastSyncedAt.toISOString() : null,
       data: items,
     })
   } catch (err: unknown) {

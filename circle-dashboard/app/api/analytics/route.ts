@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase'
+import { prisma } from '@/lib/prisma'
 import { startOfMonth, format, differenceInDays } from 'date-fns'
 
 export const dynamic = 'force-dynamic'
@@ -13,43 +13,42 @@ type AppRow = {
   reviewer: string | null
   review_note: string | null
   approval_status: string | null
-  submitted_at: string | null
-  approved_at: string | null
+  submitted_at: Date | null
+  approved_at: Date | null
   is_protected: boolean | null
 }
 
 type TaskRow = {
   application_id: string
-  task_type: 'karakteristik_envanter' | 'disipliner_envanter' | 'oryantasyon'
+  task_type: string
   completed: boolean | null
 }
 
 export async function GET() {
-  const db = createClient()
-
   try {
-    const [{ data: apps, error: e1 }, { data: tasks, error: e2 }] = await Promise.all([
-      db.from('applications')
-        .select('id,status,email,main_role,reviewer,review_note,approval_status,submitted_at,approved_at,is_protected')
-        // Circle'dan senkronize edilen üyeler (is_protected=true) istatistiklere dahil değil.
-        // Analiz yalnızca TypeForm → n8n ile gelen gerçek başvuru akışını baz alır.
-        .or('is_protected.is.null,is_protected.eq.false'),
-      db.from('task_completions')
-        .select('application_id,task_type,completed'),
+    const [apps, tasks] = await Promise.all([
+      prisma.applications.findMany({
+        where: { is_protected: false },
+        select: {
+          id: true, status: true, email: true, main_role: true, reviewer: true,
+          review_note: true, approval_status: true, submitted_at: true, approved_at: true, is_protected: true,
+        },
+      }),
+      prisma.task_completions.findMany({
+        select: { application_id: true, task_type: true, completed: true },
+      }),
     ])
-    if (e1) throw e1
-    if (e2) throw e2
 
-    const rows = (apps ?? []) as AppRow[]
-    const taskRows = (tasks ?? []) as TaskRow[]
+    const rows = apps as AppRow[]
+    const taskRows = tasks as TaskRow[]
 
-    // ─── Funnel (5 basamak) ───
-    const basvuru = rows.filter(r => r.status === 'basvuru')
-    const kontrol = rows.filter(r => r.status === 'kontrol')
-    const kabul = rows.filter(r => r.status === 'kesin_kabul')
-    const ret = rows.filter(r => r.status === 'kesin_ret' || r.status === 'yas_kucuk')
-    const nihaiUye = rows.filter(r => r.status === 'nihai_uye')
-    const allKabul = [...kabul, ...nihaiUye] // kabul edilmiş herkes
+    const basvuru = rows.filter((r) => r.status === 'basvuru')
+    void basvuru
+    const kontrol = rows.filter((r) => r.status === 'kontrol')
+    const kabul = rows.filter((r) => r.status === 'kesin_kabul')
+    const ret = rows.filter((r) => r.status === 'kesin_ret' || r.status === 'yas_kucuk')
+    const nihaiUye = rows.filter((r) => r.status === 'nihai_uye')
+    const allKabul = [...kabul, ...nihaiUye]
 
     const funnel = [
       { stage: 'Başvuru', count: rows.length },
@@ -59,7 +58,6 @@ export async function GET() {
       { stage: 'Nihai Üye', count: nihaiUye.length },
     ]
 
-    // ─── Başvuru Trendi (aylık) ───
     const monthMap: Record<string, number> = {}
     for (const r of rows) {
       if (!r.submitted_at) continue
@@ -72,7 +70,6 @@ export async function GET() {
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([date, count]) => ({ date, count }))
 
-    // ─── Ret Sebepleri ───
     const retCounts = { yas: 0, topluluk: 0, diger: 0 }
     for (const r of ret) {
       if (r.status === 'yas_kucuk') { retCounts.yas++; continue }
@@ -84,9 +81,8 @@ export async function GET() {
       { name: '18 Yaş Altı', value: retCounts.yas },
       { name: 'Topluluk İlkeleri', value: retCounts.topluluk },
       { name: 'Diğer', value: retCounts.diger },
-    ].filter(x => x.value > 0)
+    ].filter((x) => x.value > 0)
 
-    // ─── Disiplin Dağılımı (top 10) ───
     const disCount: Record<string, number> = {}
     for (const r of rows) {
       const v = (r.main_role ?? '').trim()
@@ -99,7 +95,6 @@ export async function GET() {
       .slice(0, 10)
       .map(([disiplin, count]) => ({ disiplin, count }))
 
-    // ─── Envanter Tamamlama (kabul sonrası) ───
     const karSet = new Set<string>()
     const disSet = new Set<string>()
     for (const t of taskRows) {
@@ -124,7 +119,6 @@ export async function GET() {
       hicbiri,
     }
 
-    // ─── Değerlendirici Yükü ───
     const revMap = new Map<string, { kabul: number; ret: number; beklemede: number }>()
     const upsert = (name: string, type: 'kabul' | 'ret' | 'beklemede') => {
       const key = (name || '').trim() || 'Atanmamış'
@@ -142,8 +136,6 @@ export async function GET() {
       .sort((a, b) => b.total - a.total)
       .slice(0, 10)
 
-    // ─── KPI: Envanter Deadline Yaklaşan ───
-    // approved_at'ten 10-14 gün geçmiş VE iki envanter de tamam değilse risk altında
     const now = new Date()
     let envanterDeadlineYaklasan = 0
     for (const a of allKabul) {
@@ -178,7 +170,7 @@ export async function GET() {
   }
 }
 
-function countTask(tasks: TaskRow[], type: TaskRow['task_type']): number {
+function countTask(tasks: TaskRow[], type: string): number {
   const s = new Set<string>()
   for (const t of tasks) {
     if (t.task_type === type && t.completed) s.add(t.application_id)

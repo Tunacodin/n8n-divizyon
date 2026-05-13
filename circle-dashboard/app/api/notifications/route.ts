@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase'
+import { prisma } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -11,21 +11,21 @@ const NOTIF_LINKS: Record<string, string> = {
   uyari_gerekli: '/uyeler?tab=oryantasyon',
 }
 
-// GET /api/notifications — Dashboard bildirimleri
+// GET /api/notifications
 export async function GET() {
-  const db = createClient()
   const notifications: { type: string; severity: 'warning' | 'error' | 'info'; message: string; count: number }[] = []
 
   try {
-    // 1. Kesin ret'te mail bekleyenler
-    const { count: mailBekleyen } = await db
-      .from('applications')
-      .select('*', { count: 'exact', head: true })
-      .in('status', ['kesin_ret', 'yas_kucuk'])
-      .eq('mail_sent', false)
-      .neq('email', '')
+    // 1. Mail bekleyen
+    const mailBekleyen = await prisma.applications.count({
+      where: {
+        status: { in: ['kesin_ret', 'yas_kucuk'] },
+        mail_sent: false,
+        NOT: { email: '' },
+      },
+    })
 
-    if (mailBekleyen && mailBekleyen > 0) {
+    if (mailBekleyen > 0) {
       notifications.push({
         type: 'mail_bekleyen',
         severity: 'warning',
@@ -35,14 +35,12 @@ export async function GET() {
     }
 
     // 2. Kontrol'de 1 günden fazla bekleyenler
-    const oneDayAgo = new Date(Date.now() - 86400000).toISOString()
-    const { count: kontrolBekleyen } = await db
-      .from('applications')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'kontrol')
-      .lt('created_at', oneDayAgo)
+    const oneDayAgo = new Date(Date.now() - 86400000)
+    const kontrolBekleyen = await prisma.applications.count({
+      where: { status: 'kontrol', created_at: { lt: oneDayAgo } },
+    })
 
-    if (kontrolBekleyen && kontrolBekleyen > 0) {
+    if (kontrolBekleyen > 0) {
       notifications.push({
         type: 'kontrol_bekleyen',
         severity: 'warning',
@@ -51,23 +49,20 @@ export async function GET() {
       })
     }
 
-    // 3. Oryantasyonu yapılmamış üyeler (kesin_kabul statüsünde, oryantasyon task'ı tamamlanmamış)
-    const { data: nihaiOlmayanlar } = await db
-      .from('applications')
-      .select('id')
-      .in('status', ['kesin_kabul', 'nihai_olmayan'])
+    // 3. Oryantasyon bekleyen
+    const nihaiOlmayanlar = await prisma.applications.findMany({
+      where: { status: { in: ['kesin_kabul', 'nihai_olmayan'] } },
+      select: { id: true },
+    })
 
-    if (nihaiOlmayanlar && nihaiOlmayanlar.length > 0) {
-      const ids = nihaiOlmayanlar.map(a => a.id)
-      const { data: oryantasyonDone } = await db
-        .from('task_completions')
-        .select('application_id')
-        .in('application_id', ids)
-        .eq('task_type', 'oryantasyon')
-        .eq('completed', true)
-
-      const doneIds = new Set((oryantasyonDone || []).map(t => t.application_id))
-      const oryantasyonBekleyen = ids.filter(id => !doneIds.has(id)).length
+    if (nihaiOlmayanlar.length > 0) {
+      const ids = nihaiOlmayanlar.map((a) => a.id)
+      const oryantasyonDone = await prisma.task_completions.findMany({
+        where: { application_id: { in: ids }, task_type: 'oryantasyon', completed: true },
+        select: { application_id: true },
+      })
+      const doneIds = new Set(oryantasyonDone.map((t) => t.application_id))
+      const oryantasyonBekleyen = ids.filter((id) => !doneIds.has(id)).length
 
       if (oryantasyonBekleyen > 0) {
         notifications.push({
@@ -79,34 +74,31 @@ export async function GET() {
       }
     }
 
-    // 4. Uyarılması gereken kişiler (kesin_kabul, son uyarıdan 7+ gün geçmiş, görevler eksik)
-    if (nihaiOlmayanlar && nihaiOlmayanlar.length > 0) {
-      const ids = nihaiOlmayanlar.map(a => a.id)
-      const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString()
+    // 4. Uyari gerekli
+    if (nihaiOlmayanlar.length > 0) {
+      const ids = nihaiOlmayanlar.map((a) => a.id)
+      const sevenDaysAgo = new Date(Date.now() - 7 * 86400000)
 
-      const { data: warnings } = await db
-        .from('warnings')
-        .select('application_id, created_at')
-        .in('application_id', ids)
-        .order('created_at', { ascending: false })
+      const warnings = await prisma.warnings.findMany({
+        where: { application_id: { in: ids } },
+        orderBy: { created_at: 'desc' },
+        select: { application_id: true, created_at: true },
+      })
 
-      // Her application'ın son uyarı tarihini bul
-      const lastWarningMap = new Map<string, string>()
-      for (const w of warnings || []) {
+      const lastWarningMap = new Map<string, Date | null>()
+      for (const w of warnings) {
         if (!lastWarningMap.has(w.application_id)) {
           lastWarningMap.set(w.application_id, w.created_at)
         }
       }
 
-      // Görevleri tamamlanmamış olanları bul
-      const { data: allTasks } = await db
-        .from('task_completions')
-        .select('application_id, task_type, completed')
-        .in('application_id', ids)
-        .eq('completed', true)
+      const allTasks = await prisma.task_completions.findMany({
+        where: { application_id: { in: ids }, completed: true },
+        select: { application_id: true, task_type: true },
+      })
 
       const tasksByApp = new Map<string, Set<string>>()
-      for (const t of allTasks || []) {
+      for (const t of allTasks) {
         if (!tasksByApp.has(t.application_id)) tasksByApp.set(t.application_id, new Set())
         tasksByApp.get(t.application_id)!.add(t.task_type)
       }
@@ -118,11 +110,8 @@ export async function GET() {
         if (allDone) continue
 
         const lastWarning = lastWarningMap.get(id)
-        if (!lastWarning) {
-          uyariGerekli++ // Hiç uyarı verilmemiş
-        } else if (new Date(lastWarning) < new Date(sevenDaysAgo)) {
-          uyariGerekli++ // Son uyarıdan 7+ gün geçmiş
-        }
+        if (!lastWarning) uyariGerekli++
+        else if (lastWarning < sevenDaysAgo) uyariGerekli++
       }
 
       if (uyariGerekli > 0) {
@@ -135,51 +124,52 @@ export async function GET() {
       }
     }
 
-    // Persistence: aktif alertleri notifications tablosuna upsert et,
-    // önceki açık alertlerden bu turda görünmeyenleri resolved olarak kapat.
+    // Persistence
     try {
-      const activeTypes = new Set(notifications.map(n => n.type))
-      const now = new Date().toISOString()
+      const activeTypes = new Set(notifications.map((n) => n.type))
+      const now = new Date()
 
-      // Açık (resolved_at NULL) kayıtları al
-      const { data: openRows } = await db
-        .from('notifications')
-        .select('id, type, count')
-        .is('resolved_at', null)
+      const openRows = await prisma.notifications.findMany({
+        where: { resolved_at: null },
+        select: { id: true, type: true, count: true },
+      })
 
       const openByType = new Map<string, { id: string; count: number }>()
-      for (const r of openRows || []) openByType.set(r.type, { id: r.id, count: r.count })
+      for (const r of openRows) openByType.set(r.type, { id: r.id, count: r.count })
 
-      // Aktifleri upsert
       for (const n of notifications) {
         const existing = openByType.get(n.type)
         if (existing) {
-          await db
-            .from('notifications')
-            .update({ last_seen_at: now, count: n.count, title: n.message })
-            .eq('id', existing.id)
+          await prisma.notifications.update({
+            where: { id: existing.id },
+            data: { last_seen_at: now, count: n.count, title: n.message },
+          })
         } else {
-          await db.from('notifications').insert({
-            type: n.type,
-            severity: n.severity,
-            title: n.message,
-            count: n.count,
-            link_href: NOTIF_LINKS[n.type] || null,
-            first_seen_at: now,
-            last_seen_at: now,
+          await prisma.notifications.create({
+            data: {
+              type: n.type,
+              severity: n.severity,
+              title: n.message,
+              count: n.count,
+              link_href: NOTIF_LINKS[n.type] || null,
+              first_seen_at: now,
+              last_seen_at: now,
+            },
           })
         }
       }
 
-      // Aktif olmayanları resolved yap
+      const toResolve: string[] = []
       openByType.forEach((row, type) => {
-        if (!activeTypes.has(type)) {
-          db.from('notifications').update({ resolved_at: now }).eq('id', row.id).then(() => {})
-        }
+        if (!activeTypes.has(type)) toResolve.push(row.id)
       })
-    } catch {
-      // persistence hatası dashboardı düşürmesin
-    }
+      if (toResolve.length > 0) {
+        await prisma.notifications.updateMany({
+          where: { id: { in: toResolve } },
+          data: { resolved_at: now },
+        })
+      }
+    } catch {}
 
     return NextResponse.json({ success: true, notifications, total: notifications.length })
   } catch (error: unknown) {

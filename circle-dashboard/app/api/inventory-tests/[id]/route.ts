@@ -1,18 +1,15 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase'
+import { prisma } from '@/lib/prisma'
 
 // GET /api/inventory-tests/[id]
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
-  const db = createClient()
-
   try {
-    const { data, error } = await db
-      .from('inventory_tests')
-      .select('*, applications(full_name, email, status)')
-      .eq('id', params.id)
-      .single()
+    const data = await prisma.inventory_tests.findUnique({
+      where: { id: params.id },
+      include: { applications: { select: { full_name: true, email: true, status: true } } },
+    })
 
-    if (error || !data) {
+    if (!data) {
       return NextResponse.json({ success: false, error: 'Test bulunamadı' }, { status: 404 })
     }
 

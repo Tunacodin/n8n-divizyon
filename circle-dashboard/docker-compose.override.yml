@@ -1,0 +1,66 @@
+# Geliştirme ortamı için ek ayarlar.
+# Bu dosya otomatik olarak docker-compose.yml ile birleştirilir.
+# Üretimde kullanmayın.
+
+services:
+  next-app:
+    build:
+      target: dev          # production runner yerine dev stage kullan
+    command: sh -c "npx prisma generate && npx prisma migrate deploy && npm run dev"
+    volumes:
+      - ./app:/app/app
+      - ./components:/app/components
+      - ./lib:/app/lib
+      - ./hooks:/app/hooks
+      - ./public:/app/public
+      - ./scripts:/app/scripts
+      - ./prisma:/app/prisma
+      - ./middleware.ts:/app/middleware.ts
+      - ./next.config.js:/app/next.config.js
+      - ./tailwind.config.ts:/app/tailwind.config.ts
+      - ./postcss.config.js:/app/postcss.config.js
+      - ./tsconfig.json:/app/tsconfig.json
+      - ./package.json:/app/package.json
+      - ./package-lock.json:/app/package-lock.json
+    environment:
+      - NODE_ENV=development
+    ports:
+      - "3010:3000"        # doğrudan erişim (host'ta 3000 baska proje icin meşgul)
+
+  postgres:
+    ports:
+      - "5433:5432"   # DB istemcileri (host'ta 5432 baska proje icin meşgul)
+
+  prisma-studio:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev
+    container_name: circle-dashboard-prisma-studio
+    restart: unless-stopped
+    command: sh -c "npx prisma generate && npx prisma studio --port 5555 --browser none"
+    volumes:
+      - ./prisma:/app/prisma
+      - ./package.json:/app/package.json
+      - ./package-lock.json:/app/package-lock.json
+    ports:
+      - "5555:5555"
+    env_file:
+      - .env
+    networks:
+      - app-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: circle-dashboard-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@divizyon.org
+      PGADMIN_DEFAULT_PASSWORD: Admin1234!
+    ports:
+      - "5050:80"
+    networks:
+      - app-network

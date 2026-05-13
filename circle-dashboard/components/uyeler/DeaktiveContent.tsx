@@ -126,17 +126,17 @@ export default function DeaktiveContent() {
   const extraColumns: string[] = []
 
   return (
-    <div className="min-h-screen bg-[#FAFBFC]">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="bg-white border-b border-gray-100 px-8 py-6">
+      <div className="bg-card border-b border-border px-8 py-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Deaktive Edilen Üyeler</h1>
-            <p className="text-sm text-gray-500 mt-1">
+            <h1 className="text-2xl font-bold text-foreground">Deaktive Edilen Üyeler</h1>
+            <p className="text-sm text-muted-foreground mt-1">
               Envanter testini tamamlamayan veya başvuru yapmayan kullanıcılar
             </p>
           </div>
-          <span className="px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600">
+          <span className="px-3 py-1 rounded-full text-sm font-medium bg-muted text-muted-foreground">
             {data.length} kayıt
           </span>
         </div>
@@ -144,17 +144,17 @@ export default function DeaktiveContent() {
 
       <div className="p-8">
         {/* Tabs */}
-        <div className="flex gap-1 mb-4 bg-gray-100 rounded-lg p-1 w-fit">
+        <div className="flex gap-1 mb-4 bg-muted rounded-lg p-1 w-fit">
           {tabs.map((tab) => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${
-                activeTab === tab.key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                activeTab === tab.key ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               {tab.label}
-              <span className={`text-xs px-1.5 py-0.5 rounded-full ${activeTab === tab.key ? 'bg-gray-200 text-gray-700' : 'bg-gray-200 text-gray-500'}`}>
+              <span className={`text-xs px-1.5 py-0.5 rounded-full ${activeTab === tab.key ? 'bg-secondary text-foreground' : 'bg-secondary text-muted-foreground'}`}>
                 {tab.count}
               </span>
             </button>
@@ -164,27 +164,27 @@ export default function DeaktiveContent() {
         {/* Filters */}
         <div className="flex flex-wrap gap-3 items-center mb-4">
           <div className="relative">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
               type="text"
               placeholder="Ad soyad veya e-posta ara..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-gray-400 outline-none min-w-[220px]"
+              className="pl-9 pr-4 py-2 text-sm border border-border rounded-lg bg-card focus:ring-2 focus:ring-gray-400 outline-none min-w-[220px]"
             />
           </div>
           <input
             type="date"
             value={dateFrom}
             onChange={(e) => setDateFrom(e.target.value)}
-            className="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-gray-400 outline-none"
+            className="px-3 py-2 text-sm border border-border rounded-lg bg-card focus:ring-2 focus:ring-gray-400 outline-none"
             title="Başlangıç tarihi"
           />
           <input
             type="date"
             value={dateTo}
             onChange={(e) => setDateTo(e.target.value)}
-            className="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-gray-400 outline-none"
+            className="px-3 py-2 text-sm border border-border rounded-lg bg-card focus:ring-2 focus:ring-gray-400 outline-none"
             title="Bitiş tarihi"
           />
           {hasActiveFilters && (
@@ -193,7 +193,7 @@ export default function DeaktiveContent() {
               Temizle
             </button>
           )}
-          <span className="text-sm text-gray-400 ml-auto">{filtered.length} kayıt</span>
+          <span className="text-sm text-muted-foreground ml-auto">{filtered.length} kayıt</span>
         </div>
 
         {/* Table */}
@@ -202,28 +202,28 @@ export default function DeaktiveContent() {
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-400" />
           </div>
         ) : data.length === 0 ? (
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+          <div className="bg-card rounded-xl border border-border shadow-sm">
             <div className="flex flex-col items-center justify-center py-20 px-8">
-              <div className="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
-                <UserMinusIcon className="w-7 h-7 text-gray-400" />
+              <div className="w-14 h-14 rounded-2xl bg-muted flex items-center justify-center mb-4">
+                <UserMinusIcon className="w-7 h-7 text-muted-foreground" />
               </div>
-              <h2 className="text-base font-semibold text-gray-700 mb-1">Henüz deaktive edilmiş üye yok</h2>
-              <p className="text-sm text-gray-400 text-center max-w-sm">
+              <h2 className="text-base font-semibold text-foreground mb-1">Henüz deaktive edilmiş üye yok</h2>
+              <p className="text-sm text-muted-foreground text-center max-w-sm">
                 Envanter testini tamamlamayan veya başvuru yapmayan kullanıcılar burada görünecek.
               </p>
             </div>
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="bg-card rounded-xl border border-border overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-gray-50 border-b border-gray-200">
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">Ad Soyad</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">E-Posta</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">Telefon</th>
+                  <tr className="bg-muted/50 border-b border-border">
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Ad Soyad</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">E-Posta</th>
+                    <th className="text-left px-4 py-3 font-medium text-muted-foreground">Telefon</th>
                     {extraColumns.map((col) => (
-                      <th key={col} className="text-left px-4 py-3 font-medium text-gray-600">
+                      <th key={col} className="text-left px-4 py-3 font-medium text-muted-foreground">
                         {col}
                       </th>
                     ))}
@@ -232,7 +232,7 @@ export default function DeaktiveContent() {
                 <tbody>
                   {paged.length === 0 ? (
                     <tr>
-                      <td colSpan={3 + extraColumns.length} className="text-center py-12 text-gray-400">
+                      <td colSpan={3 + extraColumns.length} className="text-center py-12 text-muted-foreground">
                         Kayıt bulunamadı
                       </td>
                     </tr>
@@ -244,19 +244,19 @@ export default function DeaktiveContent() {
                       const initials = name.split(' ').map((p: string) => p.charAt(0)).join('').toUpperCase().slice(0, 2)
 
                       return (
-                        <tr key={i} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                        <tr key={i} className="border-b border-border hover:bg-muted/50 transition-colors">
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-xs font-semibold text-gray-500 flex-shrink-0">
+                              <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-semibold text-muted-foreground flex-shrink-0">
                                 {initials || '?'}
                               </div>
-                              <span className="font-medium text-gray-900">{name}</span>
+                              <span className="font-medium text-foreground">{name}</span>
                             </div>
                           </td>
-                          <td className="px-4 py-3 text-gray-600">{email}</td>
-                          <td className="px-4 py-3 text-gray-600">{telefon}</td>
+                          <td className="px-4 py-3 text-muted-foreground">{email}</td>
+                          <td className="px-4 py-3 text-muted-foreground">{telefon}</td>
                           {extraColumns.map((col) => (
-                            <td key={col} className="px-4 py-3 text-gray-500 text-xs max-w-[180px] truncate">
+                            <td key={col} className="px-4 py-3 text-muted-foreground text-xs max-w-[180px] truncate">
                               {String(row[col] ?? '—')}
                             </td>
                           ))}
@@ -270,26 +270,26 @@ export default function DeaktiveContent() {
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 bg-gray-50">
-                <p className="text-sm text-gray-500">
+              <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-muted/50">
+                <p className="text-sm text-muted-foreground">
                   {filtered.length} sonuctan {(page - 1) * PER_PAGE + 1}–{Math.min(page * PER_PAGE, filtered.length)} arası
                 </p>
                 <div className="flex gap-1">
                   <button
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                     disabled={page === 1}
-                    className="p-1.5 rounded-md border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="p-1.5 rounded-md border border-border bg-card hover:bg-muted/50 disabled:opacity-40 disabled:cursor-not-allowed"
                   >
-                    <ChevronLeftIcon className="w-4 h-4 text-gray-500" />
+                    <ChevronLeftIcon className="w-4 h-4 text-muted-foreground" />
                   </button>
                   {Array.from({ length: totalPages }, (_, i) => i + 1)
                     .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
                     .map((p, idx, arr) => (
                       <span key={p}>
-                        {idx > 0 && arr[idx - 1] !== p - 1 && <span className="px-1 text-gray-400">...</span>}
+                        {idx > 0 && arr[idx - 1] !== p - 1 && <span className="px-1 text-muted-foreground">...</span>}
                         <button
                           onClick={() => setPage(p)}
-                          className={`px-3 py-1.5 text-sm rounded-md border ${p === page ? 'bg-gray-700 text-white border-gray-700' : 'border-gray-200 bg-white hover:bg-gray-50'}`}
+                          className={`px-3 py-1.5 text-sm rounded-md border ${p === page ? 'bg-gray-700 text-white border-gray-700' : 'border-border bg-card hover:bg-muted/50'}`}
                         >
                           {p}
                         </button>
@@ -298,9 +298,9 @@ export default function DeaktiveContent() {
                   <button
                     onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                     disabled={page === totalPages}
-                    className="p-1.5 rounded-md border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="p-1.5 rounded-md border border-border bg-card hover:bg-muted/50 disabled:opacity-40 disabled:cursor-not-allowed"
                   >
-                    <ChevronRightIcon className="w-4 h-4 text-gray-500" />
+                    <ChevronRightIcon className="w-4 h-4 text-muted-foreground" />
                   </button>
                 </div>
               </div>

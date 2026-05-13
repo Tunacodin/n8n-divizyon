@@ -1,17 +1,9 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase'
+import { prisma } from '@/lib/prisma'
 import crypto from 'crypto'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
-
-// Resend webhook receiver. Resend'in webhook signing'i Svix ile yapilir
-// (https://resend.com/docs/dashboard/webhooks/verify-webhook-requests).
-//
-// Endpoint URL'i Resend dashboard'una eklenir:
-//   https://<domain>/api/mail/webhook
-//
-// RESEND_WEBHOOK_SECRET env'i Resend dashboard'undan alinir (whsec_...).
 
 const STATUS_MAP: Record<string, string> = {
   'email.sent': 'sent',
@@ -40,7 +32,6 @@ function verifySvixSignature(
   svixSignature: string,
   secret: string,
 ): boolean {
-  // Resend Svix secret format: "whsec_<base64>"
   const base64 = secret.startsWith('whsec_') ? secret.slice(6) : secret
   let key: Buffer
   try {
@@ -52,7 +43,6 @@ function verifySvixSignature(
   const signedPayload = `${svixId}.${svixTimestamp}.${payload}`
   const expected = crypto.createHmac('sha256', key).update(signedPayload).digest('base64')
 
-  // svix-signature: "v1,<sig> v1,<sig2>" formatinda olabilir; v1 imzasi varsa karsilastir
   const sigs = svixSignature.split(' ')
   for (const s of sigs) {
     const [version, sig] = s.split(',')
@@ -96,14 +86,13 @@ export async function POST(req: Request) {
   const emailTo = Array.isArray(data.to) ? (data.to[0] as string) : (data.to as string) || null
   const errorMsg = (data as { error?: { message?: string } }).error?.message || null
 
-  const db = createClient()
-
-  // Ham event'i her zaman logla (replay/debug)
-  await db.from('mail_events').insert({
-    resend_id: resendId,
-    event_type: eventType,
-    email_to: emailTo,
-    payload: event,
+  await prisma.mail_events.create({
+    data: {
+      resend_id: resendId,
+      event_type: eventType,
+      email_to: emailTo,
+      payload: event as never,
+    },
   })
 
   const newStatus = STATUS_MAP[eventType]
@@ -111,52 +100,45 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, ignored: true, event_type: eventType })
   }
 
-  // mail_logs guncelle: metadata->>'resend_id' uzerinden bul
   const tsField = TIMESTAMP_FIELD[newStatus]
   const updates: Record<string, unknown> = {
     status: newStatus,
-    last_event_at: new Date().toISOString(),
+    last_event_at: new Date(),
   }
-  if (tsField) updates[tsField] = new Date().toISOString()
-  if (newStatus === 'failed' || newStatus === 'bounced') {
-    if (errorMsg) updates.error_message = errorMsg
+  if (tsField) updates[tsField] = new Date()
+  if ((newStatus === 'failed' || newStatus === 'bounced') && errorMsg) {
+    updates.error_message = errorMsg
   }
 
-  // Status precedence: delivered > opened > clicked, ama bounced/complained
-  // gelirse her zaman uzerine yaz. Burada kucuk bir konservatif kural: terminal
-  // event'ler (bounced/complained/failed) status'u her zaman override eder;
-  // diger event'ler sadece status hala 'sent' veya 'queued' iken overrider.
   const terminal = newStatus === 'bounced' || newStatus === 'complained' || newStatus === 'failed'
 
-  // Once bul
-  const { data: log } = await db
-    .from('mail_logs')
-    .select('id, status')
-    .filter('metadata->>resend_id', 'eq', resendId)
-    .limit(1)
-    .single()
+  // metadata->>'resend_id' filtresi için raw query
+  const logs = await prisma.$queryRaw<Array<{ id: string; status: string | null }>>`
+    SELECT id, status FROM mail_logs
+    WHERE metadata->>'resend_id' = ${resendId}
+    LIMIT 1
+  `
+  const log = logs[0]
 
   if (!log) {
     return NextResponse.json({ ok: true, no_log: true, resend_id: resendId, event_type: eventType })
   }
 
-  const currentStatus = (log as { status: string }).status
+  const currentStatus = log.status || ''
   const shouldUpdate =
     terminal ||
     currentStatus === 'queued' ||
     currentStatus === 'sent' ||
-    // delivered -> opened/clicked override edilir
     (currentStatus === 'delivered' && (newStatus === 'opened' || newStatus === 'clicked')) ||
     (currentStatus === 'opened' && newStatus === 'clicked')
 
   if (shouldUpdate) {
-    await db.from('mail_logs').update(updates).eq('id', (log as { id: string }).id)
+    await prisma.mail_logs.update({ where: { id: log.id }, data: updates as never })
   } else {
-    // Sadece timestamp ve last_event_at guncelle (status'u tutucu birak)
     const tsOnly: Record<string, unknown> = { last_event_at: updates.last_event_at }
     if (tsField) tsOnly[tsField] = updates[tsField]
-    await db.from('mail_logs').update(tsOnly).eq('id', (log as { id: string }).id)
+    await prisma.mail_logs.update({ where: { id: log.id }, data: tsOnly as never })
   }
 
-  return NextResponse.json({ ok: true, log_id: (log as { id: string }).id, new_status: shouldUpdate ? newStatus : currentStatus })
+  return NextResponse.json({ ok: true, log_id: log.id, new_status: shouldUpdate ? newStatus : currentStatus })
 }

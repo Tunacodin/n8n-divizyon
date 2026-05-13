@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { createClient, withAuditLog } from '@/lib/supabase'
+import { prisma } from '@/lib/prisma'
+import { withAuditLog } from '@/lib/supabase'
 import { findApplication } from '@/lib/match'
 
 export const revalidate = 60
@@ -12,7 +13,6 @@ type Discipline = (typeof VALID_DISCIPLINES)[number]
 
 // GET /api/inventory-tests?email=&test_type=&discipline=
 export async function GET(req: Request) {
-  const db = createClient()
   const { searchParams } = new URL(req.url)
   const email = searchParams.get('email')
   const testType = searchParams.get('test_type')
@@ -20,20 +20,19 @@ export async function GET(req: Request) {
   const applicationId = searchParams.get('application_id')
 
   try {
-    let query = db
-      .from('inventory_tests')
-      .select('*, applications(full_name, status)')
-      .order('submitted_at', { ascending: false })
+    const where: Record<string, unknown> = {}
+    if (email) where.email = email.toLowerCase()
+    if (testType) where.test_type = testType
+    if (discipline) where.discipline = discipline
+    if (applicationId) where.application_id = applicationId
 
-    if (email) query = query.eq('email', email.toLowerCase())
-    if (testType) query = query.eq('test_type', testType)
-    if (discipline) query = query.eq('discipline', discipline)
-    if (applicationId) query = query.eq('application_id', applicationId)
+    const data = await prisma.inventory_tests.findMany({
+      where: where as never,
+      orderBy: { submitted_at: 'desc' },
+      include: { applications: { select: { full_name: true, status: true } } },
+    })
 
-    const { data, error } = await query
-    if (error) throw error
-
-    return NextResponse.json({ success: true, total: data?.length || 0, data: data || [] })
+    return NextResponse.json({ success: true, total: data.length, data })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Bilinmeyen hata'
     return NextResponse.json({ success: false, error: message }, { status: 500 })
@@ -41,10 +40,7 @@ export async function GET(req: Request) {
 }
 
 // POST /api/inventory-tests
-// Body: { email, full_name?, test_type?, discipline?, scores?, answers?, ... }
 export async function POST(req: Request) {
-  const db = createClient()
-
   try {
     const body = await req.json()
 
@@ -64,7 +60,7 @@ export async function POST(req: Request) {
             success: false,
             error: `Disipliner envanter icin gecerli discipline zorunlu. Gecerli: ${VALID_DISCIPLINES.join(', ')}`,
           },
-          { status: 400 }
+          { status: 400 },
         )
       }
       discipline = body.discipline
@@ -72,22 +68,14 @@ export async function POST(req: Request) {
       discipline = body.discipline
     }
 
-    const taskType = testType === 'disipliner_envanter'
-      ? 'disipliner_envanter'
-      : 'karakteristik_envanter'
+    const taskType = testType === 'disipliner_envanter' ? 'disipliner_envanter' : 'karakteristik_envanter'
 
     const emailLower = body.email.toLowerCase().trim()
     const fullName: string | null = body.full_name?.toString().trim() || null
 
-    // Email + ad-soyad fallback ile uygulama eslestir
-    const { application, matchedBy } = await findApplication(db, {
-      email: emailLower,
-      fullName,
-    })
-
+    const { application, matchedBy } = await findApplication({ email: emailLower, fullName })
     const matchWarning = matchedBy === 'name'
 
-    // inventory_tests kaydı
     const insertPayload: Record<string, unknown> = {
       ...body,
       email: emailLower,
@@ -95,28 +83,24 @@ export async function POST(req: Request) {
       discipline,
       application_id: application?.id || null,
     }
-    // body'de full_name olabilir ama inventory_tests'te kolon yok
     delete insertPayload.full_name
 
-    const { data, error } = await db
-      .from('inventory_tests')
-      .insert(insertPayload)
-      .select()
-      .single()
-
-    if (error) throw error
+    const data = await prisma.inventory_tests.create({ data: insertPayload as never })
 
     if (application?.id) {
-      // Task completion upsert
-      await db.from('task_completions').upsert({
-        application_id: application.id,
-        task_type: taskType,
-        completed: true,
-        completed_at: new Date().toISOString(),
-        verified_by: 'typeform',
-      }, { onConflict: 'application_id,task_type' })
+      await prisma.task_completions.upsert({
+        where: { application_id_task_type: { application_id: application.id, task_type: taskType } },
+        update: { completed: true, completed_at: new Date(), verified_by: 'typeform' },
+        create: {
+          application_id: application.id,
+          task_type: taskType,
+          completed: true,
+          completed_at: new Date(),
+          verified_by: 'typeform',
+        },
+      })
 
-      await withAuditLog(db, {
+      await withAuditLog({
         entityType: 'application',
         entityId: application.id,
         action: `${taskType}_completed`,
@@ -133,7 +117,7 @@ export async function POST(req: Request) {
       })
 
       if (matchWarning) {
-        await withAuditLog(db, {
+        await withAuditLog({
           entityType: 'application',
           entityId: application.id,
           action: 'inventory_email_mismatch',
@@ -158,7 +142,7 @@ export async function POST(req: Request) {
         matched_by: matchedBy,
         match_warning: matchWarning,
       },
-      { status: 201 }
+      { status: 201 },
     )
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Bilinmeyen hata'

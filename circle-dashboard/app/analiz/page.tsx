@@ -66,7 +66,7 @@ function num(v: number | undefined | null) {
 }
 
 function Skel({ h = 200 }: { h?: number }) {
-  return <div className="animate-pulse bg-gray-100 rounded-xl" style={{ height: h }} />
+  return <div className="animate-pulse bg-muted rounded-xl" style={{ height: h }} />
 }
 
 function ChartCard({
@@ -80,10 +80,10 @@ function ChartCard({
   children: React.ReactNode
 }) {
   return (
-    <div className={`bg-white rounded-xl border border-gray-200 shadow-sm p-4 flex flex-col ${className}`}>
+    <div className={`bg-card rounded-xl border border-border shadow-sm p-4 flex flex-col ${className}`}>
       <div className="mb-2">
-        <h3 className="text-xs font-semibold text-gray-700">{title}</h3>
-        {subtitle && <p className="text-[10px] text-gray-400 mt-0.5">{subtitle}</p>}
+        <h3 className="text-xs font-semibold text-foreground">{title}</h3>
+        {subtitle && <p className="text-[10px] text-muted-foreground mt-0.5">{subtitle}</p>}
       </div>
       <div className="flex-1 min-h-0">
         {loading ? <Skel h={height ?? 140} /> : children}
@@ -94,12 +94,12 @@ function ChartCard({
 
 function KpiCard({ label, value, color, sub }: { label: string; value: string | number; color: string; sub?: string }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex gap-2.5 items-start">
+    <div className="bg-card rounded-xl border border-border shadow-sm p-3 flex gap-2.5 items-start">
       <div className="w-1 self-stretch rounded-full flex-shrink-0" style={{ background: color }} />
       <div className="min-w-0">
-        <p className="text-[11px] text-gray-500 font-medium truncate">{label}</p>
+        <p className="text-[11px] text-muted-foreground font-medium truncate">{label}</p>
         <p className="text-xl font-bold mt-0.5" style={{ color }}>{value}</p>
-        {sub && <p className="text-[10px] text-gray-400 mt-0.5 truncate">{sub}</p>}
+        {sub && <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{sub}</p>}
       </div>
     </div>
   )
@@ -175,21 +175,21 @@ export default function AnalizPage() {
     : '0'
 
   return (
-    <div className="min-h-screen bg-[#FAFBFC]">
-      <div className="sticky top-20 z-30 bg-white border-b border-gray-100 px-8 py-5">
+    <div className="min-h-screen bg-background">
+      <div className="sticky top-20 z-30 bg-card border-b border-border px-8 py-5">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
-            <h1 className="text-xl font-bold text-gray-900">Analiz</h1>
-            <p className="text-xs text-gray-500 mt-0.5">Üyelik süreci metrikleri</p>
+            <h1 className="text-xl font-bold text-foreground">Analiz</h1>
+            <p className="text-xs text-muted-foreground mt-0.5">Üyelik süreci metrikleri</p>
           </div>
           <div className="flex items-center gap-3">
-            <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
+            <div className="flex gap-1 bg-muted rounded-lg p-1">
               {PERIOD_OPTIONS.map(o => (
                 <button
                   key={o.key}
                   onClick={() => setPeriod(o.key)}
                   className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                    period === o.key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                    period === o.key ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
                   {o.label}
@@ -198,7 +198,7 @@ export default function AnalizPage() {
             </div>
             <button
               onClick={() => mutate()}
-              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+              className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground border border-border rounded-lg hover:bg-muted/50 transition-colors"
             >
               <ArrowPathIcon className="w-4 h-4" />
               Yenile
@@ -266,7 +266,7 @@ export default function AnalizPage() {
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <p className="text-center text-gray-400 py-6 text-xs">Veri yok</p>
+              <p className="text-center text-muted-foreground py-6 text-xs">Veri yok</p>
             )}
           </ChartCard>
 
@@ -296,7 +296,7 @@ export default function AnalizPage() {
                 </LineChart>
               </ResponsiveContainer>
             ) : (
-              <p className="text-center text-gray-400 py-6 text-xs">Bu dönemde başvuru yok</p>
+              <p className="text-center text-muted-foreground py-6 text-xs">Bu dönemde başvuru yok</p>
             )}
           </ChartCard>
         </div>
@@ -326,7 +326,7 @@ export default function AnalizPage() {
                 </PieChart>
               </ResponsiveContainer>
             ) : (
-              <p className="text-center text-gray-400 py-6 text-xs">Ret kaydı yok</p>
+              <p className="text-center text-muted-foreground py-6 text-xs">Ret kaydı yok</p>
             )}
           </ChartCard>
 
@@ -362,7 +362,7 @@ export default function AnalizPage() {
                 </PieChart>
               </ResponsiveContainer>
             ) : (
-              <p className="text-center text-gray-400 py-6 text-xs">Kabul yok</p>
+              <p className="text-center text-muted-foreground py-6 text-xs">Kabul yok</p>
             )}
           </ChartCard>
 
@@ -380,7 +380,7 @@ export default function AnalizPage() {
                 return (
                   <table className="w-full text-xs">
                     <thead>
-                      <tr className="text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide border-b border-gray-100">
+                      <tr className="text-left text-[10px] font-semibold text-muted-foreground uppercase tracking-wide border-b border-border">
                         <th className="py-1.5 pr-2 w-6">#</th>
                         <th className="py-1.5 pr-2">Disiplin</th>
                         <th className="py-1.5 pr-2 text-right w-10">Kişi</th>
@@ -394,12 +394,12 @@ export default function AnalizPage() {
                         const w = (d.count / max) * 100
                         return (
                           <tr key={d.disiplin} className="border-b border-gray-50 last:border-0">
-                            <td className="py-1.5 pr-2 text-gray-400 tabular-nums">{i + 1}</td>
-                            <td className="py-1.5 pr-2 text-gray-700 truncate max-w-[220px]" title={d.disiplin}>{d.disiplin}</td>
-                            <td className="py-1.5 pr-2 text-right font-semibold text-gray-900 tabular-nums">{num(d.count)}</td>
-                            <td className="py-1.5 pr-2 text-right text-gray-500 tabular-nums">{pct.toFixed(1)}</td>
+                            <td className="py-1.5 pr-2 text-muted-foreground tabular-nums">{i + 1}</td>
+                            <td className="py-1.5 pr-2 text-foreground truncate max-w-[220px]" title={d.disiplin}>{d.disiplin}</td>
+                            <td className="py-1.5 pr-2 text-right font-semibold text-foreground tabular-nums">{num(d.count)}</td>
+                            <td className="py-1.5 pr-2 text-right text-muted-foreground tabular-nums">{pct.toFixed(1)}</td>
                             <td className="py-1.5 pl-2">
-                              <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                              <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                                 <div className="h-full rounded-full" style={{ width: `${w}%`, background: C.basvuru }} />
                               </div>
                             </td>
@@ -411,7 +411,7 @@ export default function AnalizPage() {
                 )
               })()
             ) : (
-              <p className="text-center text-gray-400 py-6 text-xs">Disiplin verisi yok</p>
+              <p className="text-center text-muted-foreground py-6 text-xs">Disiplin verisi yok</p>
             )}
           </ChartCard>
         </div>
@@ -422,7 +422,7 @@ export default function AnalizPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide border-b border-gray-100">
+                  <tr className="text-left text-[10px] font-semibold text-muted-foreground uppercase tracking-wide border-b border-border">
                     <th className="py-2 pr-3">Değerlendirici</th>
                     <th className="py-2 pr-3 text-right w-14">Toplam</th>
                     <th className="py-2 pr-3 text-right w-14">Kabul</th>
@@ -440,16 +440,16 @@ export default function AnalizPage() {
                     const bPct = r.total > 0 ? (r.beklemede / r.total) * 100 : 0
                     return (
                       <tr key={r.name} className="border-b border-gray-50 last:border-0">
-                        <td className="py-2 pr-3 text-gray-800 font-medium truncate max-w-[220px]" title={r.name}>{r.name}</td>
-                        <td className="py-2 pr-3 text-right font-semibold text-gray-900 tabular-nums">{num(r.total)}</td>
-                        <td className="py-2 pr-3 text-right text-gray-600 tabular-nums">{num(r.kabul)}</td>
-                        <td className="py-2 pr-3 text-right text-gray-600 tabular-nums">{num(r.ret)}</td>
-                        <td className="py-2 pr-3 text-right text-gray-600 tabular-nums">{num(r.beklemede)}</td>
+                        <td className="py-2 pr-3 text-foreground font-medium truncate max-w-[220px]" title={r.name}>{r.name}</td>
+                        <td className="py-2 pr-3 text-right font-semibold text-foreground tabular-nums">{num(r.total)}</td>
+                        <td className="py-2 pr-3 text-right text-muted-foreground tabular-nums">{num(r.kabul)}</td>
+                        <td className="py-2 pr-3 text-right text-muted-foreground tabular-nums">{num(r.ret)}</td>
+                        <td className="py-2 pr-3 text-right text-muted-foreground tabular-nums">{num(r.beklemede)}</td>
                         <td className="py-2 pr-3 text-right font-medium tabular-nums" style={{ color: C.kabul }}>
                           {pct.toFixed(0)}
                         </td>
                         <td className="py-2 pl-3">
-                          <div className="flex h-1.5 rounded-full overflow-hidden bg-gray-100">
+                          <div className="flex h-1.5 rounded-full overflow-hidden bg-muted">
                             {kPct > 0 && <div style={{ width: `${kPct}%`, background: C.kabul }} />}
                             {retPct > 0 && <div style={{ width: `${retPct}%`, background: C.ret }} />}
                             {bPct > 0 && <div style={{ width: `${bPct}%`, background: C.beklemede }} />}
@@ -460,21 +460,21 @@ export default function AnalizPage() {
                   })}
                 </tbody>
               </table>
-              <div className="flex items-center gap-3 mt-3 text-[10px] text-gray-500">
+              <div className="flex items-center gap-3 mt-3 text-[10px] text-muted-foreground">
                 <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ background: C.kabul }} />Kabul</span>
                 <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ background: C.ret }} />Ret</span>
                 <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ background: C.beklemede }} />Bekleyen</span>
               </div>
             </div>
           ) : (
-            <p className="text-center text-gray-400 py-6 text-xs">Değerlendirici verisi yok</p>
+            <p className="text-center text-muted-foreground py-6 text-xs">Değerlendirici verisi yok</p>
           )}
         </ChartCard>
 
         {/* ═══ SÜREÇ ANALİTİĞİ ═══ */}
         <div className="pt-4">
-          <h2 className="text-sm font-semibold text-gray-800 mb-2">Süreç Analitiği</h2>
-          <p className="text-xs text-gray-500 mb-3">n8n pipeline'ındaki başvuruların uçtan uca metrikleri</p>
+          <h2 className="text-sm font-semibold text-foreground mb-2">Süreç Analitiği</h2>
+          <p className="text-xs text-muted-foreground mb-3">n8n pipeline'ındaki başvuruların uçtan uca metrikleri</p>
         </div>
 
         {/* 1. Funnel Cohort */}
@@ -506,7 +506,7 @@ export default function AnalizPage() {
               </BarChart>
             </ResponsiveContainer>
           ) : (
-            <p className="text-center text-gray-400 py-6 text-xs">Kohort verisi yok</p>
+            <p className="text-center text-muted-foreground py-6 text-xs">Kohort verisi yok</p>
           )}
         </ChartCard>
 
@@ -523,7 +523,7 @@ export default function AnalizPage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="border-b border-gray-100 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
+                    <tr className="border-b border-border text-left text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
                       <th className="py-2">Statü</th>
                       <th className="py-2 text-right">Kayıt</th>
                       <th className="py-2 text-right">Ort. Gün</th>
@@ -534,11 +534,11 @@ export default function AnalizPage() {
                   <tbody>
                     {pipeline.timeInStatus.map(r => (
                       <tr key={r.status} className="border-b border-gray-50">
-                        <td className="py-2 text-gray-800">{STATUS_LABELS[r.status] || r.status}</td>
-                        <td className="py-2 text-right text-gray-600">{r.count}</td>
-                        <td className="py-2 text-right font-medium text-gray-900">{r.avg_days}</td>
-                        <td className="py-2 text-right text-gray-600">{r.median_days}</td>
-                        <td className={`py-2 text-right ${r.p90_days > 7 ? 'text-red-600 font-medium' : 'text-gray-600'}`}>
+                        <td className="py-2 text-foreground">{STATUS_LABELS[r.status] || r.status}</td>
+                        <td className="py-2 text-right text-muted-foreground">{r.count}</td>
+                        <td className="py-2 text-right font-medium text-foreground">{r.avg_days}</td>
+                        <td className="py-2 text-right text-muted-foreground">{r.median_days}</td>
+                        <td className={`py-2 text-right ${r.p90_days > 7 ? 'text-red-600 font-medium' : 'text-muted-foreground'}`}>
                           {r.p90_days}
                         </td>
                       </tr>
@@ -547,7 +547,7 @@ export default function AnalizPage() {
                 </table>
               </div>
             ) : (
-              <p className="text-center text-gray-400 py-6 text-xs">Veri yok</p>
+              <p className="text-center text-muted-foreground py-6 text-xs">Veri yok</p>
             )}
           </ChartCard>
 
@@ -562,7 +562,7 @@ export default function AnalizPage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="border-b border-gray-100 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
+                    <tr className="border-b border-border text-left text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
                       <th className="py-2">Değerlendiren</th>
                       <th className="py-2 text-right">Karar</th>
                       <th className="py-2 text-right">Kabul%</th>
@@ -573,8 +573,8 @@ export default function AnalizPage() {
                   <tbody>
                     {pipeline.reviewers.map(r => (
                       <tr key={r.name} className="border-b border-gray-50">
-                        <td className="py-2 text-gray-800 font-medium">{r.name}</td>
-                        <td className="py-2 text-right text-gray-600">{r.decisions}</td>
+                        <td className="py-2 text-foreground font-medium">{r.name}</td>
+                        <td className="py-2 text-right text-muted-foreground">{r.decisions}</td>
                         <td className="py-2 text-right">
                           <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-medium ${
                             r.approve_rate >= 0.5 ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'
@@ -582,22 +582,22 @@ export default function AnalizPage() {
                             {Math.round(r.approve_rate * 100)}%
                           </span>
                         </td>
-                        <td className="py-2 text-right text-gray-600">
+                        <td className="py-2 text-right text-muted-foreground">
                           {r.avg_decision_hours !== null ? r.avg_decision_hours : '—'}
                         </td>
-                        <td className="py-2 text-right text-gray-600">{r.nihai}</td>
+                        <td className="py-2 text-right text-muted-foreground">{r.nihai}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
             ) : (
-              <p className="text-center text-gray-400 py-6 text-xs">Karar verisi yok</p>
+              <p className="text-center text-muted-foreground py-6 text-xs">Karar verisi yok</p>
             )}
           </ChartCard>
         </div>
 
-        <p className="text-xs text-gray-400 text-center pb-4">
+        <p className="text-xs text-muted-foreground text-center pb-4">
           {data?.generatedAt
             ? `Son güncelleme: ${new Date(data.generatedAt).toLocaleString('tr-TR')}`
             : '—'}

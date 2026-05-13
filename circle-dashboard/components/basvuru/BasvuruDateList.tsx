@@ -134,11 +134,11 @@ export default function BasvuruDateList({ data }: BasvuruDateListProps) {
 
   if (data.length === 0) {
     return (
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm">
+      <div className="bg-card rounded-2xl border border-border shadow-sm">
         <div className="text-center py-16">
-          <DocumentTextIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-600 font-medium">Ba\u015fvuru bulunamad\u0131</p>
-          <p className="text-sm text-gray-400 mt-1">Filtreleri de\u011fi\u015ftirmeyi deneyin</p>
+          <DocumentTextIcon className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+          <p className="text-muted-foreground font-medium">Ba\u015fvuru bulunamad\u0131</p>
+          <p className="text-sm text-muted-foreground mt-1">Filtreleri de\u011fi\u015ftirmeyi deneyin</p>
         </div>
       </div>
     )
@@ -151,15 +151,15 @@ export default function BasvuruDateList({ data }: BasvuruDateListProps) {
           <div key={group.key}>
             {/* Group Header */}
             <div className="flex items-center gap-3 mb-3">
-              <h3 className="text-sm font-semibold text-gray-900">{group.label}</h3>
-              <span className="px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-600 rounded-full">
+              <h3 className="text-sm font-semibold text-foreground">{group.label}</h3>
+              <span className="px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground rounded-full">
                 {group.items.length}
               </span>
-              <div className="flex-1 border-t border-gray-200" />
+              <div className="flex-1 border-t border-border" />
             </div>
 
             {/* Items */}
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm divide-y divide-gray-100">
+            <div className="bg-card rounded-2xl border border-border shadow-sm divide-y divide-border">
               {group.items.map((item, index) => {
                 const name = findFieldValue(item, 'Ad\u0131n Soyad\u0131n') || '\u0130simsiz'
                 const email = findFieldValue(item, 'E-Posta Adresin') || ''
@@ -182,7 +182,7 @@ export default function BasvuruDateList({ data }: BasvuruDateListProps) {
                   <div
                     key={`${group.key}-${index}`}
                     onClick={() => setSelectedItem(item)}
-                    className="flex items-center gap-4 px-5 py-3.5 hover:bg-gray-50 cursor-pointer transition-colors"
+                    className="flex items-center gap-4 px-5 py-3.5 hover:bg-muted/50 cursor-pointer transition-colors"
                   >
                     {/* Avatar */}
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0 ${avatarColor}`}>
@@ -192,24 +192,24 @@ export default function BasvuruDateList({ data }: BasvuruDateListProps) {
                     {/* Name & Subtitle */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-gray-900 truncate">{name}</span>
+                        <span className="text-sm font-medium text-foreground truncate">{name}</span>
                         {subtitle && (
-                          <span className="text-xs text-gray-400 truncate hidden sm:inline">{subtitle}</span>
+                          <span className="text-xs text-muted-foreground truncate hidden sm:inline">{subtitle}</span>
                         )}
                       </div>
                       <div className="flex items-center gap-3 mt-0.5">
                         {email && (
-                          <span className="text-xs text-gray-500 truncate">{email}</span>
+                          <span className="text-xs text-muted-foreground truncate">{email}</span>
                         )}
                         {phone && (
-                          <span className="text-xs text-gray-400 hidden md:inline">{phone}</span>
+                          <span className="text-xs text-muted-foreground hidden md:inline">{phone}</span>
                         )}
                       </div>
                     </div>
 
                     {/* Time */}
                     {time && (
-                      <span className="text-xs text-gray-400 shrink-0">{time}</span>
+                      <span className="text-xs text-muted-foreground shrink-0">{time}</span>
                     )}
                   </div>
                 )

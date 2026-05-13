@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma'
 import {
-  createClient,
   APPLICATION_STATUSES,
   STATUS_LABELS,
   STATUS_COLORS,
@@ -11,7 +11,6 @@ export const revalidate = 30
 
 // GET /api/applications?status=kontrol&search=ali&sort=submitted_at&order=desc&page=1&limit=50
 export async function GET(req: Request) {
-  const db = createClient()
   const { searchParams } = new URL(req.url)
 
   const status = searchParams.get('status') as ApplicationStatus | null
@@ -23,113 +22,114 @@ export async function GET(req: Request) {
   const grouped = searchParams.get('grouped') === 'true'
 
   try {
-    // Grouped mode: tum statusleri gruplu don (ana sayfa icin)
     if (grouped) {
-      const { data, error } = await db
-        .from('applications')
-        .select('*')
-        .order(sort, { ascending: order === 'asc' })
-
-      if (error) throw error
+      const data = await prisma.applications.findMany({ orderBy: { [sort]: order } as never })
 
       const groups: Record<string, { label: string; color: string; count: number; data: typeof data }> = {}
       for (const s of APPLICATION_STATUSES) {
-        groups[s] = {
-          label: STATUS_LABELS[s],
-          color: STATUS_COLORS[s],
-          count: 0,
-          data: [],
-        }
+        groups[s] = { label: STATUS_LABELS[s], color: STATUS_COLORS[s], count: 0, data: [] }
       }
-      for (const app of data || []) {
+      for (const app of data) {
         const s = app.status as ApplicationStatus
-        if (groups[s]) {
-          groups[s].data.push(app)
-          groups[s].count++
-        }
+        if (groups[s]) { groups[s].data.push(app); groups[s].count++ }
       }
 
       return NextResponse.json({
         success: true,
-        total: data?.length || 0,
+        total: data.length,
         breakdown: Object.fromEntries(
-          Object.entries(groups).map(([k, v]) => [k, { label: v.label, color: v.color, count: v.count }])
+          Object.entries(groups).map(([k, v]) => [k, { label: v.label, color: v.color, count: v.count }]),
         ),
         data: groups,
       })
     }
 
-    // Filtered mode: tek status veya tum
-    const offset = (page - 1) * limit
-    let query = db
-      .from('applications')
-      .select('*', { count: 'exact' })
-      .order(sort, { ascending: order === 'asc' })
-      .range(offset, offset + limit - 1)
+    const skip = (page - 1) * limit
+    const where: Record<string, unknown> = {}
 
     if (status) {
-      const statuses = status.split(',').filter(s => APPLICATION_STATUSES.includes(s as ApplicationStatus))
-      if (statuses.length === 1) {
-        query = query.eq('status', statuses[0])
-      } else if (statuses.length > 1) {
-        query = query.in('status', statuses)
-      }
+      const statuses = status.split(',').filter((s) => APPLICATION_STATUSES.includes(s as ApplicationStatus))
+      if (statuses.length === 1) where.status = statuses[0]
+      else if (statuses.length > 1) where.status = { in: statuses }
     }
 
     if (search) {
-      query = query.or(`full_name.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%`)
+      where.OR = [
+        { full_name: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+        { phone: { contains: search, mode: 'insensitive' } },
+      ]
     }
 
-    const { data, count, error } = await query
-    if (error) throw error
+    const [data, count] = await Promise.all([
+      prisma.applications.findMany({
+        where: where as never,
+        orderBy: { [sort]: order } as never,
+        skip,
+        take: limit,
+      }),
+      prisma.applications.count({ where: where as never }),
+    ])
 
-    let enrichedData = data || []
+    let enrichedData: Array<Record<string, unknown>> = data as never
 
-    // ?with=tasks,warnings,inventory → toplu detay (N+1 yerine 3 paralel query)
     const withParam = searchParams.get('with')
     if (withParam && enrichedData.length > 0) {
-      const includes = new Set(withParam.split(',').map(s => s.trim()))
-      const ids = enrichedData.map((a: { id: string }) => a.id)
+      const includes = new Set(withParam.split(',').map((s) => s.trim()))
+      const ids = enrichedData.map((a) => a.id as string)
 
-      const [tasksRes, warningsRes, invRes] = await Promise.all([
+      const [tasks, warnings, inventory] = await Promise.all([
         includes.has('tasks')
-          ? db.from('task_completions').select('application_id,task_type,completed,completed_at,verified_by').in('application_id', ids)
-          : Promise.resolve({ data: null as null }),
+          ? prisma.task_completions.findMany({
+              where: { application_id: { in: ids } },
+              select: { application_id: true, task_type: true, completed: true, completed_at: true, verified_by: true },
+            })
+          : Promise.resolve([] as Array<Record<string, unknown>>),
         includes.has('warnings')
-          ? db.from('warnings').select('application_id,warning_number,warned_by,reason,warned_at,form_type').in('application_id', ids)
-          : Promise.resolve({ data: null as null }),
+          ? prisma.warnings.findMany({
+              where: { application_id: { in: ids } },
+              select: { application_id: true, warning_number: true, warned_by: true, reason: true, warned_at: true, form_type: true },
+            })
+          : Promise.resolve([] as Array<Record<string, unknown>>),
         includes.has('inventory')
-          ? db.from('inventory_tests').select('application_id,email,test_type,discipline,total_score,submitted_at').in('application_id', ids)
-          : Promise.resolve({ data: null as null }),
+          ? prisma.inventory_tests.findMany({
+              where: { application_id: { in: ids } },
+              select: { application_id: true, email: true, test_type: true, discipline: true, total_score: true, submitted_at: true },
+            })
+          : Promise.resolve([] as Array<Record<string, unknown>>),
       ])
 
       const tasksByApp = new Map<string, Array<Record<string, unknown>>>()
-      for (const t of (tasksRes.data as Array<{application_id: string}> | null) || []) {
-        if (!tasksByApp.has(t.application_id)) tasksByApp.set(t.application_id, [])
-        tasksByApp.get(t.application_id)!.push(t)
+      for (const t of tasks as Array<{ application_id: string }>) {
+        const k = t.application_id
+        if (!tasksByApp.has(k)) tasksByApp.set(k, [])
+        tasksByApp.get(k)!.push(t as never)
       }
       const warningsByApp = new Map<string, Array<Record<string, unknown>>>()
-      for (const w of (warningsRes.data as Array<{application_id: string}> | null) || []) {
-        if (!warningsByApp.has(w.application_id)) warningsByApp.set(w.application_id, [])
-        warningsByApp.get(w.application_id)!.push(w)
+      for (const w of warnings as Array<{ application_id: string }>) {
+        const k = w.application_id
+        if (!warningsByApp.has(k)) warningsByApp.set(k, [])
+        warningsByApp.get(k)!.push(w as never)
       }
       const invByApp = new Map<string, Array<Record<string, unknown>>>()
-      for (const i of (invRes.data as Array<{application_id: string}> | null) || []) {
-        if (!invByApp.has(i.application_id)) invByApp.set(i.application_id, [])
-        invByApp.get(i.application_id)!.push(i)
+      for (const i of inventory as Array<{ application_id: string | null }>) {
+        const k = i.application_id
+        if (!k) continue
+        if (!invByApp.has(k)) invByApp.set(k, [])
+        invByApp.get(k)!.push(i as never)
       }
 
-      enrichedData = enrichedData.map((a: { id: string } & Record<string, unknown>) => ({
+      enrichedData = enrichedData.map((a) => ({
         ...a,
-        ...(includes.has('tasks') ? { tasks: tasksByApp.get(a.id) || [] } : {}),
-        ...(includes.has('warnings') ? { warnings: warningsByApp.get(a.id) || [] } : {}),
-        ...(includes.has('inventory') ? { inventory_tests: invByApp.get(a.id) || [] } : {}),
+        ...(includes.has('tasks') ? { tasks: tasksByApp.get(a.id as string) || [] } : {}),
+        ...(includes.has('warnings') ? { warnings: warningsByApp.get(a.id as string) || [] } : {}),
+        ...(includes.has('inventory') ? { inventory_tests: invByApp.get(a.id as string) || [] } : {}),
       }))
     }
 
     return NextResponse.json({
       success: true,
-      total: count || 0,
+      total: count,
       page,
       limit,
       data: enrichedData,
@@ -141,67 +141,55 @@ export async function GET(req: Request) {
   }
 }
 
-// POST /api/applications — yeni basvuru olustur (n8n'den gelir)
+// POST /api/applications
 export async function POST(req: Request) {
-  const db = createClient()
-
   try {
     const body = await req.json()
 
     if (!body.email || !body.full_name) {
-      return NextResponse.json(
-        { success: false, error: 'email ve full_name zorunlu' },
-        { status: 400 }
-      )
+      return NextResponse.json({ success: false, error: 'email ve full_name zorunlu' }, { status: 400 })
     }
 
-    // Duplicate check
-    const { data: existing } = await db
-      .from('applications')
-      .select('id')
-      .eq('email', body.email.toLowerCase().trim())
-      .single()
+    const email = (body.email as string).toLowerCase().trim()
+    const existing = await prisma.applications.findFirst({ where: { email }, select: { id: true } })
 
     if (existing) {
       return NextResponse.json(
         { success: false, error: 'Bu email ile zaten başvuru var', duplicate: true },
-        { status: 409 }
+        { status: 409 },
       )
     }
 
-    // created_by tabloda yok, ayir
-    const { created_by, ...insertData } = body
+    const { created_by, ...insertData } = body as Record<string, unknown>
 
-    const { data, error } = await db
-      .from('applications')
-      .insert({
-        ...insertData,
-        email: body.email.toLowerCase().trim(),
-        status: body.status || 'basvuru',
-      })
-      .select()
-      .single()
-
-    if (error) throw error
-
-    const actor = created_by || 'system'
-
-    // Status history
-    await db.from('status_history').insert({
-      application_id: data.id,
-      from_status: null,
-      to_status: data.status,
-      changed_by: actor,
-      change_type: 'normal',
+    const data = await prisma.applications.create({
+      data: {
+        ...(insertData as never),
+        email,
+        status: (body.status as string) || 'basvuru',
+      },
     })
 
-    // Audit log
-    await db.from('audit_log').insert({
-      entity_type: 'application',
-      entity_id: data.id,
-      action: 'create',
-      actor,
-      new_values: data,
+    const actor = (created_by as string) || 'system'
+
+    await prisma.status_history.create({
+      data: {
+        application_id: data.id,
+        from_status: null,
+        to_status: data.status,
+        changed_by: actor,
+        change_type: 'normal',
+      },
+    })
+
+    await prisma.audit_log.create({
+      data: {
+        entity_type: 'application',
+        entity_id: data.id,
+        action: 'create',
+        actor,
+        new_values: data as never,
+      },
     })
 
     return NextResponse.json({ success: true, data }, { status: 201 })

@@ -1,32 +1,27 @@
 import { NextResponse } from 'next/server'
-import { createClient, withAuditLog, PROTECTED_BLOCK_MSG } from '@/lib/supabase'
+import { prisma } from '@/lib/prisma'
+import { withAuditLog, PROTECTED_BLOCK_MSG } from '@/lib/supabase'
 import { sendMail } from '@/lib/resend'
 import { getTemplate } from '@/lib/mail-templates'
 import { requirePermission } from '@/lib/permissions'
 
 // POST /api/mail/send
-// Body: { email, firstName, lastName, template_id, subject?, sent_by? }
-// Toplu: { emails: [{email, firstName, template_id}], sent_by? }
 export async function POST(req: Request) {
   const denied = await requirePermission(req, 'mutate:mail')
   if (denied) return denied
-
-  const db = createClient()
 
   try {
     const body = await req.json()
     const sentBy = body.sent_by || 'system'
 
-    // KORUMA: Toplu gönderimden önce protected email'leri ele
     const filterProtectedEmails = async (emails: string[]): Promise<Set<string>> => {
       const lower = emails.map((e) => (e || '').toLowerCase().trim()).filter(Boolean)
       if (lower.length === 0) return new Set()
-      const { data } = await db
-        .from('applications')
-        .select('email')
-        .in('email', lower)
-        .eq('is_protected', true)
-      return new Set((data || []).map((r: { email: string }) => r.email.toLowerCase().trim()))
+      const rows = await prisma.applications.findMany({
+        where: { email: { in: lower }, is_protected: true },
+        select: { email: true },
+      })
+      return new Set(rows.map((r) => r.email.toLowerCase().trim()))
     }
 
     // Toplu gonderim
@@ -70,7 +65,6 @@ export async function POST(req: Request) {
         }
       }
 
-      // Basarili olanlari logla
       const successItems = results.filter((r) => r.success)
       if (successItems.length > 0) {
         const logs = successItems.map((item) => ({
@@ -81,12 +75,12 @@ export async function POST(req: Request) {
           batch_id: batchId,
           status: 'sent',
           sent_by: sentBy,
-          metadata: item.resend_id ? { resend_id: item.resend_id } : null,
+          metadata: item.resend_id ? ({ resend_id: item.resend_id } as never) : (null as never),
         }))
 
-        await db.from('mail_logs').insert(logs)
+        await prisma.mail_logs.createMany({ data: logs as never })
 
-        await withAuditLog(db, {
+        await withAuditLog({
           entityType: 'mail',
           entityId: batchId,
           action: 'batch_send',
@@ -105,7 +99,7 @@ export async function POST(req: Request) {
       })
     }
 
-    // Tek mail gonderim
+    // Tek mail
     if (!body.email) {
       return NextResponse.json({ success: false, error: 'email zorunlu' }, { status: 400 })
     }
@@ -113,24 +107,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'template_id zorunlu' }, { status: 400 })
     }
 
-    // KORUMA: Email protected ise gönderim reddedilir
     {
       const lower = body.email.toLowerCase().trim()
-      const { data: prot } = await db
-        .from('applications')
-        .select('id')
-        .eq('email', lower)
-        .eq('is_protected', true)
-        .limit(1)
-      if (prot && prot.length > 0) {
+      const prot = await prisma.applications.findFirst({
+        where: { email: lower, is_protected: true },
+        select: { id: true },
+      })
+      if (prot) {
         return NextResponse.json({ success: false, error: PROTECTED_BLOCK_MSG }, { status: 403 })
       }
     }
 
-    // Template kaynak: UUID ise Resend API'den cek, degilse lokal
     const isResendTemplate = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.template_id)
-    let template: { id: string; name: string; subject: string; render: (vars: { firstName: string; lastName?: string }) => string }
-      | null = null
+    let template: { id: string; name: string; subject: string; render: (vars: { firstName: string; lastName?: string }) => string } | null = null
 
     if (isResendTemplate) {
       try {
@@ -145,120 +134,102 @@ export async function POST(req: Request) {
             .replace(/\{\{\s*firstName\s*\}\}/g, vars.firstName || '')
             .replace(/\{\{\s*lastName\s*\}\}/g, vars.lastName || '')
             .replace(/\{\{\s*name\s*\}\}/g, `${vars.firstName || ''}${vars.lastName ? ' ' + vars.lastName : ''}`.trim())
-          template = {
-            id: rt.id,
-            name: rt.name,
-            subject: rt.subject || '',
-            render: renderVars,
-          }
+          template = { id: rt.id, name: rt.name, subject: rt.subject || '', render: renderVars }
         }
       } catch (e) {
         console.error('Resend template fetch error:', e)
       }
     }
 
-    if (!template) {
-      template = getTemplate(body.template_id) ?? null
-    }
+    if (!template) template = getTemplate(body.template_id) ?? null
 
     if (!template) {
       return NextResponse.json({ success: false, error: 'Template bulunamadi' }, { status: 400 })
     }
 
-    // Application ile esle
-    let applicationId = body.application_id
+    let applicationId: string | null = body.application_id ?? null
     if (!applicationId) {
-      const { data: app } = await db
-        .from('applications')
-        .select('id')
-        .eq('email', body.email.toLowerCase().trim())
-        .single()
+      const app = await prisma.applications.findFirst({
+        where: { email: body.email.toLowerCase().trim() },
+        select: { id: true },
+      })
       applicationId = app?.id || null
     }
 
-    // Duplicate kontrolu
     if (applicationId) {
-      const { data: existing } = await db
-        .from('mail_logs')
-        .select('id, sent_at')
-        .eq('application_id', applicationId)
-        .eq('template_name', body.template_id)
-        .eq('status', 'sent')
-        .limit(1)
-        .single()
+      const existing = await prisma.mail_logs.findFirst({
+        where: {
+          application_id: applicationId,
+          template_name: body.template_id,
+          status: 'sent',
+        },
+        select: { id: true, sent_at: true },
+      })
 
       if (existing) {
         return NextResponse.json(
           {
             success: false,
-            error: `Bu template daha once gonderilmis (${new Date(existing.sent_at).toLocaleDateString('tr-TR')})`,
+            error: `Bu template daha once gonderilmis (${existing.sent_at ? new Date(existing.sent_at).toLocaleDateString('tr-TR') : ''})`,
             duplicate: true,
           },
-          { status: 409 }
+          { status: 409 },
         )
       }
     }
 
-    // HTML render
     const html = template.render({
       firstName: body.firstName || body.email.split('@')[0],
       lastName: body.lastName,
     })
 
-    // Resend ile gonder (transient hatalarda lib/resend.ts retry yapar)
     const mailSubject = body.subject || template.subject
     let result: { id?: string } | null | undefined
     try {
-      result = await sendMail({
-        to: body.email,
-        subject: mailSubject,
-        html,
-      })
+      result = await sendMail({ to: body.email, subject: mailSubject, html })
     } catch (sendErr) {
-      // Retry exhausted veya permanent error — failed log kaydet
       const errMsg = sendErr instanceof Error ? sendErr.message : 'gonderim hatasi'
-      await db.from('mail_logs').insert({
-        application_id: applicationId,
-        email_to: body.email.toLowerCase().trim(),
-        subject: mailSubject,
-        template_name: body.template_id,
-        provider: 'resend',
-        status: 'failed',
-        sent_by: sentBy,
-        metadata: { error: errMsg },
+      await prisma.mail_logs.create({
+        data: {
+          application_id: applicationId,
+          email_to: body.email.toLowerCase().trim(),
+          subject: mailSubject,
+          template_name: body.template_id,
+          provider: 'resend',
+          status: 'failed',
+          sent_by: sentBy,
+          metadata: { error: errMsg } as never,
+        },
       })
       throw sendErr
     }
 
-    // Log kaydet (resend_id metadata'ya — teslim durumu webhook/API ile sorgulanabilir)
-    const { data: logData, error: logError } = await db
-      .from('mail_logs')
-      .insert({
-        application_id: applicationId,
-        email_to: body.email.toLowerCase().trim(),
-        subject: mailSubject,
-        template_name: body.template_id,
-        provider: 'resend',
-        status: 'sent',
-        sent_by: sentBy,
-        metadata: result?.id ? { resend_id: result.id } : null,
+    let logData
+    try {
+      logData = await prisma.mail_logs.create({
+        data: {
+          application_id: applicationId,
+          email_to: body.email.toLowerCase().trim(),
+          subject: mailSubject,
+          template_name: body.template_id,
+          provider: 'resend',
+          status: 'sent',
+          sent_by: sentBy,
+          metadata: result?.id ? ({ resend_id: result.id } as never) : (null as never),
+        },
       })
-      .select()
-      .single()
-
-    if (logError) {
+    } catch (logError) {
       console.error('Mail log kayit hatasi:', logError)
     }
 
-    // Application guncelle
     if (applicationId) {
-      await db
-        .from('applications')
-        .update({ mail_sent: true, mail_template: template.name })
-        .eq('id', applicationId)
+      await prisma.applications.update({
+        where: { id: applicationId },
+        data: { mail_sent: true, mail_template: template.name },
+      })
     }
 
-    await withAuditLog(db, {
+    await withAuditLog({
       entityType: 'application',
       entityId: applicationId || 'unknown',
       action: 'mail_sent',
@@ -266,11 +237,7 @@ export async function POST(req: Request) {
       newValues: { email: body.email, template: template.name, subject: mailSubject },
     })
 
-    return NextResponse.json({
-      success: true,
-      resend_id: result?.id,
-      log: logData,
-    }, { status: 201 })
+    return NextResponse.json({ success: true, resend_id: result?.id, log: logData }, { status: 201 })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Bilinmeyen hata'
     return NextResponse.json({ success: false, error: message }, { status: 500 })

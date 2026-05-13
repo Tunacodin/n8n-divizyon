@@ -1,9 +1,8 @@
 // Karakteristik envanter test skoru → Circle persona tag'leri (leaf + parent).
 // Nihai üye geçişinde otomatik çağrılır. Kurallar: TAG_ASSIGNMENT_RULES.md
 
-import type { createClient } from './supabase'
+import { prisma } from './prisma'
 
-// Envanter scores anahtari → Circle leaf tag adi
 export const CHARACTER_TAG_MAP: Record<string, string> = {
   birlestirici:    'Birleştirici',
   caliskan:        'Çalışkan',
@@ -25,7 +24,6 @@ export const CHARACTER_TAG_MAP: Record<string, string> = {
   yaratici:        'Yaratıcı',
 }
 
-// Leaf (Circle tag adi) → Parent (Circle tag adi). Deterministik tek esleme.
 export const PARENT_MAP: Record<string, string> = {
   'Birleştirici':    'Öncü',
   'Pratik':          'Öncü',
@@ -64,7 +62,6 @@ export type AutoAssignResult = {
   }
 }
 
-// Saf seçim mantigi — DB'siz test edilebilir
 export function pickLeafAndParent(
   scores: Record<string, unknown>,
   counts: Record<string, number>,
@@ -115,50 +112,37 @@ export function pickLeafAndParent(
   }
 }
 
-/**
- * Nihai üye geçişinde çağrılır. Max skor + (count min → alfabetik) algoritmasıyla
- * leaf tag seçer, parent'ını bulur, applications.tags'a ekler.
- */
-export async function autoAssignCharacterTag(
-  db: ReturnType<typeof createClient>,
-  applicationId: string,
-): Promise<AutoAssignResult> {
-  const { data: app } = await db
-    .from('applications')
-    .select('tags, is_protected, circle_id')
-    .eq('id', applicationId)
-    .single()
-  const existing = new Set<string>((app as { tags?: string[] } | null)?.tags || [])
-  const isProtected = Boolean((app as { is_protected?: boolean } | null)?.is_protected)
-  const circleId = (app as { circle_id?: number | null } | null)?.circle_id ?? null
+export async function autoAssignCharacterTag(applicationId: string): Promise<AutoAssignResult> {
+  const app = await prisma.applications.findUnique({
+    where: { id: applicationId },
+    select: { tags: true, is_protected: true, circle_id: true },
+  })
+  const existing = new Set<string>(app?.tags || [])
+  const isProtected = !!app?.is_protected
+  const circleId = app?.circle_id ?? null
 
-  const { data: invs } = await db
-    .from('inventory_tests')
-    .select('scores')
-    .eq('application_id', applicationId)
-    .eq('test_type', 'karakteristik_envanter')
-    .order('submitted_at', { ascending: false })
-    .limit(1)
+  const inv = await prisma.inventory_tests.findFirst({
+    where: { application_id: applicationId, test_type: 'karakteristik_envanter' },
+    orderBy: { submitted_at: 'desc' },
+    select: { scores: true },
+  })
 
-  const scores = (invs?.[0] as { scores?: Record<string, unknown> } | undefined)?.scores
+  const scores = inv?.scores as Record<string, unknown> | undefined
   if (!scores || typeof scores !== 'object') {
     return { leaf: null, parent: null, added: [], reason: 'Karakteristik envanter skoru yok' }
   }
 
-  // Max skorlu leaf adaylarinin count'unu al
   const allLeafNames = Object.keys(scores)
     .filter((k) => CHARACTER_TAG_MAP[k])
     .map((k) => CHARACTER_TAG_MAP[k])
 
   const counts: Record<string, number> = {}
   if (allLeafNames.length > 0) {
-    const { data: tagRows } = await db
-      .from('member_tags')
-      .select('name, tagged_members_count')
-      .in('name', allLeafNames)
-    for (const r of (tagRows || []) as Array<{ name: string; tagged_members_count: number }>) {
-      counts[r.name] = r.tagged_members_count ?? 0
-    }
+    const tagRows = await prisma.member_tags.findMany({
+      where: { name: { in: allLeafNames } },
+      select: { name: true, tagged_members_count: true },
+    })
+    for (const r of tagRows) counts[r.name] = r.tagged_members_count ?? 0
   }
 
   const pick = pickLeafAndParent(scores, counts, existing)
@@ -176,24 +160,13 @@ export async function autoAssignCharacterTag(
     return { leaf: pick.leaf, parent: pick.parent, added: [], reason: 'Leaf ve parent zaten atanmis', candidates: pick.candidates }
   }
 
-  const { error } = await db
-    .from('applications')
-    .update({ tags: newTags })
-    .eq('id', applicationId)
-
-  if (error) {
-    return { leaf: null, parent: null, added: [], reason: `DB update hata: ${error.message}`, candidates: pick.candidates }
+  try {
+    await prisma.applications.update({ where: { id: applicationId }, data: { tags: newTags } })
+  } catch (e: unknown) {
+    return { leaf: null, parent: null, added: [], reason: `DB update hata: ${(e as Error).message}`, candidates: pick.candidates }
   }
 
-  // Circle yansima: SADECE is_protected=false (sheet/basvurudan eklenen yeni
-  // kullanici, henuz Circle'a katilmamis) kayitlarda yapilir. Mevcut Circle
-  // uyelerinde Circle API yazma yasak (CLAUDE.md).
-  const circleSync = await syncTagsToCircle({
-    db,
-    isProtected,
-    circleId,
-    tagNames: added,
-  })
+  const circleSync = await syncTagsToCircle({ isProtected, circleId, tagNames: added })
 
   return {
     leaf: pick.leaf,
@@ -206,52 +179,37 @@ export async function autoAssignCharacterTag(
 }
 
 async function syncTagsToCircle(params: {
-  db: ReturnType<typeof createClient>
   isProtected: boolean
   circleId: number | null
   tagNames: string[]
 }): Promise<AutoAssignResult['circleSync']> {
-  if (params.isProtected) {
-    return { status: 'skipped_protected' }
-  }
-  if (!params.circleId) {
-    // is_protected=false ama circle_id de yok — uye henuz Circle'a katilmamis
-    // (mantikli durum, sheet'ten eklendi ama davet kabul edilmedi). Tag yine
-    // applications.tags'a yazildi; Circle'da senkronizasyon icin uyenin once
-    // Circle uyesi olmasi gerekir.
-    return { status: 'skipped_no_circle_id' }
-  }
-  if (params.tagNames.length === 0) {
-    return { status: 'ok', addedTagIds: [] }
-  }
+  if (params.isProtected) return { status: 'skipped_protected' }
+  if (!params.circleId) return { status: 'skipped_no_circle_id' }
+  if (params.tagNames.length === 0) return { status: 'ok', addedTagIds: [] }
 
-  // Lazy import — circle modulunu sadece gerektiginde yukle
   const { isCircleWriteEnabled, addMemberTags, getMemberTagIds } = await import('./circle')
   if (!isCircleWriteEnabled()) {
     return { status: 'skipped_disabled', error: 'Circle_API_KEY env yok' }
   }
 
-  // Tag adlarini Circle tag id'lerine cevir (member_tags tablosundan)
-  const { data: tagRows } = await params.db
-    .from('member_tags')
-    .select('id, name')
-    .in('name', params.tagNames)
-  const desiredTagIds = ((tagRows || []) as Array<{ id: number; name: string }>).map((r) => r.id)
-  const foundNames = new Set(((tagRows || []) as Array<{ id: number; name: string }>).map((r) => r.name))
+  const tagRows = await prisma.member_tags.findMany({
+    where: { name: { in: params.tagNames } },
+    select: { id: true, name: true },
+  })
+  const desiredTagIds = tagRows.map((r) => r.id)
+  const foundNames = new Set(tagRows.map((r) => r.name))
   const missing = params.tagNames.filter((n) => !foundNames.has(n))
 
   if (desiredTagIds.length === 0) {
     return {
       status: 'failed',
-      error: `member_tags tablosunda tag id bulunamadi: ${params.tagNames.join(', ')} (sync-circle-tags.py calistirilmamis olabilir)`,
+      error: `member_tags tablosunda tag id bulunamadi: ${params.tagNames.join(', ')}`,
     }
   }
 
-  // Mevcut Circle tag id'lerini cek (replace yapmamak icin tum tag listesini
-  // koruyoruz, sadece eklemek istedigimiz tag'leri merge ediyoruz)
   const existingIds = await getMemberTagIds(params.circleId)
   if (existingIds === null) {
-    return { status: 'failed', error: 'Circle uyesi getirilemedi (mevcut tag listesi alinamadi)' }
+    return { status: 'failed', error: 'Circle uyesi getirilemedi' }
   }
 
   const result = await addMemberTags(params.circleId, desiredTagIds, existingIds)

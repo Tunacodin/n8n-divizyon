@@ -38,11 +38,11 @@ export default function BasvuruFormGrid({ data }: BasvuruFormGridProps) {
 
   if (data.length === 0) {
     return (
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm">
+      <div className="bg-card rounded-2xl border border-border shadow-sm">
         <div className="text-center py-16">
-          <DocumentTextIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-600 font-medium">Basvuru bulunamadi</p>
-          <p className="text-sm text-gray-400 mt-1">Filtreleri degistirmeyi deneyin</p>
+          <DocumentTextIcon className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+          <p className="text-muted-foreground font-medium">Basvuru bulunamadi</p>
+          <p className="text-sm text-muted-foreground mt-1">Filtreleri degistirmeyi deneyin</p>
         </div>
       </div>
     )
@@ -66,8 +66,8 @@ export default function BasvuruFormGrid({ data }: BasvuruFormGridProps) {
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-4 flex items-center justify-between mt-6">
-          <div className="text-sm text-gray-600">
+        <div className="bg-card rounded-2xl border border-border shadow-sm px-6 py-4 flex items-center justify-between mt-6">
+          <div className="text-sm text-muted-foreground">
             Sayfa <span className="font-medium">{currentPage}</span> / <span className="font-medium">{totalPages}</span>
             {' '}({data.length} basvurudan{' '}
             {(currentPage - 1) * ITEMS_PER_PAGE + 1}-
@@ -78,14 +78,14 @@ export default function BasvuruFormGrid({ data }: BasvuruFormGridProps) {
             <button
               onClick={() => goToPage(1)}
               disabled={currentPage === 1}
-              className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-3 py-2 text-sm font-medium text-foreground bg-card border border-border rounded-lg hover:bg-muted/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Ilk
             </button>
             <button
               onClick={() => goToPage(currentPage - 1)}
               disabled={currentPage === 1}
-              className="p-2 text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="p-2 text-foreground bg-card border border-border rounded-lg hover:bg-muted/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <ChevronLeftIcon className="w-5 h-5" />
             </button>
@@ -110,7 +110,7 @@ export default function BasvuruFormGrid({ data }: BasvuruFormGridProps) {
                     className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
                       currentPage === pageNum
                         ? 'bg-purple-600 text-white'
-                        : 'text-gray-700 bg-white border border-gray-200 hover:bg-gray-50'
+                        : 'text-foreground bg-card border border-border hover:bg-muted/50'
                     }`}
                   >
                     {pageNum}
@@ -122,14 +122,14 @@ export default function BasvuruFormGrid({ data }: BasvuruFormGridProps) {
             <button
               onClick={() => goToPage(currentPage + 1)}
               disabled={currentPage === totalPages}
-              className="p-2 text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="p-2 text-foreground bg-card border border-border rounded-lg hover:bg-muted/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <ChevronRightIcon className="w-5 h-5" />
             </button>
             <button
               onClick={() => goToPage(totalPages)}
               disabled={currentPage === totalPages}
-              className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-3 py-2 text-sm font-medium text-foreground bg-card border border-border rounded-lg hover:bg-muted/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Son
             </button>

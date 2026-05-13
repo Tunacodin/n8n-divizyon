@@ -18,7 +18,7 @@ interface TabBarProps {
 
 export function TabBar({ tabs, activeTab, onChange, className }: TabBarProps) {
   return (
-    <div className={cn('flex gap-1 bg-gray-100 rounded-lg p-1', className)}>
+    <div className={cn('flex gap-1 bg-muted rounded-lg p-1', className)}>
       {tabs.map((tab) => {
         const active = activeTab === tab.key
         return (
@@ -28,8 +28,8 @@ export function TabBar({ tabs, activeTab, onChange, className }: TabBarProps) {
             className={cn(
               'flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors',
               active
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-500 hover:text-gray-700'
+                ? 'bg-card text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
             )}
           >
             {tab.dotColor && (
@@ -39,7 +39,7 @@ export function TabBar({ tabs, activeTab, onChange, className }: TabBarProps) {
             {tab.count !== undefined && (
               <span className={cn(
                 'text-xs px-1.5 py-0.5 rounded-full',
-                active ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-200 text-gray-500'
+                active ? 'bg-indigo-100 text-indigo-700' : 'bg-secondary text-muted-foreground'
               )}>
                 {tab.count}
               </span>

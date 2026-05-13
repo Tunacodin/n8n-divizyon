@@ -142,11 +142,11 @@ const KONTROL_CATEGORIES: BasvuruCategory[] = [
     icon: 'InformationCircleIcon',
     color: 'gray',
     colorClasses: {
-      bg: 'bg-gray-50',
-      text: 'text-gray-700',
-      border: 'border-gray-200',
-      badge: 'bg-gray-100 text-gray-700',
-      iconBg: 'bg-gray-100',
+      bg: 'bg-muted/50',
+      text: 'text-foreground',
+      border: 'border-border',
+      badge: 'bg-muted text-foreground',
+      iconBg: 'bg-muted',
     },
     fields: [
       {
@@ -418,36 +418,36 @@ export default function KontrolDetailModal({ data, onClose }: KontrolDetailModal
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ duration: 0.3, ease: [0.32, 0.72, 0, 1] }}
-            className="relative w-full max-w-5xl h-full bg-white shadow-2xl flex flex-col md:flex-row"
+            className="relative w-full max-w-5xl h-full bg-card shadow-2xl flex flex-col md:flex-row"
           >
             {/* === MOBILE LAYOUT === */}
             <div className="md:hidden flex-1 overflow-y-auto">
-              <div className="bg-gray-50 border-b border-gray-200 p-5">
+              <div className="bg-muted/50 border-b border-border p-5">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
                     <div className={`w-14 h-14 rounded-full flex items-center justify-center text-white text-lg font-bold ${avatarColor}`}>
                       {initials}
                     </div>
                     <div>
-                      <h2 className="text-lg font-bold text-gray-900">{name}</h2>
+                      <h2 className="text-lg font-bold text-foreground">{name}</h2>
                       {editOnayDurumu && (
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                          isKabul ? 'bg-green-100 text-green-700' : isRet ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'
+                          isKabul ? 'bg-green-100 text-green-700' : isRet ? 'bg-red-100 text-red-700' : 'bg-muted text-muted-foreground'
                         }`}>
                           {editOnayDurumu}
                         </span>
                       )}
                     </div>
                   </div>
-                  <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-200 transition-colors">
-                    <XMarkIcon className="w-5 h-5 text-gray-500" />
+                  <button onClick={onClose} className="p-2 rounded-lg hover:bg-secondary transition-colors">
+                    <XMarkIcon className="w-5 h-5 text-muted-foreground" />
                   </button>
                 </div>
                 {editReviewer && (
-                  <p className="text-xs text-gray-500"><span className="font-medium">Degerlendiren:</span> {editReviewer}</p>
+                  <p className="text-xs text-muted-foreground"><span className="font-medium">Degerlendiren:</span> {editReviewer}</p>
                 )}
                 {editNote && (
-                  <p className="text-xs text-gray-500 mt-1"><span className="font-medium">Not:</span> {editNote}</p>
+                  <p className="text-xs text-muted-foreground mt-1"><span className="font-medium">Not:</span> {editNote}</p>
                 )}
               </div>
 
@@ -480,11 +480,11 @@ export default function KontrolDetailModal({ data, onClose }: KontrolDetailModal
             </div>
 
             {/* Right Panel: Profile Card + Editable Fields */}
-            <div className="hidden md:flex w-80 flex-col border-l border-gray-200 bg-gray-50 overflow-y-auto">
+            <div className="hidden md:flex w-80 flex-col border-l border-border bg-muted/50 overflow-y-auto">
               {/* Close Button */}
               <div className="flex justify-end p-4 pb-0">
-                <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-200 transition-colors">
-                  <XMarkIcon className="w-5 h-5 text-gray-500" />
+                <button onClick={onClose} className="p-2 rounded-lg hover:bg-secondary transition-colors">
+                  <XMarkIcon className="w-5 h-5 text-muted-foreground" />
                 </button>
               </div>
 
@@ -495,22 +495,22 @@ export default function KontrolDetailModal({ data, onClose }: KontrolDetailModal
                 </div>
 
                 {/* Name */}
-                <h2 className="text-lg font-bold text-gray-900 text-center">{name}</h2>
+                <h2 className="text-lg font-bold text-foreground text-center">{name}</h2>
                 {email && (
-                  <p className="text-xs text-gray-400 mt-0.5">{email}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{email}</p>
                 )}
 
                 {/* Divider */}
-                <div className="w-full border-t border-gray-200 my-4" />
+                <div className="w-full border-t border-border my-4" />
 
                 {/* Editable: Onay Durumu */}
                 <div className="w-full">
-                  <label className="block text-xs font-medium text-gray-500 mb-1">Onay Durumu</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Onay Durumu</label>
                   <select
                     value={editOnayDurumu}
                     onChange={(e) => { setEditOnayDurumu(e.target.value); setSaveStatus('idle') }}
-                    className={`w-full text-sm border rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                      isKabul ? 'border-green-300 text-green-700' : isRet ? 'border-red-300 text-red-700' : 'border-gray-300 text-gray-700'
+                    className={`w-full text-sm border rounded-lg px-3 py-2 bg-card focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                      isKabul ? 'border-green-300 text-green-700' : isRet ? 'border-red-300 text-red-700' : 'border-border text-foreground'
                     }`}
                   >
                     {ONAY_OPTIONS.map((opt) => (
@@ -521,11 +521,11 @@ export default function KontrolDetailModal({ data, onClose }: KontrolDetailModal
 
                 {/* Editable: Degerlendiren */}
                 <div className="w-full mt-3">
-                  <label className="block text-xs font-medium text-gray-500 mb-1">Değerlendiren</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Değerlendiren</label>
                   <select
                     value={editReviewer}
                     onChange={(e) => { setEditReviewer(e.target.value); setSaveStatus('idle') }}
-                    className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-card focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
                     {DEGERLENDIREN_OPTIONS.map((opt) => (
                       <option key={opt} value={opt}>{opt || '-- Seç --'}</option>
@@ -535,13 +535,13 @@ export default function KontrolDetailModal({ data, onClose }: KontrolDetailModal
 
                 {/* Editable: Not */}
                 <div className="w-full mt-3">
-                  <label className="block text-xs font-medium text-gray-500 mb-1">Not</label>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Not</label>
                   <textarea
                     value={editNote}
                     onChange={(e) => { setEditNote(e.target.value); setSaveStatus('idle') }}
                     placeholder="Degerlendirme notu..."
                     rows={3}
-                    className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                    className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-card focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
                   />
                 </div>
 
@@ -633,20 +633,20 @@ export default function KontrolDetailModal({ data, onClose }: KontrolDetailModal
                   <>
                     {mailAtildiMi && (
                       <div className="w-full mt-3">
-                        <label className="block text-xs font-medium text-gray-500 mb-1">Mail Durumu</label>
-                        <p className="text-sm text-gray-700">{mailAtildiMi}</p>
+                        <label className="block text-xs font-medium text-muted-foreground mb-1">Mail Durumu</label>
+                        <p className="text-sm text-foreground">{mailAtildiMi}</p>
                       </div>
                     )}
 
-                    <div className="w-full border-t border-gray-200 my-4" />
+                    <div className="w-full border-t border-border my-4" />
 
                     <div className="w-full">
-                      <label className="block text-xs font-medium text-gray-500 mb-2">
+                      <label className="block text-xs font-medium text-muted-foreground mb-2">
                         {isKesinKabul ? 'Kabul Maili Gonder' : 'Red Maili Gonder'}
                       </label>
 
                       {!email ? (
-                        <p className="text-xs text-gray-400 italic">E-posta adresi bulunamadi</p>
+                        <p className="text-xs text-muted-foreground italic">E-posta adresi bulunamadi</p>
                       ) : sendStatus === 'success' ? (
                         <div className="flex items-center gap-2 text-green-600 bg-green-50 rounded-lg p-3">
                           <CheckCircleIcon className="w-5 h-5" />
@@ -664,7 +664,7 @@ export default function KontrolDetailModal({ data, onClose }: KontrolDetailModal
                               if (tmpl) setSubject(tmpl.subject)
                             }}
                             disabled={sendStatus === 'loading'}
-                            className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
+                            className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-card focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
                           >
                             <option value="">Template sec...</option>
                             {templates.map((t) => (
@@ -681,7 +681,7 @@ export default function KontrolDetailModal({ data, onClose }: KontrolDetailModal
                               if (sendStatus === 'confirm') setSendStatus('idle')
                             }}
                             disabled={sendStatus === 'loading'}
-                            className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
+                            className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-card focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
                           />
 
                           {sendStatus === 'confirm' && (
@@ -729,7 +729,7 @@ export default function KontrolDetailModal({ data, onClose }: KontrolDetailModal
                           {sendStatus === 'confirm' && (
                             <button
                               onClick={() => setSendStatus('idle')}
-                              className="w-full text-xs text-gray-500 hover:text-gray-700 py-1"
+                              className="w-full text-xs text-muted-foreground hover:text-foreground py-1"
                             >
                               Vazgec
                             </button>

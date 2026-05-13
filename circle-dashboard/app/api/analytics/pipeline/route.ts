@@ -1,29 +1,21 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase'
+import { prisma } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
-
-// Süreç analiz endpoint'i:
-//   1. Funnel cohort (ay bazli: basvuru → kontrol → kesin_kabul → nihai_uye)
-//   2. Time in status (her statuyde ort. / medyan / p90 gun)
-//   3. Reviewer performance (karar sayisi, kabul orani, ort. karar suresi)
-//
-// Analiz yalnizca n8n pipeline'indaki basvurulari kapsar —
-// Circle'dan senkronize edilen is_protected=true kayitlar haric.
 
 interface StatusEvent {
   application_id: string
   from_status: string | null
   to_status: string
   changed_by: string
-  created_at: string
+  created_at: Date | null
 }
 
 interface AppRow {
   id: string
   status: string
-  submitted_at: string | null
+  submitted_at: Date | null
   is_protected: boolean | null
 }
 
@@ -31,9 +23,9 @@ const ACTIVE_STATUSES = ['basvuru', 'kontrol', 'kesin_kabul', 'nihai_uye']
 const DECISION_STATUSES = new Set(['kesin_kabul', 'kesin_ret', 'nihai_olmayan'])
 const EXCLUDE_REVIEWERS = new Set(['system', 'dashboard', 'otomasyon', 'Otomasyon'])
 
-function monthKey(iso: string | null): string | null {
-  if (!iso) return null
-  const d = new Date(iso)
+function monthKey(date: Date | null): string | null {
+  if (!date) return null
+  const d = new Date(date)
   if (Number.isNaN(d.getTime())) return null
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
 }
@@ -45,28 +37,25 @@ function percentile(sorted: number[], p: number): number {
 }
 
 export async function GET() {
-  const db = createClient()
-
   try {
-    const [{ data: apps, error: e1 }, { data: history, error: e2 }] = await Promise.all([
-      db.from('applications')
-        .select('id, status, submitted_at, is_protected')
-        .or('is_protected.is.null,is_protected.eq.false'),
-      db.from('status_history')
-        .select('application_id, from_status, to_status, changed_by, created_at')
-        .order('created_at', { ascending: true }),
+    const [apps, history] = await Promise.all([
+      prisma.applications.findMany({
+        where: { is_protected: false },
+        select: { id: true, status: true, submitted_at: true, is_protected: true },
+      }),
+      prisma.status_history.findMany({
+        select: { application_id: true, from_status: true, to_status: true, changed_by: true, created_at: true },
+        orderBy: { created_at: 'asc' },
+      }),
     ])
-    if (e1) throw e1
-    if (e2) throw e2
 
-    const rows = (apps || []) as AppRow[]
-    const events = (history || []) as StatusEvent[]
+    const rows = apps as AppRow[]
+    const events = history as StatusEvent[]
 
-    const appById = new Map(rows.map(r => [r.id, r]))
-    // Pipeline disindaki app'lere ait event'leri at (is_protected=true olabilir)
-    const validEvents = events.filter(e => appById.has(e.application_id))
+    const appById = new Map(rows.map((r) => [r.id, r]))
+    const validEvents = events.filter((e) => appById.has(e.application_id))
 
-    // ─── 1. Funnel cohort (aylik) ───
+    // Funnel cohort
     const cohortMap = new Map<string, {
       month: string
       basvuru: number
@@ -83,8 +72,7 @@ export async function GET() {
       }
       cohortMap.get(m)!.basvuru++
     }
-    // Kontrol / Kesin Kabul / Nihai Uye: her app icin status_history'den bakiyoruz
-    // (bir app yolculugunda hangi statuyleri gordu?)
+
     const journeyByApp = new Map<string, Set<string>>()
     for (const e of validEvents) {
       if (!journeyByApp.has(e.application_id)) journeyByApp.set(e.application_id, new Set())
@@ -95,16 +83,14 @@ export async function GET() {
       if (!m || !cohortMap.has(m)) continue
       const c = cohortMap.get(m)!
       const journey = journeyByApp.get(r.id) || new Set([r.status])
-      // Basvuru zaten sayildi (tum rows)
-      if (journey.has('kontrol') || ACTIVE_STATUSES.slice(1).some(s => journey.has(s))) c.kontrol++
+      if (journey.has('kontrol') || ACTIVE_STATUSES.slice(1).some((s) => journey.has(s))) c.kontrol++
       if (journey.has('kesin_kabul') || journey.has('nihai_uye')) c.kesin_kabul++
       if (journey.has('nihai_uye')) c.nihai_uye++
       if (journey.has('kesin_ret')) c.kesin_ret++
     }
     const cohorts = Array.from(cohortMap.values()).sort((a, b) => a.month.localeCompare(b.month))
 
-    // ─── 2. Time in status ───
-    // Her app icin ardisik eventleri kullanarak her statuyde ne kadar kaldi hesapla
+    // Time in status
     const eventsByApp = new Map<string, StatusEvent[]>()
     for (const e of validEvents) {
       if (!eventsByApp.has(e.application_id)) eventsByApp.set(e.application_id, [])
@@ -113,25 +99,23 @@ export async function GET() {
 
     const durationsByStatus: Record<string, number[]> = {}
     eventsByApp.forEach((evs, appId) => {
-      // Her event "to_status" baslangici. Bir sonraki event'e kadar ya da su anki zamana kadar.
       const sorted = evs.slice().sort((a, b) =>
-        new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+        (new Date(a.created_at || 0)).getTime() - (new Date(b.created_at || 0)).getTime())
       for (let i = 0; i < sorted.length; i++) {
         const cur = sorted[i]
         const nextTs = i + 1 < sorted.length
-          ? new Date(sorted[i + 1].created_at).getTime()
+          ? new Date(sorted[i + 1].created_at || 0).getTime()
           : Date.now()
-        const durMs = nextTs - new Date(cur.created_at).getTime()
+        const durMs = nextTs - new Date(cur.created_at || 0).getTime()
         const durDays = durMs / 86400000
         if (durDays < 0) continue
         const status = cur.to_status
         if (!durationsByStatus[status]) durationsByStatus[status] = []
         durationsByStatus[status].push(durDays)
       }
-      // Ilk event'ten once "basvuru" statusu vardir (submitted_at → ilk transition)
       const app = appById.get(appId)
       if (app?.submitted_at && sorted.length > 0) {
-        const firstTs = new Date(sorted[0].created_at).getTime()
+        const firstTs = new Date(sorted[0].created_at || 0).getTime()
         const submittedTs = new Date(app.submitted_at).getTime()
         const dur = (firstTs - submittedTs) / 86400000
         if (dur >= 0) {
@@ -140,7 +124,6 @@ export async function GET() {
         }
       }
     })
-    // Hic event'i olmayan, halen ilk status'ta bekleyen app'ler
     for (const r of rows) {
       if (eventsByApp.has(r.id)) continue
       if (!r.submitted_at) continue
@@ -165,7 +148,7 @@ export async function GET() {
       return order.indexOf(a.status) - order.indexOf(b.status)
     })
 
-    // ─── 3. Reviewer performance ───
+    // Reviewer performance
     const reviewerMap = new Map<string, {
       name: string
       decisions: number
@@ -175,14 +158,13 @@ export async function GET() {
       decision_times_hours: number[]
     }>()
 
-    // Her app icin "kontrol'e giris" zamani ve "karar" eventi arasindaki fark
     eventsByApp.forEach((evs) => {
       const sorted = evs.slice().sort((a, b) =>
-        new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+        (new Date(a.created_at || 0)).getTime() - (new Date(b.created_at || 0)).getTime())
       let kontrolEnterTs: number | null = null
       for (const e of sorted) {
         if (e.to_status === 'kontrol') {
-          kontrolEnterTs = new Date(e.created_at).getTime()
+          kontrolEnterTs = new Date(e.created_at || 0).getTime()
         }
         if (DECISION_STATUSES.has(e.to_status) && !EXCLUDE_REVIEWERS.has(e.changed_by)) {
           const reviewer = e.changed_by
@@ -197,7 +179,7 @@ export async function GET() {
           else if (e.to_status === 'kesin_ret') r.reject++
           else if (e.to_status === 'nihai_olmayan') r.reject++
           if (kontrolEnterTs) {
-            const hrs = (new Date(e.created_at).getTime() - kontrolEnterTs) / 3600000
+            const hrs = (new Date(e.created_at || 0).getTime() - kontrolEnterTs) / 3600000
             if (hrs >= 0) r.decision_times_hours.push(hrs)
           }
         }
@@ -213,7 +195,7 @@ export async function GET() {
       }
     })
 
-    const reviewers = Array.from(reviewerMap.values()).map(r => {
+    const reviewers = Array.from(reviewerMap.values()).map((r) => {
       const sorted = r.decision_times_hours.slice().sort((a, b) => a - b)
       const sum = sorted.reduce((s, v) => s + v, 0)
       return {

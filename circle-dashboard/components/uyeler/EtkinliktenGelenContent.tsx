@@ -19,8 +19,8 @@ const SOURCE_META: Record<Exclude<SourceKey, 'all'>, { label: string; color: str
   circle_event:            { label: 'Etkinlik',        color: 'bg-cyan-100 text-cyan-700' },
   circle_pre_panel:        { label: 'Panel Öncesi',    color: 'bg-violet-100 text-violet-700' },
   circle_existing_match:   { label: 'Mevcut Eşleşme',  color: 'bg-blue-100 text-blue-700' },
-  manual:                  { label: 'Manuel',          color: 'bg-gray-100 text-gray-700' },
-  other:                   { label: 'Diğer',           color: 'bg-gray-100 text-gray-600' },
+  manual:                  { label: 'Manuel',          color: 'bg-muted text-foreground' },
+  other:                   { label: 'Diğer',           color: 'bg-muted text-muted-foreground' },
 }
 
 function mapSource(raw: unknown): Exclude<SourceKey, 'all'> {
@@ -131,21 +131,21 @@ export default function EtkinliktenGelenContent() {
   const isEmpty = !loading && data.length === 0
 
   return (
-    <div className="min-h-screen bg-[#FAFBFC]">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="bg-white border-b border-gray-100 px-8 py-6">
+      <div className="bg-card border-b border-border px-8 py-6">
         <div className="flex items-start justify-between flex-wrap gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Etkinlikten Gelen Üyeler</h1>
-            <p className="text-sm text-gray-500 mt-1">
+            <h1 className="text-2xl font-bold text-foreground">Etkinlikten Gelen Üyeler</h1>
+            <p className="text-sm text-muted-foreground mt-1">
               Circle'da kayıtlı olan ama n8n başvuru formuna düşmemiş üyeler
             </p>
-            <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
+            <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
               <span className="inline-flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
-                Son kontrol: <span className="font-medium text-gray-700">{formatRelative(lastSyncedAt)}</span>
+                Son kontrol: <span className="font-medium text-foreground">{formatRelative(lastSyncedAt)}</span>
                 {lastSyncedAt && (
-                  <span className="text-gray-400">
+                  <span className="text-muted-foreground">
                     ({new Date(lastSyncedAt).toLocaleString('tr-TR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })})
                   </span>
                 )}
@@ -153,7 +153,7 @@ export default function EtkinliktenGelenContent() {
               {totalCircle !== null && (
                 <>
                   <span className="text-gray-300">·</span>
-                  <span>Circle'da toplam <span className="font-medium text-gray-700">{totalCircle}</span> üye</span>
+                  <span>Circle'da toplam <span className="font-medium text-foreground">{totalCircle}</span> üye</span>
                 </>
               )}
             </div>
@@ -168,14 +168,14 @@ export default function EtkinliktenGelenContent() {
 
       <div className="p-8">
         {isEmpty ? (
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col items-center justify-center py-20 px-8">
+          <div className="bg-card rounded-xl border border-border shadow-sm flex flex-col items-center justify-center py-20 px-8">
             <div className="w-14 h-14 rounded-2xl bg-green-50 flex items-center justify-center mb-4">
               <CheckCircleIcon className="w-8 h-8 text-green-500" />
             </div>
-            <h2 className="text-lg font-semibold text-gray-900 mb-1">
+            <h2 className="text-lg font-semibold text-foreground mb-1">
               Tüm Circle üyeleri başvuru yapmış
             </h2>
-            <p className="text-sm text-gray-500 text-center max-w-md">
+            <p className="text-sm text-muted-foreground text-center max-w-md">
               Circle'da kayıtlı her üyenin n8n başvuru formunda da bir kaydı var.
               Etkinlikten veya dışarıdan sisteme girenler burada listelenir.
             </p>
@@ -192,12 +192,12 @@ export default function EtkinliktenGelenContent() {
                   <button
                     key={k}
                     onClick={() => { setSource(active ? 'all' : (k as SourceKey)); setPage(1) }}
-                    className={`bg-white rounded-lg border p-3 text-left transition-all ${
-                      active ? 'border-cyan-300 ring-2 ring-cyan-100' : 'border-gray-200 hover:border-gray-300'
+                    className={`bg-card rounded-lg border p-3 text-left transition-all ${
+                      active ? 'border-cyan-300 ring-2 ring-cyan-100' : 'border-border hover:border-border'
                     }`}
                   >
-                    <p className="text-xs font-medium text-gray-500">{meta.label}</p>
-                    <p className="text-xl font-bold text-gray-900 mt-1">{count}</p>
+                    <p className="text-xs font-medium text-muted-foreground">{meta.label}</p>
+                    <p className="text-xl font-bold text-foreground mt-1">{count}</p>
                   </button>
                 )
               })}
@@ -205,18 +205,18 @@ export default function EtkinliktenGelenContent() {
 
             {/* Tabs + Arama */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div className="flex gap-1 bg-white rounded-lg border border-gray-200 p-1 overflow-x-auto">
+              <div className="flex gap-1 bg-card rounded-lg border border-border p-1 overflow-x-auto">
                 {sourceTabs.map((t) => (
                   <button
                     key={t.key}
                     onClick={() => { setSource(t.key); setPage(1) }}
                     className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
-                      source === t.key ? 'bg-cyan-50 text-cyan-700' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                      source === t.key ? 'bg-cyan-50 text-cyan-700' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
                     }`}
                   >
                     {t.label}
                     <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-xs ${
-                      source === t.key ? 'bg-cyan-100 text-cyan-700' : 'bg-gray-100 text-gray-500'
+                      source === t.key ? 'bg-cyan-100 text-cyan-700' : 'bg-muted text-muted-foreground'
                     }`}>
                       {t.count}
                     </span>
@@ -225,43 +225,43 @@ export default function EtkinliktenGelenContent() {
               </div>
 
               <div className="relative">
-                <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <input
                   type="text"
                   placeholder="İsim, e-posta veya telefon..."
                   value={search}
                   onChange={(e) => { setSearch(e.target.value); setPage(1) }}
-                  className="pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm w-64 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+                  className="pl-9 pr-4 py-2 border border-border rounded-lg text-sm w-64 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
                 />
               </div>
             </div>
 
             {/* Tablo */}
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-gray-100 bg-gray-50/50">
-                    <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-3">Üye</th>
-                    <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-3">E-Posta</th>
-                    <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-3">Telefon</th>
-                    <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-3">Kaynak</th>
-                    <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-3">Circle'a Katılım</th>
+                  <tr className="border-b border-border bg-muted/50/50">
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-6 py-3">Üye</th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-6 py-3">E-Posta</th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-6 py-3">Telefon</th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-6 py-3">Kaynak</th>
+                    <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-6 py-3">Circle'a Katılım</th>
                   </tr>
                 </thead>
                 <tbody>
                   {loading ? (
                     Array.from({ length: 5 }).map((_, i) => (
                       <tr key={i} className="border-b border-gray-50">
-                        <td className="px-6 py-4"><div className="h-4 w-32 bg-gray-200 rounded animate-pulse" /></td>
-                        <td className="px-6 py-4"><div className="h-4 w-40 bg-gray-200 rounded animate-pulse" /></td>
-                        <td className="px-6 py-4"><div className="h-4 w-28 bg-gray-200 rounded animate-pulse" /></td>
-                        <td className="px-6 py-4"><div className="h-4 w-20 bg-gray-200 rounded animate-pulse" /></td>
-                        <td className="px-6 py-4"><div className="h-4 w-24 bg-gray-200 rounded animate-pulse" /></td>
+                        <td className="px-6 py-4"><div className="h-4 w-32 bg-secondary rounded animate-pulse" /></td>
+                        <td className="px-6 py-4"><div className="h-4 w-40 bg-secondary rounded animate-pulse" /></td>
+                        <td className="px-6 py-4"><div className="h-4 w-28 bg-secondary rounded animate-pulse" /></td>
+                        <td className="px-6 py-4"><div className="h-4 w-20 bg-secondary rounded animate-pulse" /></td>
+                        <td className="px-6 py-4"><div className="h-4 w-24 bg-secondary rounded animate-pulse" /></td>
                       </tr>
                     ))
                   ) : paginated.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="text-center py-12 text-gray-400 text-sm">
+                      <td colSpan={5} className="text-center py-12 text-muted-foreground text-sm">
                         Kayıt bulunamadı
                       </td>
                     </tr>
@@ -279,33 +279,33 @@ export default function EtkinliktenGelenContent() {
                         <tr
                           key={idx}
                           onClick={() => setSelected(m)}
-                          className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors cursor-pointer"
+                          className="border-b border-gray-50 hover:bg-muted/50/50 transition-colors cursor-pointer"
                         >
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-3">
                               {avatar ? (
                                 // eslint-disable-next-line @next/next/no-img-element
-                                <img src={avatar} alt={name} className="w-8 h-8 rounded-full object-cover border border-gray-100" />
+                                <img src={avatar} alt={name} className="w-8 h-8 rounded-full object-cover border border-border" />
                               ) : (
                                 <div className="w-8 h-8 rounded-full bg-cyan-100 flex items-center justify-center text-xs font-semibold text-cyan-700">
                                   {initials || '—'}
                                 </div>
                               )}
-                              <span className="text-sm font-medium text-gray-900">{name}</span>
+                              <span className="text-sm font-medium text-foreground">{name}</span>
                               <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 font-semibold" title="Circle üyesi — salt okunur">
                                 🔒
                               </span>
                             </div>
                           </td>
-                          <td className="px-6 py-4 text-sm text-gray-600">{email}</td>
-                          <td className="px-6 py-4 text-sm text-gray-600">{phone}</td>
+                          <td className="px-6 py-4 text-sm text-muted-foreground">{email}</td>
+                          <td className="px-6 py-4 text-sm text-muted-foreground">{phone}</td>
                           <td className="px-6 py-4">
                             <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${srcMeta.color}`}>
                               <TicketIcon className="w-3 h-3" />
                               {srcMeta.label}
                             </span>
                           </td>
-                          <td className="px-6 py-4 text-sm text-gray-600">{joinedAt}</td>
+                          <td className="px-6 py-4 text-sm text-muted-foreground">{joinedAt}</td>
                         </tr>
                       )
                     })
@@ -315,27 +315,27 @@ export default function EtkinliktenGelenContent() {
 
               {/* Pagination */}
               {totalPages > 1 && (
-                <div className="flex items-center justify-between px-6 py-3 border-t border-gray-100 bg-gray-50/50">
-                  <span className="text-xs text-gray-500">
+                <div className="flex items-center justify-between px-6 py-3 border-t border-border bg-muted/50/50">
+                  <span className="text-xs text-muted-foreground">
                     {filtered.length} kayıttan {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, filtered.length)} gösteriliyor
                   </span>
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => setPage((p) => Math.max(1, p - 1))}
                       disabled={page === 1}
-                      className="p-1.5 rounded-md hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                      className="p-1.5 rounded-md hover:bg-secondary disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                     >
-                      <ChevronLeftIcon className="w-4 h-4 text-gray-600" />
+                      <ChevronLeftIcon className="w-4 h-4 text-muted-foreground" />
                     </button>
-                    <span className="text-xs text-gray-600 px-2">
+                    <span className="text-xs text-muted-foreground px-2">
                       {page} / {totalPages}
                     </span>
                     <button
                       onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                       disabled={page === totalPages}
-                      className="p-1.5 rounded-md hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                      className="p-1.5 rounded-md hover:bg-secondary disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                     >
-                      <ChevronRightIcon className="w-4 h-4 text-gray-600" />
+                      <ChevronRightIcon className="w-4 h-4 text-muted-foreground" />
                     </button>
                   </div>
                 </div>
