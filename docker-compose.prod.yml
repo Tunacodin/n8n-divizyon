@@ -1,0 +1,139 @@
+# Production stack — single VPS, divizyon.org subdomains
+#
+# Kurulum:
+#   1. DNS: dashboard.divizyon.org + n8n.divizyon.org -> VPS public IP (A record)
+#   2. Port 80 + 443 firewall'da open (Caddy ACME challenge + HTTPS)
+#   3. .env.prod.example -> .env.prod kopyala, gercek degerleri doldur
+#   4. docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+#
+# Dev override (docker-compose.override.yml) bu dosyayla birlikte yuklenmez —
+# yalniz dev'de etkili. Prod stack tamamen self-contained.
+
+services:
+  # ── Caddy: TLS + reverse proxy (Let's Encrypt otomatik) ──
+  caddy:
+    image: caddy:2-alpine
+    container_name: divizyon-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./circle-dashboard/caddy/Caddyfile.prod:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      ACME_EMAIL: ${ACME_EMAIL}
+    networks:
+      - public
+    depends_on:
+      - next-app
+      - n8n
+
+  # ── Dashboard (Next.js standalone) ───────────────────────
+  next-app:
+    build:
+      context: ./circle-dashboard
+      dockerfile: Dockerfile
+      target: runner
+    image: divizyon-dashboard:latest
+    container_name: divizyon-dashboard
+    restart: unless-stopped
+    env_file:
+      - .env.prod
+    networks:
+      - public
+      - dashboard-db
+    depends_on:
+      dashboard-postgres:
+        condition: service_healthy
+
+  dashboard-postgres:
+    image: postgres:16-alpine
+    container_name: divizyon-dashboard-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - dashboard_pgdata:/var/lib/postgresql/data
+    networks:
+      - dashboard-db
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── n8n + ayrik postgres ─────────────────────────────────
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: divizyon-n8n
+    restart: unless-stopped
+    environment:
+      N8N_HOST: n8n.divizyon.org
+      N8N_PROTOCOL: https
+      N8N_PORT: 5678
+      WEBHOOK_URL: https://n8n.divizyon.org/
+      N8N_EDITOR_BASE_URL: https://n8n.divizyon.org/
+      N8N_PROXY_HOPS: 1
+      N8N_SECURE_COOKIE: "true"
+      N8N_TRUST_PROXY: "true"
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: n8n-postgres
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: ${N8N_DB_NAME}
+      DB_POSTGRESDB_USER: ${N8N_DB_USER}
+      DB_POSTGRESDB_PASSWORD: ${N8N_DB_PASSWORD}
+      N8N_BASIC_AUTH_ACTIVE: "true"
+      N8N_BASIC_AUTH_USER: ${N8N_BASIC_AUTH_USER}
+      N8N_BASIC_AUTH_PASSWORD: ${N8N_BASIC_AUTH_PASSWORD}
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_VERSION_NOTIFICATIONS_ENABLED: "false"
+      GENERIC_TIMEZONE: Europe/Istanbul
+      TZ: Europe/Istanbul
+    volumes:
+      - n8n_data:/home/node/.n8n
+    networks:
+      - public
+      - n8n-db
+    depends_on:
+      n8n-postgres:
+        condition: service_healthy
+
+  n8n-postgres:
+    image: postgres:16-alpine
+    container_name: divizyon-n8n-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${N8N_DB_NAME}
+      POSTGRES_USER: ${N8N_DB_USER}
+      POSTGRES_PASSWORD: ${N8N_DB_PASSWORD}
+    volumes:
+      - n8n_pgdata:/var/lib/postgresql/data
+    networks:
+      - n8n-db
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${N8N_DB_USER} -d ${N8N_DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  public:
+    name: divizyon-public
+  dashboard-db:
+    name: divizyon-dashboard-db
+    internal: true
+  n8n-db:
+    name: divizyon-n8n-db
+    internal: true
+
+volumes:
+  caddy_data:
+  caddy_config:
+  dashboard_pgdata:
+  n8n_pgdata:
+  n8n_data:

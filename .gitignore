@@ -21,3 +21,13 @@ workflows.json
 # Google OAuth credentials — NEVER commit these
 client_secret.json
 client_secret_*.json
+
+# Env files — sirlar; sadece .example git'e girer
+.env
+.env.local
+.env.prod
+.env.production
+.env.*.local
+!.env.*.example
+!.env.docker.example
+!.env.local-docker.example

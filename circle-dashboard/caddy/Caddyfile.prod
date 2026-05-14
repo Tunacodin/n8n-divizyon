@@ -1,0 +1,50 @@
+# Production Caddyfile — divizyon.org subdomains, auto-HTTPS via Let's Encrypt
+#
+# Global ayarlar
+{
+    email {$ACME_EMAIL}
+    # admin endpoint sadece local'den
+    admin localhost:2019
+}
+
+# ── Dashboard ────────────────────────────────────────────
+dashboard.divizyon.org {
+    encode zstd gzip
+
+    request_body {
+        max_size 50MB
+    }
+
+    reverse_proxy next-app:3000 {
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+
+    log {
+        output stdout
+        format console
+        level INFO
+    }
+}
+
+# ── n8n ──────────────────────────────────────────────────
+n8n.divizyon.org {
+    encode zstd gzip
+
+    # n8n binary upload + webhook payload icin esnek
+    request_body {
+        max_size 100MB
+    }
+
+    # n8n WebSocket gerektirir (editor canli baglanti)
+    reverse_proxy n8n:5678 {
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+
+    log {
+        output stdout
+        format console
+        level INFO
+    }
+}
