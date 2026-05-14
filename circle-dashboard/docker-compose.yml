@@ -50,6 +50,58 @@ services:
     depends_on:
       - next-app
 
+  # ── n8n + ayrik postgres ───────────────────────────────
+  # Lokal gelistirme icin: bulut n8n'a bagimli olmadan workflow gelistirme
+  # Production stack (docker-compose.prod.yml) icindeki n8n ile ayni surum
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: circle-dashboard-n8n
+    restart: unless-stopped
+    environment:
+      N8N_HOST: localhost
+      N8N_PORT: 5678
+      N8N_PROTOCOL: http
+      WEBHOOK_URL: http://localhost:5678/
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: n8n-postgres
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: ${N8N_DB_NAME:-n8n}
+      DB_POSTGRESDB_USER: ${N8N_DB_USER:-n8n}
+      DB_POSTGRESDB_PASSWORD: ${N8N_DB_PASSWORD:-n8n}
+      N8N_BASIC_AUTH_ACTIVE: "true"
+      N8N_BASIC_AUTH_USER: ${N8N_BASIC_AUTH_USER:-admin}
+      N8N_BASIC_AUTH_PASSWORD: ${N8N_BASIC_AUTH_PASSWORD:-admin}
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:-dev_local_change_for_prod_with_openssl_rand_hex_32}
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_VERSION_NOTIFICATIONS_ENABLED: "false"
+      GENERIC_TIMEZONE: Europe/Istanbul
+      TZ: Europe/Istanbul
+    volumes:
+      - n8n_data:/home/node/.n8n
+    networks:
+      - app-network
+    depends_on:
+      n8n-postgres:
+        condition: service_healthy
+
+  n8n-postgres:
+    image: postgres:16-alpine
+    container_name: circle-dashboard-n8n-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${N8N_DB_NAME:-n8n}
+      POSTGRES_USER: ${N8N_DB_USER:-n8n}
+      POSTGRES_PASSWORD: ${N8N_DB_PASSWORD:-n8n}
+    volumes:
+      - n8n_pgdata:/var/lib/postgresql/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${N8N_DB_USER:-n8n} -d ${N8N_DB_NAME:-n8n}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 networks:
   app-network:
     driver: bridge
@@ -58,3 +110,5 @@ volumes:
   pgdata:
   caddy_data:
   caddy_config:
+  n8n_data:
+  n8n_pgdata:

@@ -31,6 +31,10 @@ services:
     ports:
       - "5433:5432"   # DB istemcileri (host'ta 5432 baska proje icin meşgul)
 
+  n8n:
+    ports:
+      - "5678:5678"   # n8n editor → http://localhost:5678 (basic auth)
+
   prisma-studio:
     build:
       context: .
