@@ -1,14 +1,13 @@
 'use client'
 
-import { useEffect, useCallback, useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { useState, useEffect, useCallback } from 'react'
 import {
-  XMarkIcon,
   EnvelopeIcon,
   CheckCircleIcon,
   ExclamationCircleIcon,
   PencilSquareIcon,
 } from '@heroicons/react/24/outline'
+import { Dialog } from '@/components/ui/Dialog'
 import { BasvuruCategory } from '../basvuru/basvuru-constants'
 import BasvuruCategorySection from '../basvuru/BasvuruCategorySection'
 
@@ -32,11 +31,11 @@ const KONTROL_CATEGORIES: BasvuruCategory[] = [
     icon: 'VideoCameraIcon',
     color: 'amber',
     colorClasses: {
-      bg: 'bg-amber-50',
-      text: 'text-amber-700',
-      border: 'border-amber-200',
-      badge: 'bg-amber-100 text-amber-700',
-      iconBg: 'bg-amber-100',
+      bg: 'bg-warning/10',
+      text: 'text-warning',
+      border: 'border-warning/30',
+      badge: 'bg-warning/15 text-warning dark:text-warning',
+      iconBg: 'bg-warning/15',
     },
     fields: [
       {
@@ -57,11 +56,11 @@ const KONTROL_CATEGORIES: BasvuruCategory[] = [
     icon: 'SparklesIcon',
     color: 'purple',
     colorClasses: {
-      bg: 'bg-purple-50',
-      text: 'text-purple-700',
-      border: 'border-purple-200',
-      badge: 'bg-purple-100 text-purple-700',
-      iconBg: 'bg-purple-100',
+      bg: 'bg-primary/5',
+      text: 'text-primary',
+      border: 'border-primary/30',
+      badge: 'bg-primary/15 text-primary',
+      iconBg: 'bg-primary/15',
     },
     fields: [
       {
@@ -77,11 +76,11 @@ const KONTROL_CATEGORIES: BasvuruCategory[] = [
     icon: 'ChatBubbleLeftRightIcon',
     color: 'blue',
     colorClasses: {
-      bg: 'bg-blue-50',
-      text: 'text-blue-700',
-      border: 'border-blue-200',
-      badge: 'bg-blue-100 text-blue-700',
-      iconBg: 'bg-blue-100',
+      bg: 'bg-info/10',
+      text: 'text-info',
+      border: 'border-info/30',
+      badge: 'bg-info/15 text-info',
+      iconBg: 'bg-info/15',
     },
     fields: [
       {
@@ -97,11 +96,11 @@ const KONTROL_CATEGORIES: BasvuruCategory[] = [
     icon: 'SparklesIcon',
     color: 'green',
     colorClasses: {
-      bg: 'bg-green-50',
-      text: 'text-green-700',
-      border: 'border-green-200',
-      badge: 'bg-green-100 text-green-700',
-      iconBg: 'bg-green-100',
+      bg: 'bg-success/10',
+      text: 'text-success',
+      border: 'border-success/30',
+      badge: 'bg-success/15 text-success',
+      iconBg: 'bg-success/15',
     },
     fields: [
       {
@@ -123,10 +122,10 @@ const KONTROL_CATEGORIES: BasvuruCategory[] = [
     color: 'rose',
     colorClasses: {
       bg: 'bg-rose-50',
-      text: 'text-rose-700',
+      text: 'text-rose-600 dark:text-rose-400',
       border: 'border-rose-200',
-      badge: 'bg-rose-100 text-rose-700',
-      iconBg: 'bg-rose-100',
+      badge: 'bg-rose-500/15 text-rose-600 dark:text-rose-400',
+      iconBg: 'bg-rose-500/15',
     },
     fields: [
       {
@@ -330,8 +329,8 @@ export default function KontrolDetailModal({ data, onClose }: KontrolDetailModal
     .slice(0, 2)
 
   const colors = [
-    'bg-blue-500', 'bg-indigo-500', 'bg-purple-500', 'bg-pink-500',
-    'bg-rose-500', 'bg-amber-500', 'bg-emerald-500', 'bg-teal-500',
+    'bg-primary', 'bg-primary', 'bg-primary', 'bg-pink-500',
+    'bg-rose-500', 'bg-warning', 'bg-success', 'bg-teal-500',
   ]
   const colorIndex = name.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0) % colors.length
   const avatarColor = colors[colorIndex]
@@ -399,49 +398,26 @@ export default function KontrolDetailModal({ data, onClose }: KontrolDetailModal
   }
 
   return (
-    <AnimatePresence>
+    <Dialog open={!!data} onClose={onClose} size="2xl">
       {data && (
-        <div className="fixed inset-0 z-50 flex justify-end">
-          {/* Backdrop */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-            onClick={onClose}
-          />
-
-          {/* Drawer Panel */}
-          <motion.div
-            initial={{ x: '100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '100%' }}
-            transition={{ duration: 0.3, ease: [0.32, 0.72, 0, 1] }}
-            className="relative w-full max-w-5xl h-full bg-card shadow-2xl flex flex-col md:flex-row"
-          >
+        <div className="flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden">
             {/* === MOBILE LAYOUT === */}
             <div className="md:hidden flex-1 overflow-y-auto">
-              <div className="bg-muted/50 border-b border-border p-5">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-14 h-14 rounded-full flex items-center justify-center text-white text-lg font-bold ${avatarColor}`}>
-                      {initials}
-                    </div>
-                    <div>
-                      <h2 className="text-lg font-bold text-foreground">{name}</h2>
-                      {editOnayDurumu && (
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                          isKabul ? 'bg-green-100 text-green-700' : isRet ? 'bg-red-100 text-red-700' : 'bg-muted text-muted-foreground'
-                        }`}>
-                          {editOnayDurumu}
-                        </span>
-                      )}
-                    </div>
+              <div className="bg-muted/50 border-b border-border p-5 pr-14">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className={`w-14 h-14 rounded-full flex items-center justify-center text-white text-lg font-bold shrink-0 ${avatarColor}`}>
+                    {initials}
                   </div>
-                  <button onClick={onClose} className="p-2 rounded-lg hover:bg-secondary transition-colors">
-                    <XMarkIcon className="w-5 h-5 text-muted-foreground" />
-                  </button>
+                  <div className="min-w-0">
+                    <h2 className="text-lg font-bold text-foreground truncate">{name}</h2>
+                    {editOnayDurumu && (
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                        isKabul ? 'bg-success/15 text-success' : isRet ? 'bg-destructive/15 text-destructive' : 'bg-muted text-muted-foreground'
+                      }`}>
+                        {editOnayDurumu}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 {editReviewer && (
                   <p className="text-xs text-muted-foreground"><span className="font-medium">Degerlendiren:</span> {editReviewer}</p>
@@ -480,15 +456,8 @@ export default function KontrolDetailModal({ data, onClose }: KontrolDetailModal
             </div>
 
             {/* Right Panel: Profile Card + Editable Fields */}
-            <div className="hidden md:flex w-80 flex-col border-l border-border bg-muted/50 overflow-y-auto">
-              {/* Close Button */}
-              <div className="flex justify-end p-4 pb-0">
-                <button onClick={onClose} className="p-2 rounded-lg hover:bg-secondary transition-colors">
-                  <XMarkIcon className="w-5 h-5 text-muted-foreground" />
-                </button>
-              </div>
-
-              <div className="flex flex-col items-center px-6 pb-6">
+            <div className="hidden md:flex w-80 shrink-0 flex-col border-l border-border bg-muted/50 overflow-y-auto">
+              <div className="flex flex-col items-center px-6 pt-6 pb-6 pr-14">
                 {/* Avatar */}
                 <div className={`w-20 h-20 rounded-full flex items-center justify-center text-white text-2xl font-bold mb-3 ${avatarColor}`}>
                   {initials}
@@ -508,9 +477,31 @@ export default function KontrolDetailModal({ data, onClose }: KontrolDetailModal
                   <label className="block text-xs font-medium text-muted-foreground mb-1">Onay Durumu</label>
                   <select
                     value={editOnayDurumu}
-                    onChange={(e) => { setEditOnayDurumu(e.target.value); setSaveStatus('idle') }}
-                    className={`w-full text-sm border rounded-lg px-3 py-2 bg-card focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                      isKabul ? 'border-green-300 text-green-700' : isRet ? 'border-red-300 text-red-700' : 'border-border text-foreground'
+                    onChange={(e) => {
+                      const val = e.target.value
+                      setEditOnayDurumu(val)
+                      setSaveStatus('idle')
+                      // Mail template auto-suggest — PDF akışına göre
+                      if (selectedTemplateId) return // kullanıcı zaten seçmiş, dokunma
+                      const note = ((editNote || data?.review_note || '') as string).toLowerCase()
+                      const isUnder18 = data?.status === 'yas_kucuk' || (note.includes('18') && (note.includes('yas') || note.includes('yaş')))
+                      let suggestId: string | null = null
+                      if (val === 'Kesin Kabul') suggestId = 'kesin-kabul'
+                      else if (val === 'Kesin Ret') {
+                        if (isUnder18) suggestId = 'kesin-ret-18yas'
+                        else if (note.includes('topluluk') && note.includes('ilke')) suggestId = 'kesin-ret-topluluk'
+                        else suggestId = 'kesin-ret'
+                      }
+                      if (suggestId) {
+                        const tmpl = templates.find((t) => t.id === suggestId)
+                        if (tmpl) {
+                          setSelectedTemplateId(suggestId)
+                          if (!subject) setSubject(tmpl.subject || '')
+                        }
+                      }
+                    }}
+                    className={`w-full text-sm border rounded-lg px-3 py-2 bg-card focus:ring-2 focus:ring-ring focus:border-primary ${
+                      isKabul ? 'border-green-300 text-success' : isRet ? 'border-red-300 text-destructive' : 'border-border text-foreground'
                     }`}
                   >
                     {ONAY_OPTIONS.map((opt) => (
@@ -525,7 +516,7 @@ export default function KontrolDetailModal({ data, onClose }: KontrolDetailModal
                   <select
                     value={editReviewer}
                     onChange={(e) => { setEditReviewer(e.target.value); setSaveStatus('idle') }}
-                    className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-card focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-card focus:ring-2 focus:ring-ring focus:border-primary"
                   >
                     {DEGERLENDIREN_OPTIONS.map((opt) => (
                       <option key={opt} value={opt}>{opt || '-- Seç --'}</option>
@@ -541,16 +532,97 @@ export default function KontrolDetailModal({ data, onClose }: KontrolDetailModal
                     onChange={(e) => { setEditNote(e.target.value); setSaveStatus('idle') }}
                     placeholder="Degerlendirme notu..."
                     rows={3}
-                    className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-card focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                    className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-card focus:ring-2 focus:ring-ring focus:border-primary resize-none"
                   />
                 </div>
+
+                {/* Gorev Durumu — uye olmus statülerde göster */}
+                {(() => {
+                  const memberStatuses = ['kesin_kabul', 'nihai_olmayan', 'nihai_uye', 'etkinlik']
+                  if (!data?.status || !memberStatuses.includes(data.status as string)) return null
+                  const tasks = ((data as { tasks?: Array<{ task_type: string; completed: boolean; completed_at?: string; verified_by?: string }> }).tasks) || []
+                  const taskMap = new Map(tasks.map((t) => [t.task_type, t]))
+                  const TASK_DEFS: Array<{ key: string; label: string }> = [
+                    { key: 'karakteristik_envanter', label: 'Karakteristik Envanter' },
+                    { key: 'disipliner_envanter',    label: 'Disipliner Envanter' },
+                    { key: 'oryantasyon',            label: 'Oryantasyon' },
+                  ]
+                  const warningCount = Number((data as { warning_count?: number }).warning_count || 0)
+                  return (
+                    <div className="w-full mt-4 pt-4 border-t border-border">
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="block text-xs font-medium text-muted-foreground">Görev Durumu</label>
+                        {warningCount > 0 && (
+                          <span
+                            className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                              warningCount >= 2 ? 'bg-destructive/15 text-destructive' : 'bg-warning/15 text-warning'
+                            }`}
+                            title={warningCount >= 2 ? 'Kritik — 2 uyarı (Circle deaktif eşiği)' : 'Uyarı var'}
+                          >
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126z" />
+                            </svg>
+                            {warningCount} uyarı
+                          </span>
+                        )}
+                      </div>
+                      <ul className="space-y-1.5">
+                        {TASK_DEFS.map((td) => {
+                          const t = taskMap.get(td.key)
+                          const done = !!t?.completed
+                          return (
+                            <li key={td.key} className="flex items-center gap-2 text-xs">
+                              <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full shrink-0 ${
+                                done ? 'bg-success/15 text-success' : 'bg-muted text-muted-foreground'
+                              }`}>
+                                {done ? (
+                                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                  </svg>
+                                ) : (
+                                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <circle cx="12" cy="12" r="10" />
+                                  </svg>
+                                )}
+                              </span>
+                              <span className={`flex-1 ${done ? 'text-foreground' : 'text-muted-foreground'}`}>{td.label}</span>
+                              {done && t?.verified_by && (
+                                <span className="text-[10px] text-muted-foreground truncate max-w-[80px]" title={t.verified_by}>
+                                  {t.verified_by}
+                                </span>
+                              )}
+                              {done && t?.completed_at && (
+                                <span className="text-[10px] text-muted-foreground/80 tabular-nums">
+                                  {new Date(t.completed_at).toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' })}
+                                </span>
+                              )}
+                            </li>
+                          )
+                        })}
+                      </ul>
+                      {/* Tags (karakteristik envanter sonucu) */}
+                      {((data as { tags?: string[] }).tags || []).length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-border">
+                          <label className="block text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">Tag</label>
+                          <div className="flex flex-wrap gap-1">
+                            {((data as { tags?: string[] }).tags || []).map((t) => (
+                              <span key={t} className="inline-flex items-center text-[10px] px-2 py-0.5 rounded-full font-medium bg-primary/10 text-primary border border-primary/20">
+                                {t}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })()}
 
                 {/* Save Button */}
                 {hasChanges && (
                   <button
                     onClick={handleSave}
                     disabled={saveStatus === 'saving'}
-                    className="w-full mt-3 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors disabled:opacity-50"
+                    className="w-full mt-3 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-primary hover:bg-primary/90 text-white transition-colors disabled:opacity-50"
                   >
                     {saveStatus === 'saving' ? (
                       <>
@@ -571,13 +643,13 @@ export default function KontrolDetailModal({ data, onClose }: KontrolDetailModal
 
                 {/* Save feedback */}
                 {saveStatus === 'saved' && (
-                  <div className="w-full mt-2 flex items-center gap-1.5 text-green-600 text-xs">
+                  <div className="w-full mt-2 flex items-center gap-1.5 text-success text-xs">
                     <CheckCircleIcon className="w-4 h-4" />
                     Kaydedildi
                   </div>
                 )}
                 {saveStatus === 'error' && (
-                  <div className="w-full mt-2 flex items-center gap-1.5 text-red-600 text-xs">
+                  <div className="w-full mt-2 flex items-center gap-1.5 text-destructive text-xs">
                     <ExclamationCircleIcon className="w-4 h-4" />
                     {saveError}
                   </div>
@@ -590,8 +662,8 @@ export default function KontrolDetailModal({ data, onClose }: KontrolDetailModal
                     disabled={moveStatus === 'moving'}
                     className={`w-full mt-3 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${
                       isKesinKabul
-                        ? 'bg-green-600 hover:bg-green-700 text-white'
-                        : 'bg-red-600 hover:bg-red-700 text-white'
+                        ? 'bg-success hover:bg-success/90 text-white'
+                        : 'bg-destructive hover:bg-destructive/90 text-white'
                     }`}
                   >
                     {moveStatus === 'moving' ? (
@@ -616,13 +688,13 @@ export default function KontrolDetailModal({ data, onClose }: KontrolDetailModal
                   </button>
                 )}
                 {moveStatus === 'moved' && (
-                  <div className="w-full mt-2 flex items-center gap-1.5 text-green-600 text-xs">
+                  <div className="w-full mt-2 flex items-center gap-1.5 text-success text-xs">
                     <CheckCircleIcon className="w-4 h-4" />
                     Taşındı, kapanıyor...
                   </div>
                 )}
                 {moveStatus === 'error' && (
-                  <div className="w-full mt-2 flex items-center gap-1.5 text-red-600 text-xs">
+                  <div className="w-full mt-2 flex items-center gap-1.5 text-destructive text-xs">
                     <ExclamationCircleIcon className="w-4 h-4" />
                     {moveError}
                   </div>
@@ -648,7 +720,7 @@ export default function KontrolDetailModal({ data, onClose }: KontrolDetailModal
                       {!email ? (
                         <p className="text-xs text-muted-foreground italic">E-posta adresi bulunamadi</p>
                       ) : sendStatus === 'success' ? (
-                        <div className="flex items-center gap-2 text-green-600 bg-green-50 rounded-lg p-3">
+                        <div className="flex items-center gap-2 text-success bg-success/10 rounded-lg p-3">
                           <CheckCircleIcon className="w-5 h-5" />
                           <span className="text-sm font-medium">Mail gonderildi!</span>
                         </div>
@@ -664,7 +736,7 @@ export default function KontrolDetailModal({ data, onClose }: KontrolDetailModal
                               if (tmpl) setSubject(tmpl.subject)
                             }}
                             disabled={sendStatus === 'loading'}
-                            className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-card focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
+                            className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-card focus:ring-2 focus:ring-ring focus:border-primary disabled:opacity-50"
                           >
                             <option value="">Template sec...</option>
                             {templates.map((t) => (
@@ -681,17 +753,17 @@ export default function KontrolDetailModal({ data, onClose }: KontrolDetailModal
                               if (sendStatus === 'confirm') setSendStatus('idle')
                             }}
                             disabled={sendStatus === 'loading'}
-                            className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-card focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
+                            className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-card focus:ring-2 focus:ring-ring focus:border-primary disabled:opacity-50"
                           />
 
                           {sendStatus === 'confirm' && (
-                            <p className="text-xs text-amber-600 bg-amber-50 rounded-lg p-2">
+                            <p className="text-xs text-warning bg-warning/10 rounded-lg p-2">
                               <strong>{name}</strong> kisisine ({email}) mail gonderilecek. Emin misin?
                             </p>
                           )}
 
                           {sendStatus === 'error' && (
-                            <div className="flex items-center gap-1.5 text-red-600 bg-red-50 rounded-lg p-2">
+                            <div className="flex items-center gap-1.5 text-destructive bg-destructive/10 rounded-lg p-2">
                               <ExclamationCircleIcon className="w-4 h-4 flex-shrink-0" />
                               <span className="text-xs">{errorMessage}</span>
                             </div>
@@ -702,10 +774,10 @@ export default function KontrolDetailModal({ data, onClose }: KontrolDetailModal
                             disabled={!selectedTemplateId || !subject || sendStatus === 'loading'}
                             className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                               sendStatus === 'confirm'
-                                ? 'bg-amber-500 hover:bg-amber-600 text-white'
+                                ? 'bg-warning hover:bg-warning/90 text-white'
                                 : isKesinKabul
-                                  ? 'bg-green-600 hover:bg-green-700 text-white'
-                                  : 'bg-red-600 hover:bg-red-700 text-white'
+                                  ? 'bg-success hover:bg-success/90 text-white'
+                                  : 'bg-destructive hover:bg-destructive/90 text-white'
                             }`}
                           >
                             {sendStatus === 'loading' ? (
@@ -741,9 +813,8 @@ export default function KontrolDetailModal({ data, onClose }: KontrolDetailModal
                 )}
               </div>
             </div>
-          </motion.div>
         </div>
       )}
-    </AnimatePresence>
+    </Dialog>
   )
 }

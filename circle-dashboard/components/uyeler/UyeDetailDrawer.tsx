@@ -106,18 +106,18 @@ export function UyeDetailDrawer({ member, onClose }: { member: Member | null; on
           <div className="px-6 py-4 border-b border-gray-50 flex items-center gap-2 flex-wrap">
             <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
               member.status === 'nihai_uye' ? 'bg-amber-100 text-amber-700' :
-              member.status === 'etkinlik' ? 'bg-cyan-100 text-cyan-700' :
+              member.status === 'etkinlik' ? 'bg-cyan-100 text-cyan-700 dark:text-cyan-300' :
               member.status === 'deaktive' ? 'bg-muted text-muted-foreground' :
               'bg-muted text-muted-foreground'
             }`}>{member.status || 'belirsiz'}</span>
             {nereden !== '—' && (
               <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                nereden === 'Etkinlik' ? 'bg-cyan-50 text-cyan-700 border border-cyan-200' : 'bg-blue-50 text-blue-700 border border-blue-200'
+                nereden === 'Etkinlik' ? 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border border-cyan-200' : 'bg-info/10 text-blue-700 border border-blue-200'
               }`}>{nereden}</span>
             )}
             {member.circle_id && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-medium" title="Korumalı">
-                🔒 Circle #{member.circle_id}
+              <span className="text-xs px-2 py-0.5 rounded-full bg-primary/15 text-primary font-medium" title="Korumalı">
+                <svg className="w-2.5 h-2.5 inline-block" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path fillRule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clipRule="evenodd" /></svg> Circle #{member.circle_id}
               </span>
             )}
           </div>
@@ -160,10 +160,10 @@ export function UyeDetailDrawer({ member, onClose }: { member: Member | null; on
 
               <div className="flex flex-wrap gap-1.5 mt-3">
                 {member.circle_active && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">● Aktif</span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-success/10 text-emerald-700 border border-emerald-200">● Aktif</span>
                 )}
                 {member.profile_confirmed_at && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">✓ Profil onaylı</span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-info/10 text-blue-700 border border-blue-200">✓ Profil onaylı</span>
                 )}
                 {member.accepted_invitation_at && (
                   <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200">✓ Davet kabul</span>
@@ -269,7 +269,7 @@ export function UyeDetailDrawer({ member, onClose }: { member: Member | null; on
                 href={profileUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="block w-full text-center text-sm font-medium text-purple-700 bg-purple-50 border border-purple-200 rounded-lg py-2 hover:bg-purple-100 transition-colors"
+                className="block w-full text-center text-sm font-medium text-primary bg-primary/5 border border-primary/30 rounded-lg py-2 hover:bg-primary/15 transition-colors"
               >
                 Circle'da profili aç ↗
               </a>

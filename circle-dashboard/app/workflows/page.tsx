@@ -88,7 +88,7 @@ export default function WorkflowsPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="sticky top-20 z-30 bg-card border-b border-border px-8 py-4">
+      <div className="sticky top-0 z-30 bg-card border-b border-border px-8 py-4">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-xl font-bold text-foreground">Workflowlar</h1>

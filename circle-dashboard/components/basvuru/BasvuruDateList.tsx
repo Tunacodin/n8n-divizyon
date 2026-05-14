@@ -26,8 +26,8 @@ const TURKISH_DAYS = ['Pazar', 'Pazartesi', 'Sal\u0131', '\u00c7ar\u015famba', '
 const TURKISH_MONTHS = ['Ocak', '\u015eubat', 'Mart', 'Nisan', 'May\u0131s', 'Haziran', 'Temmuz', 'A\u011fustos', 'Eyl\u00fcl', 'Ekim', 'Kas\u0131m', 'Aral\u0131k']
 
 const AVATAR_COLORS = [
-  'bg-blue-500', 'bg-indigo-500', 'bg-purple-500', 'bg-pink-500',
-  'bg-rose-500', 'bg-amber-500', 'bg-emerald-500', 'bg-teal-500',
+  'bg-primary', 'bg-primary', 'bg-primary', 'bg-pink-500',
+  'bg-rose-500', 'bg-warning', 'bg-success', 'bg-teal-500',
 ]
 
 function getInitials(name: string): string {

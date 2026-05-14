@@ -176,7 +176,7 @@ export default function AnalizPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="sticky top-20 z-30 bg-card border-b border-border px-8 py-5">
+      <div className="sticky top-0 z-30 bg-card border-b border-border px-8 py-5">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
             <h1 className="text-xl font-bold text-foreground">Analiz</h1>

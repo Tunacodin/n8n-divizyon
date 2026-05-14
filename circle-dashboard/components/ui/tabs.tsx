@@ -39,7 +39,7 @@ export function TabBar({ tabs, activeTab, onChange, className }: TabBarProps) {
             {tab.count !== undefined && (
               <span className={cn(
                 'text-xs px-1.5 py-0.5 rounded-full',
-                active ? 'bg-indigo-100 text-indigo-700' : 'bg-secondary text-muted-foreground'
+                active ? 'bg-primary/15 text-primary' : 'bg-secondary text-muted-foreground'
               )}>
                 {tab.count}
               </span>

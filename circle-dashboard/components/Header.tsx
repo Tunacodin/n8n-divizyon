@@ -13,15 +13,6 @@ interface Notification {
   count: number
 }
 
-const navItems = [
-  { label: 'Dashboard', href: '/' },
-  { label: 'Ağ Üyeleri', href: '/uyeler' },
-  { label: 'Aktiviteler', href: '/aktivite' },
-  { label: 'Mail Servisi', href: '/mail-servisi' },
-  { label: 'Analiz', href: '/analiz' },
-  { label: 'Workflowlar', href: '/workflows' },
-]
-
 const severityStyles = {
   error: {
     bar: 'bg-destructive',
@@ -194,51 +185,6 @@ export function Header() {
             Divizyon
           </span>
         </Link>
-
-        {/* Nav */}
-        <nav className="hidden flex-1 items-center gap-1 lg:flex">
-          {navItems.map((item) => {
-            const active = isActive(item.href)
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  'relative cursor-pointer rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-                  active
-                    ? 'text-foreground'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-                )}
-              >
-                {item.label}
-                {active && (
-                  <span className="absolute inset-x-3 -bottom-[17px] h-[2px] rounded-full bg-gradient-to-r from-primary to-fuchsia-500" />
-                )}
-              </Link>
-            )
-          })}
-        </nav>
-
-        {/* Mobile nav (compact) */}
-        <nav className="flex flex-1 items-center gap-0.5 overflow-x-auto lg:hidden">
-          {navItems.map((item) => {
-            const active = isActive(item.href)
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  'cursor-pointer whitespace-nowrap rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors',
-                  active
-                    ? 'bg-muted text-foreground'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-                )}
-              >
-                {item.label}
-              </Link>
-            )
-          })}
-        </nav>
 
         {/* Right side */}
         <div className="ml-auto flex items-center gap-1">

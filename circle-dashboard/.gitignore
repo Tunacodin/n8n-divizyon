@@ -28,6 +28,9 @@ yarn-error.log*
 .env.production
 env.local
 
+# Import data (gercek kullanici verisi — ASLA commit etme)
+prisma/imports.json
+
 # Vercel
 .vercel
 

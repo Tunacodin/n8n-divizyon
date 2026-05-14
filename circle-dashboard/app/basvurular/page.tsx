@@ -53,15 +53,15 @@ const STATUS_LABELS: Record<string, string> = {
 }
 
 const STATUS_BADGE: Record<string, string> = {
-  basvuru: 'bg-blue-50 text-blue-700 border-blue-200',
-  kontrol: 'bg-yellow-50 text-yellow-700 border-yellow-200',
-  kesin_ret: 'bg-red-50 text-red-700 border-red-200',
-  kesin_kabul: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  nihai_olmayan: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  nihai_uye: 'bg-amber-50 text-amber-700 border-amber-200',
-  etkinlik: 'bg-cyan-50 text-cyan-700 border-cyan-200',
+  basvuru: 'bg-info/15 text-info border-info/30',
+  kontrol: 'bg-warning/15 text-warning border-warning/30',
+  kesin_ret: 'bg-destructive/15 text-destructive border-destructive/30',
+  kesin_kabul: 'bg-success/15 text-success border-success/30',
+  nihai_olmayan: 'bg-success/15 text-success border-success/30',
+  nihai_uye: 'bg-warning/15 text-warning dark:text-warning border-amber-500/30',
+  etkinlik: 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 border-cyan-500/60/30',
   deaktive: 'bg-muted text-muted-foreground border-border',
-  yas_kucuk: 'bg-orange-50 text-orange-700 border-orange-200',
+  yas_kucuk: 'bg-orange-500/15 text-orange-600 dark:text-orange-500 dark:text-orange-400 dark:text-orange-500 dark:text-orange-400 border-orange-500/60/30',
 }
 
 function formatDate(d: string | null | undefined) {
@@ -217,12 +217,12 @@ function FlowContent() {
   const showTaskCols = ['kesin_kabul', 'nihai_uye'].includes(activeTab)
 
   const TaskIcon = ({ done }: { done: boolean }) => done
-    ? <span className="text-green-500 text-xs">✓</span>
-    : <span className="text-gray-300 text-xs">○</span>
+    ? <span className="text-success text-xs">✓</span>
+    : <span className="text-muted-foreground/60 text-xs">○</span>
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="sticky top-20 z-30 bg-card border-b border-border px-8 pt-6 pb-4">
+      <div className="sticky top-0 z-30 bg-card border-b border-border px-8 pt-6 pb-4">
         <h1 className="text-xl font-bold text-foreground mb-4">Flow</h1>
         <div className="overflow-x-auto">
           <TabBar tabs={tabsWithCounts} activeTab={activeTab} onChange={handleTabChange} />
@@ -240,7 +240,7 @@ function FlowContent() {
             placeholder="Ad, e-posta veya telefon ara..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="px-4 py-2 text-sm border border-border rounded-lg bg-card focus:ring-2 focus:ring-indigo-500 outline-none min-w-[260px]"
+            className="px-4 py-2 text-sm border border-border rounded-lg bg-card focus:ring-2 focus:ring-ring outline-none min-w-[260px]"
           />
           <span className="text-sm text-muted-foreground ml-auto">{filtered.length} kayıt</span>
         </div>
@@ -248,7 +248,7 @@ function FlowContent() {
         {/* Table */}
         {loading ? (
           <div className="flex items-center justify-center py-20">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500" />
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
           </div>
         ) : filtered.length === 0 ? (
           <div className="bg-card rounded-xl border border-border p-12 text-center text-muted-foreground">
@@ -310,23 +310,23 @@ function FlowContent() {
                                 const time = timeSource.slice(11, 16)
                                 const statusKey = app.status || 'basvuru'
                                 return (
-                                  <tr key={app.id} className="border-b border-gray-50 hover:bg-muted/50 transition-colors">
+                                  <tr key={app.id} className="border-b border-border hover:bg-muted/50 transition-colors">
                                     <td className="px-4 py-2.5 font-medium text-foreground w-[200px]">
                                       <div className="flex items-center gap-1.5">
                                         <span className="truncate">{app.full_name || '—'}</span>
                                         {(app as { is_protected?: boolean }).is_protected && (
                                           <span
-                                            className="text-[9px] px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 font-semibold shrink-0"
+                                            className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary/15 text-primary font-semibold shrink-0"
                                             title="Korumalı (Circle üyesi)"
                                           >
-                                            🔒
+                                            <svg className="w-2.5 h-2.5 inline-block" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path fillRule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clipRule="evenodd" /></svg>
                                           </span>
                                         )}
                                         {(() => {
                                           const dup = emailCounts.get((app.email || '').toLowerCase().trim()) || 1
                                           return dup > 1 ? (
                                             <span
-                                              className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-semibold shrink-0"
+                                              className="text-[9px] px-1.5 py-0.5 rounded-full bg-warning/15 text-warning dark:text-warning font-semibold shrink-0"
                                               title={`Bu e-posta ile ${dup} başvuru var`}
                                             >
                                               {dup}×
@@ -348,9 +348,9 @@ function FlowContent() {
                                     {activeTab === 'kesin_ret' && (
                                       <td className="px-4 py-2.5 w-[80px]">
                                         {app.mail_sent ? (
-                                          <Badge className="bg-green-50 text-green-700 border-green-200 text-[10px]">Gönderildi</Badge>
+                                          <Badge className="bg-success/15 text-success border-success/30 text-[10px]">Gönderildi</Badge>
                                         ) : (
-                                          <Badge className="bg-yellow-50 text-yellow-700 border-yellow-200 text-[10px]">Bekliyor</Badge>
+                                          <Badge className="bg-warning/15 text-warning border-warning/30 text-[10px]">Bekliyor</Badge>
                                         )}
                                       </td>
                                     )}
@@ -364,9 +364,9 @@ function FlowContent() {
                                           <td className="px-3 py-2.5 text-center"><TaskIcon done={!!tasks['oryantasyon']} /></td>
                                           <td className="px-3 py-2.5 text-center">
                                             {wCount > 0 ? (
-                                              <Badge className={wCount >= 2 ? 'bg-red-50 text-red-700 border-red-200 text-[10px]' : 'bg-yellow-50 text-yellow-700 border-yellow-200 text-[10px]'}>{wCount}</Badge>
+                                              <Badge className={wCount >= 2 ? 'bg-destructive/15 text-destructive border-destructive/30 text-[10px]' : 'bg-warning/15 text-warning border-warning/30 text-[10px]'}>{wCount}</Badge>
                                             ) : (
-                                              <span className="text-gray-300 text-xs">0</span>
+                                              <span className="text-muted-foreground/60 text-xs">0</span>
                                             )}
                                           </td>
                                         </>
@@ -409,7 +409,7 @@ export default function FlowPage() {
   return (
     <Suspense fallback={
       <div className="flex items-center justify-center py-20">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500" />
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
       </div>
     }>
       <FlowContent />

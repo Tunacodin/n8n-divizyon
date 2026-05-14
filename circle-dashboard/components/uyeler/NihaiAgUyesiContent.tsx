@@ -23,7 +23,7 @@ type TabFilter = 'all' | 'oncu' | 'meydanOkuyan' | 'zihinKasifi' | 'hedefTakipci
 // 5 Ana Tag ve renkleri
 const TAG_CONFIG: Record<string, { bg: string; text: string; dot: string; label: string; keywords: string[] }> = {
   oncu: {
-    bg: 'bg-blue-100', text: 'text-blue-700', dot: 'bg-blue-500',
+    bg: 'bg-info/15', text: 'text-blue-700', dot: 'bg-blue-500',
     label: 'Öncü',
     keywords: ['öncü', 'oncu'],
   },
@@ -33,12 +33,12 @@ const TAG_CONFIG: Record<string, { bg: string; text: string; dot: string; label:
     keywords: ['meydan okuyan', 'meydan'],
   },
   zihinKasifi: {
-    bg: 'bg-purple-100', text: 'text-purple-700', dot: 'bg-purple-500',
+    bg: 'bg-primary/15', text: 'text-primary', dot: 'bg-purple-500',
     label: 'Zihin Kaşifi',
     keywords: ['zihin kaşifi', 'zihin kasifi', 'zihin'],
   },
   hedefTakipcisi: {
-    bg: 'bg-emerald-100', text: 'text-emerald-700', dot: 'bg-emerald-500',
+    bg: 'bg-success/15', text: 'text-emerald-700', dot: 'bg-emerald-500',
     label: 'Hedef Takipçisi',
     keywords: ['hedef takipçisi', 'hedef takipcisi', 'hedef'],
   },
@@ -388,7 +388,7 @@ export default function NihaiAgUyesiContent({
                   placeholder="İsim, e-posta veya tag ara..."
                   value={searchTerm}
                   onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1) }}
-                  className="pl-9 pr-4 py-2 border border-border rounded-lg text-sm w-64 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                  className="pl-9 pr-4 py-2 border border-border rounded-lg text-sm w-64 focus:outline-none focus:ring-2 focus:ring-warning focus:border-amber-500"
                 />
               </div>
             </div>
@@ -471,12 +471,12 @@ export default function NihaiAgUyesiContent({
                               )}
                               <span className="text-sm font-medium text-foreground">{name}</span>
                               {(item as any).is_protected && (
-                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 font-semibold" title="Korumalı (Circle üyesi)">
-                                  🔒
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/15 text-primary font-semibold" title="Korumalı (Circle üyesi)">
+                                  <svg className="w-2.5 h-2.5 inline-block" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path fillRule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clipRule="evenodd" /></svg>
                                 </span>
                               )}
                               {(item as any).protected_source === 'circle_event' && (
-                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-cyan-100 text-cyan-700 font-medium" title="Etkinlik üzerinden ağa katılmış">
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-cyan-100 text-cyan-700 dark:text-cyan-300 font-medium" title="Etkinlik üzerinden ağa katılmış">
                                   Etkinlikten
                                 </span>
                               )}
@@ -484,11 +484,11 @@ export default function NihaiAgUyesiContent({
                                 const lower = String(email || '').toLowerCase().trim()
                                 const applied = lower && appliedEmails.has(lower)
                                 return applied ? (
-                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 font-medium" title="Başvuru formu doldurulmuş">
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-success/15 text-green-700 font-medium" title="Başvuru formu doldurulmuş">
                                     ✓ Başvurdu
                                   </span>
                                 ) : (
-                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700 font-medium" title="Henüz başvuru yapmamış">
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700 dark:text-orange-300 font-medium" title="Henüz başvuru yapmamış">
                                     ⏳ Başvuru yok
                                   </span>
                                 )
@@ -533,8 +533,8 @@ export default function NihaiAgUyesiContent({
                             {nereden !== '—' ? (
                               <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                                 nereden === 'Etkinlik'
-                                  ? 'bg-cyan-100 text-cyan-700'
-                                  : 'bg-blue-100 text-blue-700'
+                                  ? 'bg-cyan-100 text-cyan-700 dark:text-cyan-300'
+                                  : 'bg-info/15 text-blue-700'
                               }`}>
                                 {nereden}
                               </span>
@@ -550,10 +550,10 @@ export default function NihaiAgUyesiContent({
                               if (isProtected) {
                                 return (
                                   <span
-                                    className="inline-flex items-center gap-1 text-[10px] text-purple-600 bg-purple-50 px-2 py-1 rounded-md cursor-not-allowed"
+                                    className="inline-flex items-center gap-1 text-[10px] text-primary bg-primary/5 px-2 py-1 rounded-md cursor-not-allowed"
                                     title="Korumalı (Circle üyesi) — deaktive edilemez"
                                   >
-                                    🔒 Korumalı
+                                    <svg className="w-2.5 h-2.5 inline-block" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path fillRule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clipRule="evenodd" /></svg> Korumalı
                                   </span>
                                 )
                               }
@@ -656,7 +656,7 @@ export default function NihaiAgUyesiContent({
             <select
               value={deactivatePerson}
               onChange={(e) => setDeactivatePerson(e.target.value)}
-              className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-card focus:ring-2 focus:ring-red-400 outline-none mb-3"
+              className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-card focus:ring-2 focus:ring-destructive/60 outline-none mb-3"
             >
               <option value="">Kişi seç...</option>
               <option value="Tuna">Tuna</option>
@@ -670,7 +670,7 @@ export default function NihaiAgUyesiContent({
               onChange={(e) => setDeactivateNote(e.target.value)}
               rows={3}
               placeholder="Neden deaktive ediliyor?"
-              className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-card focus:ring-2 focus:ring-red-400 outline-none mb-3 resize-none"
+              className="w-full text-sm border border-border rounded-lg px-3 py-2 bg-card focus:ring-2 focus:ring-destructive/60 outline-none mb-3 resize-none"
             />
             <div className="flex gap-2">
               <button onClick={() => setPendingDeactivate(null)} className="flex-1 px-3 py-2 text-sm border border-border rounded-lg hover:bg-muted/50">İptal</button>

@@ -31,8 +31,8 @@ export default function BasvuruCard({ data, index, onClick }: BasvuruCardProps) 
 
   // Avatar color based on name hash
   const colors = [
-    'bg-blue-500', 'bg-indigo-500', 'bg-purple-500', 'bg-pink-500',
-    'bg-rose-500', 'bg-amber-500', 'bg-emerald-500', 'bg-teal-500',
+    'bg-primary', 'bg-primary', 'bg-primary', 'bg-pink-500',
+    'bg-rose-500', 'bg-warning', 'bg-success', 'bg-teal-500',
   ]
   const colorIndex = name.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0) % colors.length
   const avatarColor = colors[colorIndex]
@@ -72,7 +72,7 @@ export default function BasvuruCard({ data, index, onClick }: BasvuruCardProps) 
       {/* Main Role Badge */}
       {shortRole && (
         <div className="mb-3">
-          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-primary/15 text-primary">
             {shortRole}
           </span>
         </div>

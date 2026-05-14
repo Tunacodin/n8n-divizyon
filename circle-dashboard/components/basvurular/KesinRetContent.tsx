@@ -160,10 +160,10 @@ export default function KesinRetContent() {
     const not = (row.review_note || '') || ''
     const sebep = classifyRetSebebi(row)
     if (sebep === 'toplulukIlkeleri') {
-      return <Badge className="bg-orange-100 text-orange-700 border-orange-200">Topluluk İlkeleri</Badge>
+      return <Badge className="bg-orange-500/15 text-orange-600 dark:text-orange-500 dark:text-orange-400 dark:text-orange-500 dark:text-orange-400 border-orange-500/60/30">Topluluk İlkeleri</Badge>
     }
     if (sebep === '18yas') {
-      return <Badge className="bg-red-100 text-red-700 border-red-200">18 Yaşından Küçük</Badge>
+      return <Badge className="bg-destructive/15 text-destructive border-destructive/30">18 Yaşından Küçük</Badge>
     }
     if (not) {
       return <Badge className="bg-muted text-muted-foreground border-border">{not.length > 40 ? not.slice(0, 40) + '...' : not}</Badge>
@@ -345,7 +345,7 @@ export default function KesinRetContent() {
               }`}
             >
               {tab.label}
-              <span className={`text-xs px-1.5 py-0.5 rounded-full ${activeTab === tab.key ? 'bg-red-100 text-red-700' : 'bg-secondary text-muted-foreground'}`}>
+              <span className={`text-xs px-1.5 py-0.5 rounded-full ${activeTab === tab.key ? 'bg-destructive/15 text-destructive' : 'bg-secondary text-muted-foreground'}`}>
                 {tab.count}
               </span>
             </button>
@@ -360,14 +360,14 @@ export default function KesinRetContent() {
             placeholder="Ad soyad veya e-posta ara..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="px-4 py-2 text-sm border border-border rounded-lg bg-card focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none min-w-[220px]"
+            className="px-4 py-2 text-sm border border-border rounded-lg bg-card focus:ring-2 focus:ring-destructive focus:border-destructive outline-none min-w-[220px]"
           />
 
           {/* Ret sebebi */}
           <select
             value={retSebebiFilter}
             onChange={(e) => setRetSebebiFilter(e.target.value as RetSebebiKey)}
-            className="px-3 py-2 text-sm border border-border rounded-lg bg-card focus:ring-2 focus:ring-red-500 outline-none"
+            className="px-3 py-2 text-sm border border-border rounded-lg bg-card focus:ring-2 focus:ring-destructive outline-none"
           >
             <option value="tumu">Ret Sebebi (Tümü)</option>
             <option value="18yas">18 Yaşından Küçük</option>
@@ -380,19 +380,19 @@ export default function KesinRetContent() {
             type="date"
             value={dateFrom}
             onChange={(e) => setDateFrom(e.target.value)}
-            className="px-3 py-2 text-sm border border-border rounded-lg bg-card focus:ring-2 focus:ring-red-500 outline-none"
+            className="px-3 py-2 text-sm border border-border rounded-lg bg-card focus:ring-2 focus:ring-destructive outline-none"
             title="Başlangıç tarihi"
           />
           <input
             type="date"
             value={dateTo}
             onChange={(e) => setDateTo(e.target.value)}
-            className="px-3 py-2 text-sm border border-border rounded-lg bg-card focus:ring-2 focus:ring-red-500 outline-none"
+            className="px-3 py-2 text-sm border border-border rounded-lg bg-card focus:ring-2 focus:ring-destructive outline-none"
             title="Bitiş tarihi"
           />
 
           {hasActiveFilters && (
-            <button onClick={clearFilters} className="flex items-center gap-1 px-3 py-2 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors">
+            <button onClick={clearFilters} className="flex items-center gap-1 px-3 py-2 text-sm text-destructive hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors">
               <XMarkIcon className="w-4 h-4" />
               Temizle
             </button>
@@ -403,7 +403,7 @@ export default function KesinRetContent() {
 
         {/* Bulk Action Bar */}
         {selectedEmails.size > 0 && (
-          <div className="bg-red-600 text-white rounded-xl px-5 py-3 mb-4 flex flex-wrap items-center gap-3">
+          <div className="bg-destructive text-white rounded-xl px-5 py-3 mb-4 flex flex-wrap items-center gap-3">
             <span className="text-sm font-medium">{selectedEmails.size} kişi seçili</span>
             {filtered.length > paged.length && (
               <button onClick={selectAllFiltered} className="text-xs underline opacity-80 hover:opacity-100">
@@ -413,7 +413,7 @@ export default function KesinRetContent() {
             <div className="flex-1" />
             <button
               onClick={() => setBulkMailOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-red-500 rounded-lg hover:bg-red-400 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-destructive rounded-lg hover:bg-destructive/80 transition-colors"
             >
               <EnvelopeIcon className="w-4 h-4" />
               Toplu Mail Gönder
@@ -421,7 +421,7 @@ export default function KesinRetContent() {
                 <span className="ml-1 opacity-75">({bulkMailTargets.length} uygun)</span>
               )}
             </button>
-            <button onClick={() => setSelectedEmails(new Set())} className="p-2 hover:bg-red-500 rounded-lg transition-colors">
+            <button onClick={() => setSelectedEmails(new Set())} className="p-2 hover:bg-destructive rounded-lg transition-colors">
               <XMarkIcon className="w-4 h-4" />
             </button>
           </div>
@@ -430,7 +430,7 @@ export default function KesinRetContent() {
         {/* Table */}
         {loading ? (
           <div className="flex items-center justify-center py-20">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500" />
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-destructive" />
           </div>
         ) : (
           <div className="bg-card rounded-xl border border-border overflow-hidden">
@@ -444,7 +444,7 @@ export default function KesinRetContent() {
                         checked={allPageSelected}
                         ref={(el) => { if (el) el.indeterminate = somePageSelected && !allPageSelected }}
                         onChange={toggleSelectAll}
-                        className="rounded border-border text-red-600 focus:ring-red-500"
+                        className="rounded border-border text-destructive focus:ring-destructive"
                       />
                     </th>
                     <th
@@ -476,19 +476,19 @@ export default function KesinRetContent() {
                       const isSelected = selectedEmails.has(email)
 
                       return (
-                        <tr key={i} className={`border-b border-border hover:bg-muted/50 transition-colors ${isSelected ? 'bg-red-50' : ''}`}>
+                        <tr key={i} className={`border-b border-border hover:bg-muted/50 transition-colors ${isSelected ? 'bg-destructive/10' : ''}`}>
                           <td className="px-4 py-3">
                             <input
                               type="checkbox"
                               checked={isSelected}
                               onChange={() => toggleSelectItem(email)}
-                              className="rounded border-border text-red-600 focus:ring-red-500"
+                              className="rounded border-border text-destructive focus:ring-destructive"
                             />
                           </td>
                           <td className="px-4 py-3 font-medium text-foreground">{name}</td>
                           <td className="px-4 py-3 text-muted-foreground">{email}</td>
                           <td className="px-4 py-3">
-                            <Badge className={degerlendiren === 'Otomasyon' ? 'bg-purple-100 text-purple-700 border-purple-200' : 'bg-blue-100 text-blue-700 border-blue-200'}>
+                            <Badge className={degerlendiren === 'Otomasyon' ? 'bg-primary/15 text-primary border-primary/30' : 'bg-info/15 text-info border-info/30'}>
                               {degerlendiren}
                             </Badge>
                           </td>
@@ -496,16 +496,16 @@ export default function KesinRetContent() {
                           <td className="px-4 py-3 text-muted-foreground text-xs">{mailTemplate}</td>
                           <td className="px-4 py-3">
                             {isMailSent ? (
-                              <Badge className="bg-green-100 text-green-700 border-green-200">Evet</Badge>
+                              <Badge className="bg-success/15 text-success border-success/30">Evet</Badge>
                             ) : (
-                              <Badge className="bg-yellow-100 text-yellow-700 border-yellow-200">Hayır</Badge>
+                              <Badge className="bg-warning/15 text-warning border-warning/30">Hayır</Badge>
                             )}
                           </td>
                           <td className="px-4 py-3">
                             {!isMailSent && (
                               <button
                                 onClick={() => openMailDialog(row)}
-                                className="px-3 py-1.5 text-xs font-medium text-white bg-red-500 rounded-lg hover:bg-red-600 transition-colors"
+                                className="px-3 py-1.5 text-xs font-medium text-white bg-destructive rounded-lg hover:bg-destructive transition-colors"
                               >
                                 Mail Gönder
                               </button>
@@ -532,7 +532,7 @@ export default function KesinRetContent() {
                     .map((p, idx, arr) => (
                       <span key={p}>
                         {idx > 0 && arr[idx - 1] !== p - 1 && <span className="px-1 text-muted-foreground">...</span>}
-                        <button onClick={() => setPage(p)} className={`px-3 py-1.5 text-sm rounded-md border ${p === page ? 'bg-red-500 text-white border-red-500' : 'border-border bg-card hover:bg-muted/50'}`}>{p}</button>
+                        <button onClick={() => setPage(p)} className={`px-3 py-1.5 text-sm rounded-md border ${p === page ? 'bg-destructive text-white border-destructive' : 'border-border bg-card hover:bg-muted/50'}`}>{p}</button>
                       </span>
                     ))}
                   <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="px-3 py-1.5 text-sm rounded-md border border-border bg-card hover:bg-muted/50 disabled:opacity-50 disabled:cursor-not-allowed">Sonraki</button>
@@ -554,36 +554,36 @@ export default function KesinRetContent() {
             </p>
 
             {/* Ret bilgisi özeti */}
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4 space-y-1">
-              <p className="text-xs text-red-700"><span className="font-medium">Değerlendiren:</span> {mailTarget.reviewer || '-'}</p>
-              <p className="text-xs text-red-700"><span className="font-medium">Ret Sebebi:</span> {mailTarget.review_note || '-'}</p>
-              <p className="text-xs text-red-700"><span className="font-medium">Template:</span> {templates.find(t => t.id === selectedTemplateId)?.name || selectedTemplateId}</p>
-              <p className="text-xs text-red-700"><span className="font-medium">Konu:</span> {subject}</p>
+            <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-3 mb-4 space-y-1">
+              <p className="text-xs text-destructive"><span className="font-medium">Değerlendiren:</span> {mailTarget.reviewer || '-'}</p>
+              <p className="text-xs text-destructive"><span className="font-medium">Ret Sebebi:</span> {mailTarget.review_note || '-'}</p>
+              <p className="text-xs text-destructive"><span className="font-medium">Template:</span> {templates.find(t => t.id === selectedTemplateId)?.name || selectedTemplateId}</p>
+              <p className="text-xs text-destructive"><span className="font-medium">Konu:</span> {subject}</p>
             </div>
 
             {sendStatus === 'success' ? (
               <div className="text-center py-6">
-                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <svg className="w-6 h-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div className="w-12 h-12 bg-success/15 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <svg className="w-6 h-6 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
-                <p className="text-green-700 font-medium">Red maili gönderildi</p>
+                <p className="text-success font-medium">Red maili gönderildi</p>
               </div>
             ) : (
               <>
                 {sendStatus === 'confirm' && (
-                  <p className="text-xs text-amber-600 bg-amber-50 rounded-lg p-2 mb-3">
+                  <p className="text-xs text-warning bg-warning/10 rounded-lg p-2 mb-3">
                     Bu kişiye red maili gönderilecek. Emin misin?
                   </p>
                 )}
-                {errorMessage && <p className="text-sm text-red-600 mb-3">{errorMessage}</p>}
+                {errorMessage && <p className="text-sm text-destructive mb-3">{errorMessage}</p>}
                 <div className="flex gap-2">
                   <button onClick={() => setMailTarget(null)} className="flex-1 px-4 py-2 text-sm border border-border rounded-lg hover:bg-muted/50 transition-colors">İptal</button>
                   <button
                     onClick={handleSendMail}
                     disabled={sendStatus === 'loading'}
-                    className={`flex-1 px-4 py-2 text-sm text-white rounded-lg transition-colors disabled:opacity-50 ${sendStatus === 'confirm' ? 'bg-amber-500 hover:bg-amber-600' : 'bg-red-500 hover:bg-red-600'}`}
+                    className={`flex-1 px-4 py-2 text-sm text-white rounded-lg transition-colors disabled:opacity-50 ${sendStatus === 'confirm' ? 'bg-warning hover:bg-warning/90' : 'bg-destructive hover:bg-destructive'}`}
                   >
                     {sendStatus === 'loading' ? 'Gönderiliyor...' : sendStatus === 'confirm' ? 'Evet, Gönder' : 'Red Maili Gönder'}
                   </button>
@@ -603,17 +603,17 @@ export default function KesinRetContent() {
             <p className="text-sm text-muted-foreground mb-4">
               {bulkMailTargets.length} kişiye mail gönderilecek
               {bulkMailTargets.length < selectedEmails.size && (
-                <span className="text-orange-600"> (Mail gönderilmiş olanlar hariç)</span>
+                <span className="text-orange-600 dark:text-orange-500 dark:text-orange-400"> (Mail gönderilmiş olanlar hariç)</span>
               )}
             </p>
 
             {bulkMailProcessing ? (
               <div className="space-y-3">
                 <div className="w-full bg-muted rounded-full h-2">
-                  <div className="bg-red-500 h-2 rounded-full transition-all" style={{ width: `${(bulkMailProgress.done / bulkMailProgress.total) * 100}%` }} />
+                  <div className="bg-destructive h-2 rounded-full transition-all" style={{ width: `${(bulkMailProgress.done / bulkMailProgress.total) * 100}%` }} />
                 </div>
                 <p className="text-sm text-muted-foreground text-center">{bulkMailProgress.done} / {bulkMailProgress.total} gönderildi</p>
-                {bulkMailProgress.errors.length > 0 && <p className="text-xs text-red-600">{bulkMailProgress.errors.length} hata</p>}
+                {bulkMailProgress.errors.length > 0 && <p className="text-xs text-destructive">{bulkMailProgress.errors.length} hata</p>}
               </div>
             ) : bulkMailTargets.length === 0 ? (
               <div className="text-center py-6">
@@ -622,15 +622,15 @@ export default function KesinRetContent() {
               </div>
             ) : (
               <>
-                <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
-                  <p className="text-xs text-red-700"><span className="font-medium">Template:</span> Kesin Ret</p>
-                  <p className="text-xs text-red-700"><span className="font-medium">Konu:</span> Başvurunuz Hakkında</p>
+                <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-3 mb-4">
+                  <p className="text-xs text-destructive"><span className="font-medium">Template:</span> Kesin Ret</p>
+                  <p className="text-xs text-destructive"><span className="font-medium">Konu:</span> Başvurunuz Hakkında</p>
                 </div>
                 <div className="flex gap-2">
                   <button onClick={() => setBulkMailOpen(false)} className="flex-1 px-4 py-2 text-sm border border-border rounded-lg hover:bg-muted/50 transition-colors">İptal</button>
                   <button
                     onClick={handleBulkMail}
-                    className="flex-1 px-4 py-2 text-sm text-white bg-red-500 rounded-lg hover:bg-red-600 transition-colors"
+                    className="flex-1 px-4 py-2 text-sm text-white bg-destructive rounded-lg hover:bg-destructive transition-colors"
                   >
                     {bulkMailTargets.length} kişiye red maili gönder
                   </button>

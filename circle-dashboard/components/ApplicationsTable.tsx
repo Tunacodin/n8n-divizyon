@@ -278,12 +278,12 @@ export default function ApplicationsTable() {
 
   const getStatusBadge = (sheet: string, color: string) => {
     const colors: Record<string, string> = {
-      blue: 'bg-blue-50 text-blue-700 border-blue-200',
-      yellow: 'bg-yellow-50 text-yellow-700 border-yellow-200',
-      orange: 'bg-orange-50 text-orange-700 border-orange-200',
-      red: 'bg-red-50 text-red-700 border-red-200',
-      purple: 'bg-purple-50 text-purple-700 border-purple-200',
-      green: 'bg-green-50 text-green-700 border-green-200',
+      blue: 'bg-info/15 text-info border-info/30',
+      yellow: 'bg-warning/15 text-warning border-warning/30',
+      orange: 'bg-orange-500/15 text-orange-600 dark:text-orange-500 dark:text-orange-400 dark:text-orange-500 dark:text-orange-400 border-orange-500/60/30',
+      red: 'bg-destructive/15 text-destructive border-destructive/30',
+      purple: 'bg-primary/15 text-primary border-primary/30',
+      green: 'bg-success/15 text-success border-success/30',
     }
 
     return (
@@ -341,7 +341,7 @@ export default function ApplicationsTable() {
               placeholder="İsim, email veya telefon ara..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
             />
           </div>
 
@@ -351,7 +351,7 @@ export default function ApplicationsTable() {
             <select
               value={selectedSheet}
               onChange={(e) => setSelectedSheet(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent appearance-none bg-card"
+              className="w-full pl-10 pr-4 py-2.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent appearance-none bg-card"
             >
               <option value="all">Tümü</option>
               <option value="Div. Açık İnovasyon Ağı | Başvuru Formu">Div. Açık İnovasyon Ağı | Başvuru Formu</option>
@@ -369,7 +369,7 @@ export default function ApplicationsTable() {
             <select
               value={dateFilter}
               onChange={(e) => setDateFilter(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent appearance-none bg-card"
+              className="w-full pl-10 pr-4 py-2.5 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent appearance-none bg-card"
             >
               <option value="all">Tüm Zamanlar</option>
               <option value="today">Bugün</option>
@@ -394,7 +394,7 @@ export default function ApplicationsTable() {
                   setItemsPerPage(Number(e.target.value))
                   setCurrentPage(1)
                 }}
-                className="px-3 py-1.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="px-3 py-1.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               >
                 <option value={5}>5</option>
                 <option value={10}>10</option>
@@ -665,8 +665,8 @@ export default function ApplicationsTable() {
                           <td className="px-6 py-4 whitespace-nowrap">
                             {item['Mail Atıldı mı?'] ? (
                               <div className="flex items-center gap-1.5">
-                                <CheckCircleIcon className="w-4 h-4 text-emerald-500" />
-                                <span className="text-sm text-emerald-600 font-medium">Atıldı</span>
+                                <CheckCircleIcon className="w-4 h-4 text-success" />
+                                <span className="text-sm text-success font-medium">Atıldı</span>
                               </div>
                             ) : (
                               <div className="flex items-center gap-1.5">
@@ -680,9 +680,9 @@ export default function ApplicationsTable() {
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`px-2.5 py-1 text-sm font-semibold rounded-full ${
                               parseInt(item['Uyarı Sayısı']) >= 2
-                                ? 'bg-red-100 text-red-700'
+                                ? 'bg-destructive/15 text-destructive'
                                 : parseInt(item['Uyarı Sayısı']) >= 1
-                                  ? 'bg-yellow-100 text-yellow-700'
+                                  ? 'bg-warning/15 text-warning'
                                   : 'bg-muted text-muted-foreground'
                             }`}>
                               {item['Uyarı Sayısı'] ?? '0'}
@@ -698,16 +698,16 @@ export default function ApplicationsTable() {
                               if (isKabul) {
                                 return (
                                   <div className="flex items-center gap-1.5">
-                                    <CheckCircleIcon className="w-4 h-4 text-green-500" />
-                                    <span className="text-sm text-green-700 font-medium">{durum}</span>
+                                    <CheckCircleIcon className="w-4 h-4 text-success" />
+                                    <span className="text-sm text-success font-medium">{durum}</span>
                                   </div>
                                 )
                               }
                               if (isRet) {
                                 return (
                                   <div className="flex items-center gap-1.5">
-                                    <XCircleIcon className="w-4 h-4 text-red-500" />
-                                    <span className="text-sm text-red-700 font-medium">{durum}</span>
+                                    <XCircleIcon className="w-4 h-4 text-destructive" />
+                                    <span className="text-sm text-destructive font-medium">{durum}</span>
                                   </div>
                                 )
                               }
@@ -776,7 +776,7 @@ export default function ApplicationsTable() {
                       onClick={() => goToPage(pageNum)}
                       className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
                         currentPage === pageNum
-                          ? 'bg-purple-600 text-white'
+                          ? 'bg-primary text-white'
                           : 'text-foreground bg-card border border-border hover:bg-muted/50'
                       }`}
                     >
@@ -821,9 +821,9 @@ function SortIcon({ field, currentField, direction }: { field: SortField; curren
   }
 
   return direction === 'asc' ? (
-    <ArrowUpIcon className="w-4 h-4 text-purple-600" />
+    <ArrowUpIcon className="w-4 h-4 text-primary" />
   ) : (
-    <ArrowDownIcon className="w-4 h-4 text-purple-600" />
+    <ArrowDownIcon className="w-4 h-4 text-primary" />
   )
 }
 

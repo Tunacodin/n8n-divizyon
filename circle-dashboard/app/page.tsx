@@ -1,992 +1,628 @@
 'use client'
 
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import Link from 'next/link'
+import {
+  UsersIcon,
+  ClockIcon,
+  CheckCircleIcon,
+  XCircleIcon,
+  EnvelopeIcon,
+  SparklesIcon,
+  ArrowRightIcon,
+  PencilSquareIcon,
+  ArrowPathRoundedSquareIcon,
+  UserPlusIcon,
+  ChatBubbleLeftRightIcon,
+  ExclamationTriangleIcon,
+} from '@heroicons/react/24/outline'
+import { cn } from '@/lib/utils'
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh'
+import { StatusBadge } from '@/components/ui/StatusBadge'
+import { LoadingState } from '@/components/ui/LoadingState'
+import { EmptyState } from '@/components/ui/EmptyState'
+import KontrolDetailModal from '@/components/kontrol/KontrolDetailModal'
+import MemberDetailModal from '@/components/uyeler/MemberDetailModal'
 
-interface Breakdown {
-  [key: string]: { count: number; label: string; color: string }
+interface TaskCompletion {
+  task_type: string
+  completed: boolean
 }
 
 interface AppItem {
   id: string
   full_name: string
   email: string
-  phone: string
+  phone?: string
   status: string
-  main_role: string
-  university: string
-  reviewer: string
-  approval_status: string
-  review_note: string
-  mail_sent: boolean
-  mail_template: string
-  submitted_at: string
-  birth_date: string
-  gender: string
-  professional_status: string
-  department: string
-  education_type: string
-  core_values: string
-  self_expression: string
-  video_link: string
-  plan_description: string
-  future_ideas: string
-  feedback_experience: string
-  project_steps: string
-  curiosity_topic: string
-  additional_notes: string
-  [key: string]: string | boolean | number | null | undefined
+  reviewer?: string
+  review_note?: string
+  mail_sent?: boolean
+  mail_template?: string
+  approval_status?: string
+  submitted_at?: string
+  created_at?: string
+  updated_at?: string
+  is_protected?: boolean
+  tasks?: TaskCompletion[]
+  warning_count?: number
+  [key: string]: unknown
 }
 
-const PIPELINE_STEPS = [
-  { key: 'kesin_ret', label: 'Kesin Ret', color: '#EF4444', bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200', ring: 'ring-red-400' },
-  { key: 'kontrol', label: 'Kontrol', color: '#EAB308', bg: 'bg-yellow-50', text: 'text-yellow-700', border: 'border-yellow-200', ring: 'ring-yellow-400' },
-  { key: 'kesin_kabul', label: 'Kesin Kabul', color: '#22C55E', bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', ring: 'ring-emerald-400' },
-  { key: 'nihai_uye', label: 'Nihai Uye', color: '#D97706', bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200', ring: 'ring-amber-400' },
-]
-
-const EXIT_STATUSES = [
-  { key: 'yas_kucuk', label: '18 Yas Alti', color: '#F97316', bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200', ring: 'ring-orange-400' },
-  { key: 'deaktive', label: 'Deaktive', color: '#6B7280', bg: 'bg-muted', text: 'text-muted-foreground', border: 'border-border', ring: 'ring-gray-400' },
-  { key: 'etkinlik', label: 'Etkinlik', color: '#06B6D4', bg: 'bg-cyan-50', text: 'text-cyan-700', border: 'border-cyan-200', ring: 'ring-cyan-400' },
-]
-
-const ALL_STATUSES = [...PIPELINE_STEPS, ...EXIT_STATUSES]
-
-function getQuickActions(status: string) {
-  // Kontrol: sadece Kesin Kabul veya Kesin Ret (manuel karar)
-  // 18 yaş ve topluluk ihlalleri n8n otomasyonu tarafından direkt kesin_ret'e yazılır, kontrol'e düşmez
-  if (status === 'kontrol') return [
-    { label: 'Kesin Kabul', toStatus: 'kesin_kabul', color: 'bg-emerald-500 hover:bg-emerald-600' },
-    { label: 'Kesin Ret', toStatus: 'kesin_ret', color: 'bg-red-500 hover:bg-red-600' },
-  ]
-  if (status === 'kesin_kabul') return [
-    { label: 'Nihai Üye', toStatus: 'nihai_uye', color: 'bg-amber-500 hover:bg-amber-600' },
-    { label: 'Deaktive Et', toStatus: 'deaktive', color: 'bg-gray-500 hover:bg-gray-600' },
-  ]
-  if (status === 'etkinlik') return [{ label: 'Kontrole Al', toStatus: 'kontrol', color: 'bg-yellow-500 hover:bg-yellow-600' }]
-  return []
+interface ActivityItem {
+  id: string
+  action: string
+  actor: string
+  person_name: string | null
+  person_email: string | null
+  old_values: Record<string, unknown> | null
+  new_values: Record<string, unknown> | null
+  entity_id: string
+  created_at: string
+  metadata: Record<string, unknown> | null
 }
 
-// ─── Detail Info Section ───
-function InfoRow({ label, value }: { label: string; value: string | undefined | null }) {
-  if (!value) return null
+// ─── Stat Card ───
+
+type StatAccent = 'default' | 'primary' | 'success' | 'warning' | 'destructive' | 'info'
+
+const ACCENT_CLASSES: Record<StatAccent, { iconBg: string; iconText: string }> = {
+  default:     { iconBg: 'bg-muted',           iconText: 'text-muted-foreground' },
+  primary:     { iconBg: 'bg-primary/10',      iconText: 'text-primary' },
+  success:     { iconBg: 'bg-success/15',      iconText: 'text-success' },
+  warning:     { iconBg: 'bg-warning/15',      iconText: 'text-warning' },
+  destructive: { iconBg: 'bg-destructive/15',  iconText: 'text-destructive' },
+  info:        { iconBg: 'bg-info/15',         iconText: 'text-info' },
+}
+
+function StatCard({
+  icon: Icon,
+  label,
+  value,
+  hint,
+  accent = 'default',
+  href,
+}: {
+  icon: React.ComponentType<{ className?: string }>
+  label: string
+  value: number | string
+  hint?: string
+  accent?: StatAccent
+  href?: string
+}) {
+  const c = ACCENT_CLASSES[accent]
+  const inner = (
+    <div className="h-full bg-card border border-border rounded-xl p-4 hover:shadow-sm transition-shadow">
+      <div className="flex items-start justify-between gap-2 mb-3">
+        <div className={`w-9 h-9 rounded-lg ${c.iconBg} ${c.iconText} flex items-center justify-center shrink-0`}>
+          <Icon className="w-5 h-5" />
+        </div>
+      </div>
+      <p className="text-2xl font-bold tabular-nums leading-none text-foreground">{value}</p>
+      <p className="text-xs text-muted-foreground mt-1.5">{label}</p>
+      {hint && <p className="text-[10px] text-muted-foreground/80 mt-0.5">{hint}</p>}
+    </div>
+  )
+  if (href) {
+    return (
+      <Link href={href} className="block cursor-pointer">
+        {inner}
+      </Link>
+    )
+  }
+  return inner
+}
+
+// ─── Avatar ───
+
+function Avatar({ name }: { name: string }) {
+  const initials = name
+    .split(' ')
+    .map(p => p.charAt(0))
+    .join('')
+    .toUpperCase()
+    .slice(0, 2)
   return (
-    <div>
-      <span className="text-muted-foreground text-[11px]">{label}</span>
-      <p className="text-foreground text-xs leading-relaxed">{value}</p>
+    <div className="w-8 h-8 rounded-full bg-secondary text-muted-foreground flex items-center justify-center text-[10px] font-bold shrink-0">
+      {initials}
     </div>
   )
 }
 
-function QABlock({ label, value }: { label: string; value: string | undefined | null }) {
-  if (!value) return null
+// ─── Time format ───
+
+function formatRelative(iso: string | undefined): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return ''
+  const diff = (Date.now() - d.getTime()) / 1000
+  if (diff < 60) return 'az önce'
+  if (diff < 3600) return `${Math.floor(diff / 60)} dk önce`
+  if (diff < 86400) return `${Math.floor(diff / 3600)} sa önce`
+  if (diff < 7 * 86400) return `${Math.floor(diff / 86400)} gün önce`
+  return d.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' })
+}
+
+// ─── Activity helpers ───
+
+const ACTION_LABELS: Record<string, string> = {
+  status_change: 'Status değişti',
+  mail_sent: 'Mail gönderildi',
+  evaluation: 'Değerlendirildi',
+  warning: 'Uyarı eklendi',
+  task_completed: 'Görev tamamlandı',
+  create: 'Yeni başvuru',
+  update: 'Güncellendi',
+  rollback: 'Geri alındı',
+}
+
+const ACTION_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  status_change: ArrowPathRoundedSquareIcon,
+  mail_sent: EnvelopeIcon,
+  evaluation: PencilSquareIcon,
+  warning: ExclamationTriangleIcon,
+  task_completed: CheckCircleIcon,
+  create: UserPlusIcon,
+  update: PencilSquareIcon,
+  rollback: ArrowPathRoundedSquareIcon,
+}
+
+const ACTION_ACCENTS: Record<string, StatAccent> = {
+  status_change: 'info',
+  mail_sent: 'info',
+  evaluation: 'primary',
+  warning: 'destructive',
+  task_completed: 'success',
+  create: 'primary',
+  update: 'default',
+  rollback: 'warning',
+}
+
+function activitySummary(a: ActivityItem): string {
+  if (a.action === 'status_change') {
+    const from = a.old_values?.status as string | undefined
+    const to = a.new_values?.status as string | undefined
+    if (from && to) return `${from} → ${to}`
+    if (to) return `→ ${to}`
+  }
+  if (a.action === 'mail_sent') {
+    const tpl = a.new_values?.mail_template as string | undefined
+    return tpl ? `şablon: ${tpl}` : 'mail gönderildi'
+  }
+  return ACTION_LABELS[a.action] || a.action
+}
+
+// ─── Status pie data ───
+
+const STATUS_GROUPS = [
+  { key: 'kontrol',     label: 'Kontrol',       color: 'hsl(var(--warning))' },
+  { key: 'kesin_kabul', label: 'Kesin Kabul',   color: 'hsl(var(--success))' },
+  { key: 'nihai_uye',   label: 'Nihai Üye',     color: 'hsl(var(--primary))' },
+  { key: 'kesin_ret',   label: 'Kesin Ret',     color: 'hsl(var(--destructive))' },
+  { key: 'basvuru',     label: 'Başvuru',       color: 'hsl(var(--info))' },
+  { key: 'etkinlik',    label: 'Etkinlik',      color: 'hsl(187 85% 53%)' },
+  { key: 'deaktive',    label: 'Deaktive',      color: 'hsl(var(--muted-foreground))' },
+] as const
+
+interface PieDatum { name: string; value: number; color: string }
+
+function ChartTooltip({ active, payload }: { active?: boolean; payload?: Array<{ name: string; value: number; payload: { color: string } }> }) {
+  if (!active || !payload || !payload.length) return null
+  const item = payload[0]
   return (
-    <div className="bg-card rounded p-2 border border-border">
-      <span className="text-muted-foreground text-[10px] block mb-0.5">{label}</span>
-      <p className="text-foreground text-xs leading-relaxed">{value}</p>
+    <div className="rounded-lg border border-border bg-popover px-2.5 py-1.5 shadow-md text-xs">
+      <div className="flex items-center gap-1.5">
+        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: item.payload.color }} />
+        <span className="font-medium text-foreground">{item.name}</span>
+        <span className="text-muted-foreground tabular-nums">{item.value}</span>
+      </div>
     </div>
   )
 }
+
+// ─── Main page ───
 
 export default function DashboardPage() {
-  // breakdown artık allApps'ten türetiliyor (useMemo) — senkron garantisi
-  const [allApps, setAllApps] = useState<AppItem[]>([])
+  const [apps, setApps] = useState<AppItem[]>([])
+  const [activities, setActivities] = useState<ActivityItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedStep, setSelectedStep] = useState<string | null>(null)
+  const [activityLoading, setActivityLoading] = useState(true)
   const [selectedApp, setSelectedApp] = useState<AppItem | null>(null)
-  const [actionLoading, setActionLoading] = useState(false)
-  const [toast, setToast] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
-  const [forceConfirm, setForceConfirm] = useState<{
-    app: AppItem
-    toStatus: string
-    missing: string[]
-  } | null>(null)
 
-  // Degerlendirme formu
-  const [reviewer, setReviewer] = useState('')
-  const [reviewNote, setReviewNote] = useState('')
-  const [mailTemplates, setMailTemplates] = useState<{ id: string; name: string; subject?: string }[]>([])
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
-  const [mailSubject, setMailSubject] = useState('')
-
-  useEffect(() => { fetchData() }, [])
-
-  // Supabase Realtime: applications/task_completions/inventory_tests değiştiğinde anlık refresh
-  useRealtimeRefresh(['applications', 'task_completions', 'inventory_tests'], () => { fetchData() })
-
-  // Tab degisince paneli kapat
-  useEffect(() => {
-    setSelectedApp(null)
-  }, [selectedStep])
-
-  // ESC ile paneli kapat
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setSelectedApp(null)
+  const fetchApps = async () => {
+    try {
+      const res = await fetch('/api/applications?with=tasks,warnings&sort=submitted_at&order=desc&limit=500')
+      const j = await res.json()
+      if (j.success) setApps(j.data || [])
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setLoading(false)
     }
-    document.addEventListener('keydown', handler)
-    return () => document.removeEventListener('keydown', handler)
+  }
+
+  const fetchActivity = async () => {
+    try {
+      const res = await fetch('/api/activity?page=1&limit=8')
+      const j = await res.json()
+      if (j.success) setActivities(j.data || [])
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setActivityLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchApps()
+    fetchActivity()
   }, [])
 
-  // selectedApp degisince: uygulamanin kaydedilmis reviewer/not'u varsa onu goster,
-  // yoksa mevcut state'i (draft) koru. Template/konu da korunur — kullanici
-  // drawer'i kapatip acsa bile doldurdugu veriler silinmez.
-  const appStateCache = useRef<Map<string, { reviewer: string; note: string; templateId: string | null; subject: string }>>(new Map())
+  useRealtimeRefresh(['applications'], () => {
+    fetchApps()
+    fetchActivity()
+  })
 
-  useEffect(() => {
-    if (!selectedApp) return
-    const cached = appStateCache.current.get(selectedApp.id)
-    if (cached) {
-      setReviewer(cached.reviewer)
-      setReviewNote(cached.note)
-      setSelectedTemplateId(cached.templateId)
-      setMailSubject(cached.subject)
-    } else {
-      // İlk acilis: DB'de varsa onu kullan
-      setReviewer(selectedApp.reviewer || '')
-      setReviewNote(selectedApp.review_note || '')
-      // template/subject dokunmuyoruz — onceden bir baska uygulamada doldurulduysa
-      // kullanicinin taslagi korunur
+  // Stats
+  const stats = useMemo(() => {
+    const now = new Date()
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime()
+    const visible = apps.filter(a => !a.is_protected)
+
+    let kontrol = 0, buAyKabul = 0, buAyRet = 0, aktifUye = 0, mailBekleyen = 0
+    for (const a of visible) {
+      if (a.status === 'kontrol') kontrol++
+      if (a.status === 'nihai_uye') aktifUye++
+      const updated = a.updated_at ? new Date(a.updated_at).getTime() : 0
+      if (updated >= monthStart) {
+        if (a.status === 'kesin_kabul' || a.status === 'nihai_uye' || a.status === 'nihai_olmayan') buAyKabul++
+        if (a.status === 'kesin_ret' || a.status === 'yas_kucuk') buAyRet++
+      }
+      if ((a.status === 'kesin_kabul' || a.status === 'kesin_ret' || a.status === 'yas_kucuk') && !a.mail_sent) {
+        mailBekleyen++
+      }
     }
-  }, [selectedApp])
+    return { total: visible.length, kontrol, buAyKabul, buAyRet, aktifUye, mailBekleyen }
+  }, [apps])
 
-  // State her degistigi zaman cache'e yaz (aktif app icin)
-  useEffect(() => {
-    if (!selectedApp) return
-    appStateCache.current.set(selectedApp.id, {
-      reviewer, note: reviewNote, templateId: selectedTemplateId, subject: mailSubject,
-    })
-  }, [selectedApp, reviewer, reviewNote, selectedTemplateId, mailSubject])
+  // Recent applications (son 8)
+  const recent = useMemo(() => {
+    return apps.filter(a => !a.is_protected).slice(0, 8)
+  }, [apps])
 
-  const fetchData = async () => {
-    try {
-      const [appsRes, tplRes] = await Promise.all([
-        fetch('/api/applications?sort=submitted_at&order=desc&limit=500'),
-        fetch('/api/mail/templates'),
-      ])
-      const a = await appsRes.json()
-      const t = await tplRes.json()
-      if (a.success) setAllApps(a.data || [])
-      if (t.success) setMailTemplates(t.data || [])
-    } catch (e) { console.error(e) }
-    finally { setLoading(false) }
-  }
+  // Geçici üyeler (kesin_kabul / nihai_olmayan / etkinlik) — son 8, K+D durumu için
+  const geciciUyeler = useMemo(() => {
+    return apps
+      .filter(a => !a.is_protected && ['kesin_kabul', 'nihai_olmayan', 'etkinlik'].includes(a.status))
+      .sort((a, b) => {
+        const ta = new Date(a.updated_at || a.submitted_at || 0).getTime()
+        const tb = new Date(b.updated_at || b.submitted_at || 0).getTime()
+        return tb - ta
+      })
+      .slice(0, 8)
+  }, [apps])
 
-  // breakdown → allApps'ten türet (senkron garantisi, tek kaynak)
-  // Korumalı Circle üyeleri dashboard pipeline'ında gösterilmez — onları dışla
-  const breakdown = useMemo(() => {
-    const b: Record<string, { label: string; color: string; count: number }> = {}
-    for (const s of ALL_STATUSES) {
-      b[s.key] = { label: s.label, color: s.color, count: 0 }
-    }
-    for (const a of allApps) {
-      if ((a as any).is_protected) continue // Circle üyeleri dashboard pipeline dışı
-      const s = a.status
-      if (s && b[s]) b[s].count++
-    }
-    return b
-  }, [allApps])
-
-  const totalCount = Object.values(breakdown).reduce((s, v) => s + v.count, 0)
-
-  // Aynı email ile birden fazla başvuru varsa count hesapla
-  const emailCounts = useMemo(() => {
-    const m = new Map<string, number>()
-    for (const a of allApps) {
-      const e = (a.email || '').toLowerCase().trim()
-      if (!e) continue
-      m.set(e, (m.get(e) || 0) + 1)
+  // Task map helper
+  const taskMapOf = (app: AppItem) => {
+    const m: Record<string, boolean> = {}
+    for (const t of app.tasks || []) {
+      if (t.completed) m[t.task_type] = true
     }
     return m
-  }, [allApps])
-
-  const filteredApps = useMemo(() => {
-    if (!selectedStep) return []
-    let items = allApps.filter(a => {
-      if ((a as any).is_protected) return false // Circle üyeleri dashboard pipeline dışı
-      if (selectedStep === 'kesin_kabul') return a.status === 'kesin_kabul' || a.status === 'nihai_olmayan'
-      return a.status === selectedStep
-    })
-    // Kesin ret: sadece mail bekleyenleri göster (mail gönderilmişler Başvurular > Kesin Ret tab'ında)
-    if (selectedStep === 'kesin_ret' || selectedStep === 'yas_kucuk') {
-      items = items.filter(a => !a.mail_sent)
-    }
-    return items
-  }, [allApps, selectedStep])
-
-  // Gün bazlı gruplama
-  const groupedByDate = useMemo(() => {
-    const groups: { date: string; label: string; apps: AppItem[] }[] = []
-    const map = new Map<string, AppItem[]>()
-    for (const app of filteredApps) {
-      const dt = String(app.submitted_at || (app as Record<string, unknown>).created_at || '')
-      const dateKey = dt ? dt.slice(0, 10) : 'tarihsiz'
-      if (!map.has(dateKey)) map.set(dateKey, [])
-      map.get(dateKey)!.push(app)
-    }
-    const today = new Date().toISOString().slice(0, 10)
-    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10)
-    for (const [dateKey, apps] of Array.from(map.entries()).sort((a, b) => b[0].localeCompare(a[0]))) {
-      let label = dateKey
-      if (dateKey === today) label = 'Bugün'
-      else if (dateKey === yesterday) label = 'Dün'
-      else if (dateKey !== 'tarihsiz') {
-        const d = new Date(dateKey)
-        label = d.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric', weekday: 'long' })
-      }
-      // Saat bazlı sırala (en yeni üstte)
-      apps.sort((a, b) => String(b.submitted_at || '').localeCompare(String(a.submitted_at || '')))
-      groups.push({ date: dateKey, label, apps })
-    }
-    return groups
-  }, [filteredApps])
-
-  const handleAction = async (app: AppItem, toStatus: string, force = false) => {
-    // Tüm status geçişleri için değerlendiren + not zorunlu
-    if (!reviewer.trim() || !reviewNote.trim()) {
-      setToast({ type: 'error', text: 'Değerlendiren ve not zorunlu' })
-      setTimeout(() => setToast(null), 2500)
-      return
-    }
-
-    // kesin_kabul ve kesin_ret için mail template + konu zorunlu
-    const MAIL_REQUIRED_STATUSES = new Set(['kesin_kabul', 'kesin_ret'])
-    if (MAIL_REQUIRED_STATUSES.has(toStatus)) {
-      if (!selectedTemplateId) {
-        setToast({ type: 'error', text: 'Mail şablonu seçilmeden taşıma yapılamaz' })
-        setTimeout(() => setToast(null), 3000)
-        return
-      }
-      if (!mailSubject.trim()) {
-        setToast({ type: 'error', text: 'Mail konusu boş olamaz' })
-        setTimeout(() => setToast(null), 3000)
-        return
-      }
-    }
-
-    setActionLoading(true)
-    try {
-      // 1. Mail template secildiyse: ONCE mail gonder, success donmezse tasima iptal.
-      //    Boylece mail hatasi olan bir kisi yanlislikla kesin_kabul/nihai_uye'ye gecmez.
-      const wantsMail = !!(selectedTemplateId && mailSubject.trim())
-      const tplName = wantsMail
-        ? (mailTemplates.find(t => t.id === selectedTemplateId)?.name || '')
-        : ''
-
-      if (wantsMail) {
-        const nameParts = app.full_name.split(' ')
-        const mailRes = await fetch('/api/mail/send', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: app.email,
-            firstName: nameParts[0] || '',
-            lastName: nameParts.slice(1).join(' ') || '',
-            template_id: selectedTemplateId,
-            subject: mailSubject,
-            application_id: app.id,
-            sent_by: reviewer.trim() || 'dashboard',
-          }),
-        })
-        const mailData = await mailRes.json().catch(() => ({ success: false }))
-        if (!mailRes.ok || !mailData.success) {
-          setToast({
-            type: 'error',
-            text: `Mail gonderilemedi: ${mailData.error || 'bilinmeyen hata'}. Status degistirilmedi.`,
-          })
-          setActionLoading(false)
-          setTimeout(() => setToast(null), 4500)
-          return
-        }
-      }
-
-      // 2. Mail basariliysa (veya istenmiyorsa) status degistir
-      const res = await fetch(`/api/applications/${app.id}/status`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          to_status: toStatus,
-          changed_by: reviewer.trim() || 'dashboard',
-          extra_updates: {
-            reviewer: reviewer.trim() || undefined,
-            review_note: reviewNote.trim() || undefined,
-          },
-          force,
-        }),
-      })
-      const r = await res.json()
-
-      // Nihai üye + eksik task → modal ile onay (mail gitti ama status geciremedik)
-      if (!r.success && toStatus === 'nihai_uye' && r.missing_tasks && !force) {
-        setForceConfirm({ app, toStatus, missing: r.missing_tasks as string[] })
-        setActionLoading(false)
-        return
-      }
-
-      if (!r.success) {
-        setToast({ type: 'error', text: `Status degistirilemedi: ${r.error || 'Hata'}` })
-        setActionLoading(false)
-        return
-      }
-
-      // 3. Mail gonderildi ise applications.mail_sent guncelle
-      if (wantsMail) {
-        await fetch(`/api/applications/${app.id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ updated_by: reviewer.trim() || 'dashboard', mail_sent: true, mail_template: tplName }),
-        })
-      }
-
-      const lbl = ALL_STATUSES.find(s => s.key === toStatus)?.label || toStatus
-      const mailMsg = wantsMail ? ' + mail gonderildi' : ''
-      const tagMsg = r.autoTag?.added?.length ? ` + tag: ${r.autoTag.added.join(', ')}` : ''
-      setToast({ type: 'success', text: `${app.full_name} → ${lbl}${mailMsg}${tagMsg}` })
-      setAllApps(prev => prev.map(a => a.id === app.id ? { ...a, status: toStatus, reviewer: reviewer.trim(), review_note: reviewNote.trim() } : a))
-      setSelectedApp(null)
-      setTimeout(() => setToast(null), 3000)
-    } catch { setToast({ type: 'error', text: 'Baglanti hatasi' }) }
-    finally { setActionLoading(false) }
   }
 
-  const handleRollback = async (app: AppItem) => {
-    setActionLoading(true)
-    try {
-      const res = await fetch(`/api/applications/${app.id}/rollback`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rolled_back_by: 'dashboard' }),
-      })
-      const r = await res.json()
-      if (r.success) {
-        setToast({ type: 'success', text: `${app.full_name} geri alindi` })
-        setSelectedApp(null)
-        fetchData()
-        setTimeout(() => setToast(null), 2500)
-      } else { setToast({ type: 'error', text: r.error || 'Hata' }) }
-    } catch { setToast({ type: 'error', text: 'Baglanti hatasi' }) }
-    finally { setActionLoading(false) }
-  }
+  // Pie chart data
+  const pieData = useMemo<PieDatum[]>(() => {
+    const visible = apps.filter(a => !a.is_protected)
+    const counts: Record<string, number> = {}
+    for (const a of visible) {
+      const key = a.status === 'nihai_olmayan' ? 'kesin_kabul' : (a.status === 'yas_kucuk' ? 'kesin_ret' : a.status)
+      counts[key] = (counts[key] || 0) + 1
+    }
+    return STATUS_GROUPS
+      .map(g => ({ name: g.label, value: counts[g.key] || 0, color: g.color }))
+      .filter(d => d.value > 0)
+  }, [apps])
 
-  const sel = selectedApp
-  const selDisplayStatus = sel?.status === 'nihai_olmayan' ? 'kesin_kabul' : sel?.status
-  const selStep = sel ? ALL_STATUSES.find(s => s.key === selDisplayStatus) : null
-  const selActions = sel ? getQuickActions(selDisplayStatus || '') : []
-  const selNote = (sel?.review_note || '').toLowerCase()
-  const selFlag = (selNote.includes('18') && (selNote.includes('yas') || selNote.includes('yaş')))
-    ? '18yas' : (selNote.includes('topluluk') && selNote.includes('ilke')) ? 'topluluk' : null
+  const totalForChart = pieData.reduce((s, d) => s + d.value, 0)
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="sticky top-16 z-30 bg-card border-b border-border px-6 py-4 flex items-center justify-between shrink-0">
-        <div>
+      <div className="sticky top-0 z-30 bg-card border-b border-border px-6 py-4">
+        <div className="max-w-7xl mx-auto">
           <h1 className="text-xl font-bold text-foreground">Dashboard</h1>
-          <p className="text-xs text-muted-foreground">Divizyon Basvuru Yonetim Paneli</p>
-        </div>
-        {toast && (
-          <div className={`flex items-center gap-2.5 px-5 py-3 rounded-xl shadow-lg border text-sm font-medium animate-[slideIn_0.3s_ease-out] ${
-            toast.type === 'success'
-              ? 'bg-emerald-50 text-emerald-800 border-emerald-200 shadow-emerald-100'
-              : 'bg-red-50 text-red-800 border-red-200 shadow-red-100'
-          }`}>
-            {toast.type === 'success' ? (
-              <div className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center shrink-0">
-                <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                </svg>
-              </div>
-            ) : (
-              <div className="w-6 h-6 rounded-full bg-red-500 flex items-center justify-center shrink-0">
-                <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </div>
-            )}
-            <span>{toast.text}</span>
-          </div>
-        )}
-      </div>
-
-      {/* Pipeline + Stats */}
-      <div className="px-6 pt-5 pb-3 space-y-3 shrink-0">
-        {/* Pipeline breadcrumb */}
-        <div className="bg-card rounded-xl border border-border p-4">
-          <div className="flex items-stretch gap-0">
-            {PIPELINE_STEPS.map((step, i) => {
-              let rawCount = breakdown?.[step.key]?.count ?? 0
-              // kesin_kabul: nihai_olmayan'ı da dahil et
-              if (step.key === 'kesin_kabul') rawCount += breakdown?.['nihai_olmayan']?.count ?? 0
-              // Kesin ret: sadece mail bekleyenleri say
-              const count = (step.key === 'kesin_ret' || step.key === 'yas_kucuk')
-                ? allApps.filter(a => a.status === step.key && !a.mail_sent).length
-                : rawCount
-              const isSelected = selectedStep === step.key
-              return (
-                <div key={step.key} className="flex items-stretch flex-1 min-w-0">
-                  <button
-                    onClick={() => setSelectedStep(isSelected ? null : step.key)}
-                    className={`flex-1 flex flex-col items-center justify-center py-2.5 px-1 rounded-lg border-2 transition-all min-w-0 cursor-pointer ${
-                      isSelected ? `${step.bg} ${step.text} border-current ring-2 ${step.ring} ring-offset-1 shadow-sm` :
-                      count > 0 ? `${step.bg} ${step.border} ${step.text} hover:shadow-sm` :
-                      'bg-muted/50 border-border text-muted-foreground'
-                    }`}
-                  >
-                    <span className={`text-xl font-bold leading-none ${!count && !isSelected ? 'text-gray-300' : ''}`}>{count}</span>
-                    <span className="text-[10px] font-medium mt-0.5 truncate w-full text-center">{step.label}</span>
-                  </button>
-                  {i < PIPELINE_STEPS.length - 1 && (
-                    <div className="flex items-center px-0.5">
-                      <svg className="w-3 h-3 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                      </svg>
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-          {/* Exit statuses */}
-          {(() => {
-            const exits = EXIT_STATUSES.filter(s => (breakdown?.[s.key]?.count ?? 0) > 0 || selectedStep === s.key)
-            if (!exits.length) return null
-            return (
-              <div className="flex items-center gap-1.5 mt-3 pt-3 border-t border-border">
-                <span className="text-[10px] text-muted-foreground mr-1">Cikarilan:</span>
-                {exits.map(s => (
-                  <button key={s.key} onClick={() => setSelectedStep(selectedStep === s.key ? null : s.key)}
-                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium transition-all ${
-                      selectedStep === s.key ? `${s.bg} ${s.text} ring-1 ${s.ring}` : `${s.bg} ${s.text}`
-                    }`}>
-                    <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: s.color }} />
-                    {s.label} {breakdown?.[s.key]?.count ?? 0}
-                  </button>
-                ))}
-              </div>
-            )
-          })()}
+          <p className="text-xs text-muted-foreground mt-0.5">Divizyon Başvuru Yönetim Paneli</p>
         </div>
       </div>
 
-      {/* Main content: List + Side Panel */}
-      <div className="flex-1 flex px-6 pb-6 gap-4 min-h-0">
-        {/* Left: List */}
-        <div className={`bg-card rounded-xl border border-border flex flex-col min-h-0 transition-all ${sel ? 'flex-1' : 'w-full'}`}>
-          <div className="px-4 py-3 border-b border-border flex items-center justify-between shrink-0">
-            <div className="flex items-center gap-2">
-              {selectedStep && (() => { const s = ALL_STATUSES.find(x => x.key === selectedStep); return s ? <span className="w-2 h-2 rounded-full" style={{ backgroundColor: s.color }} /> : null })()}
-              <h2 className="text-sm font-semibold text-foreground">{ALL_STATUSES.find(s => s.key === selectedStep)?.label || 'Kayıtlar'}</h2>
-              {selectedStep && <span className="text-xs text-muted-foreground">({filteredApps.length})</span>}
+      <div className="max-w-7xl mx-auto px-6 py-6 space-y-6">
+        {/* Stat Cards */}
+        <section>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <StatCard icon={UsersIcon} label="Toplam Başvuru" value={loading ? '—' : stats.total} accent="default" href="/uyeler" />
+            <StatCard icon={ClockIcon} label="Kontrol Bekleyen" value={loading ? '—' : stats.kontrol} accent="warning" hint="manuel değerlendirme" href="/uyeler?tab=kontrol" />
+            <StatCard icon={CheckCircleIcon} label="Bu Ay Onaylanan" value={loading ? '—' : stats.buAyKabul} accent="success" hint="kesin kabul + nihai üye" href="/uyeler?tab=gecici_uye" />
+            <StatCard icon={XCircleIcon} label="Bu Ay Reddedilen" value={loading ? '—' : stats.buAyRet} accent="destructive" hint="kesin ret + 18 yaş" href="/uyeler?tab=kesin_ret" />
+            <StatCard icon={SparklesIcon} label="Aktif Üye" value={loading ? '—' : stats.aktifUye} accent="primary" hint="nihai ağ üyesi" href="/uyeler?tab=nihai_uye" />
+            <StatCard icon={EnvelopeIcon} label="Mail Bekleyen" value={loading ? '—' : stats.mailBekleyen} accent="info" hint="gönderim bekliyor" />
+          </div>
+        </section>
+
+        {/* 3-column grid: Son Başvuranlar / Son Aktiviteler / Analiz */}
+        <section className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+          {/* Son Başvuranlar (sol — 5/12) */}
+          <div className="lg:col-span-5 bg-card border border-border rounded-xl overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+              <div>
+                <h2 className="text-sm font-semibold text-foreground">Son Başvuranlar</h2>
+                <p className="text-[11px] text-muted-foreground mt-0.5">En son 8 başvuru</p>
+              </div>
+              <Link
+                href="/uyeler"
+                className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline cursor-pointer"
+              >
+                Tümü
+                <ArrowRightIcon className="w-3 h-3" />
+              </Link>
             </div>
-            {selectedStep && <button onClick={() => setSelectedStep(null)} className="text-[11px] text-muted-foreground hover:text-foreground">Temizle</button>}
+
+            {loading ? (
+              <LoadingState />
+            ) : recent.length === 0 ? (
+              <EmptyState title="Başvuru yok" />
+            ) : (
+              <ul className="divide-y divide-border flex-1">
+                {recent.map(app => (
+                  <li key={app.id}>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedApp(app)}
+                      className="w-full flex items-center gap-2.5 px-5 py-2.5 hover:bg-muted/50 transition-colors text-left cursor-pointer"
+                    >
+                      <Avatar name={app.full_name} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-foreground truncate">{app.full_name}</p>
+                        <p className="text-[10px] text-muted-foreground truncate">{app.email}</p>
+                      </div>
+                      <StatusBadge status={app.status} size="sm" />
+                      <span className="text-[10px] text-muted-foreground tabular-nums shrink-0 w-[58px] text-right">
+                        {formatRelative(app.submitted_at || app.created_at)}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
 
-          <div className="flex-1 overflow-y-auto divide-y divide-border">
-            {loading ? (
-              <div className="p-4 space-y-2">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-10 bg-muted rounded animate-pulse" />)}</div>
-            ) : !selectedStep ? (
-              <div className="p-10 text-center text-muted-foreground text-sm">Kayıtları görmek için yukarıdaki bir aşamaya tıklayın</div>
-            ) : filteredApps.length === 0 ? (
-              <div className="p-10 text-center text-muted-foreground text-sm">Bu asamada kimse yok</div>
-            ) : groupedByDate.map(group => (
-              <div key={group.date}>
-                {/* Gün başlığı */}
-                <div className="sticky top-0 z-10 bg-muted/50 px-4 py-1.5 border-b border-border">
-                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">{group.label}</span>
-                  <span className="text-[10px] text-muted-foreground ml-2">({group.apps.length})</span>
-                </div>
-                {/* Kayıtlar */}
-                {group.apps.map(app => {
-                  const displayStatus = app.status === 'nihai_olmayan' ? 'kesin_kabul' : app.status
-                  const step = ALL_STATUSES.find(s => s.key === displayStatus)
-                  const initials = app.full_name.split(' ').map(p => p.charAt(0)).join('').toUpperCase().slice(0, 2)
-                  const isActive = sel?.id === app.id
-                  const note = (app.review_note || '').toLowerCase()
-                  const flag = (note.includes('18') && (note.includes('yas') || note.includes('yaş'))) ? '18yas'
-                    : (note.includes('topluluk') && note.includes('ilke')) ? 'topluluk' : null
-                  const time = String(app.submitted_at || '').slice(11, 16)
+          {/* Son Aktiviteler (orta — 4/12) */}
+          <div className="lg:col-span-4 bg-card border border-border rounded-xl overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+              <div>
+                <h2 className="text-sm font-semibold text-foreground">Son Aktiviteler</h2>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Son işlemler, status değişimleri</p>
+              </div>
+              <Link
+                href="/aktivite"
+                className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline cursor-pointer"
+              >
+                Tümü
+                <ArrowRightIcon className="w-3 h-3" />
+              </Link>
+            </div>
 
-                  const dupCount = emailCounts.get((app.email || '').toLowerCase().trim()) || 1
-                  const isProtected = (app as { is_protected?: boolean }).is_protected
+            {activityLoading ? (
+              <LoadingState />
+            ) : activities.length === 0 ? (
+              <EmptyState title="Aktivite yok" />
+            ) : (
+              <ul className="divide-y divide-border flex-1">
+                {activities.map(a => {
+                  const Icon = ACTION_ICONS[a.action] || ChatBubbleLeftRightIcon
+                  const accent = ACTION_ACCENTS[a.action] || 'default'
+                  const c = ACCENT_CLASSES[accent]
                   return (
-                    <button key={app.id} onClick={() => setSelectedApp(isActive ? null : app)}
-                      className={`w-full text-left px-4 py-2.5 flex items-center gap-2.5 transition-colors border-b border-gray-50 ${isActive ? 'bg-indigo-50' : 'hover:bg-muted/50'}`}>
-                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0" style={{ backgroundColor: step?.color || '#6B7280' }}>{initials}</div>
+                    <li key={a.id} className="px-5 py-2.5">
+                      <div className="flex items-start gap-2.5">
+                        <div className={`w-7 h-7 rounded-lg ${c.iconBg} ${c.iconText} flex items-center justify-center shrink-0`}>
+                          <Icon className="w-3.5 h-3.5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-foreground">
+                            <span className="font-medium">{a.actor || 'Sistem'}</span>
+                            <span className="text-muted-foreground"> · {ACTION_LABELS[a.action] || a.action}</span>
+                          </p>
+                          {a.person_name && (
+                            <p className="text-[11px] text-muted-foreground truncate">
+                              {a.person_name}
+                              {a.action === 'status_change' && (
+                                <span className="ml-1 text-foreground/80">— {activitySummary(a)}</span>
+                              )}
+                            </p>
+                          )}
+                          <p className="text-[10px] text-muted-foreground/80 mt-0.5">{formatRelative(a.created_at)}</p>
+                        </div>
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </div>
+
+          {/* Analiz (sağ — 3/12) */}
+          <div className="lg:col-span-3 bg-card border border-border rounded-xl overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+              <div>
+                <h2 className="text-sm font-semibold text-foreground">Analiz</h2>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Status dağılımı</p>
+              </div>
+              <Link
+                href="/analiz"
+                className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline cursor-pointer"
+              >
+                Detay
+                <ArrowRightIcon className="w-3 h-3" />
+              </Link>
+            </div>
+
+            <div className="flex-1 flex flex-col p-4 gap-3">
+              {loading ? (
+                <LoadingState size="sm" />
+              ) : totalForChart === 0 ? (
+                <EmptyState title="Veri yok" />
+              ) : (
+                <>
+                  {/* Donut */}
+                  <div className="relative h-[160px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={pieData}
+                          dataKey="value"
+                          nameKey="name"
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={42}
+                          outerRadius={70}
+                          paddingAngle={2}
+                          stroke="hsl(var(--card))"
+                          strokeWidth={2}
+                        >
+                          {pieData.map((d, i) => (
+                            <Cell key={i} fill={d.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip content={<ChartTooltip />} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                      <p className="text-lg font-bold tabular-nums text-foreground leading-none">{totalForChart}</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">toplam</p>
+                    </div>
+                  </div>
+
+                  {/* Legend */}
+                  <ul className="space-y-1">
+                    {pieData.map(d => (
+                      <li key={d.name} className="flex items-center gap-2 text-[11px]">
+                        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
+                        <span className="text-muted-foreground truncate flex-1">{d.name}</span>
+                        <span className="text-foreground font-semibold tabular-nums">{d.value}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </div>
+          </div>
+        </section>
+
+        {/* Geçici Üye Takibi — Karakteristik + Disipliner + Uyarı */}
+        <section className="bg-card border border-border rounded-xl overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+            <div>
+              <h2 className="text-sm font-semibold text-foreground">Geçici Üye Takibi</h2>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Karakteristik + Disipliner Envanter durumu, uyarı sayısı
+              </p>
+            </div>
+            <Link
+              href="/uyeler?tab=gecici_uye"
+              className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline cursor-pointer"
+            >
+              Tümü
+              <ArrowRightIcon className="w-3 h-3" />
+            </Link>
+          </div>
+
+          {loading ? (
+            <LoadingState />
+          ) : geciciUyeler.length === 0 ? (
+            <EmptyState title="Geçici üye yok" description="Kabul edilmiş ya da etkinlikten gelen üye bulunmuyor." />
+          ) : (
+            <ul className="divide-y divide-border">
+              {geciciUyeler.map(app => {
+                const tasks = taskMapOf(app)
+                const karakDone = !!tasks.karakteristik_envanter
+                const disipDone = !!tasks.disipliner_envanter
+                const wc = app.warning_count || 0
+                const wcCritical = wc >= 2
+                return (
+                  <li key={app.id}>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedApp(app)}
+                      className="w-full flex items-center gap-3 px-5 py-3 hover:bg-muted/50 transition-colors text-left cursor-pointer"
+                    >
+                      <Avatar name={app.full_name} />
+
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-foreground truncate">{app.full_name}</p>
                         <p className="text-[11px] text-muted-foreground truncate">{app.email}</p>
                       </div>
-                      {time && <span className="text-[10px] text-muted-foreground shrink-0">{time}</span>}
-                      {isProtected && (
+
+                      <div className="hidden sm:flex items-center gap-1.5">
                         <span
-                          className="text-[9px] px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 shrink-0 font-semibold"
-                          title="Korumalı (Circle üyesi) — değiştirilemez"
+                          className={cn(
+                            'inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium',
+                            karakDone ? 'bg-success/15 text-success' : 'bg-warning/15 text-warning'
+                          )}
+                          title={karakDone ? 'Karakteristik Envanter: tamamlandı' : 'Karakteristik Envanter: bekliyor'}
                         >
-                          🔒
+                          {karakDone ? <CheckCircleIcon className="w-3 h-3" /> : <ClockIcon className="w-3 h-3" />}
+                          Karakteristik
                         </span>
-                      )}
-                      {dupCount > 1 && (
                         <span
-                          className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 shrink-0 font-semibold"
-                          title={`Bu e-posta ile ${dupCount} başvuru var`}
+                          className={cn(
+                            'inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium',
+                            disipDone ? 'bg-success/15 text-success' : 'bg-warning/15 text-warning'
+                          )}
+                          title={disipDone ? 'Disipliner Envanter: tamamlandı' : 'Disipliner Envanter: bekliyor'}
                         >
-                          {dupCount}×
+                          {disipDone ? <CheckCircleIcon className="w-3 h-3" /> : <ClockIcon className="w-3 h-3" />}
+                          Disipliner
                         </span>
-                      )}
-                      {flag === '18yas' && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-600 shrink-0">18Y</span>}
-                      {flag === 'topluluk' && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 shrink-0">IHL</span>}
-                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full shrink-0 ${step?.bg} ${step?.text}`}>{step?.label}</span>
-                    </button>
-                  )
-                })}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Right: Detail Side Panel */}
-        {sel && (
-          <>
-          {/* Backdrop */}
-          <div className="fixed inset-0 top-[4rem] z-20 bg-black/10" onClick={() => setSelectedApp(null)} />
-          <div className="fixed right-0 top-[4rem] bottom-0 w-[400px] bg-card border-l border-border flex flex-col z-30 animate-slide-in-right shadow-xl">
-            {/* Panel header */}
-            <div className="px-4 py-3 border-b border-border flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold" style={{ backgroundColor: selStep?.color || '#6B7280' }}>
-                  {sel.full_name.split(' ').map(p => p.charAt(0)).join('').toUpperCase().slice(0, 2)}
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-foreground">{sel.full_name}</p>
-                  <p className="text-[11px] text-muted-foreground">{sel.email}</p>
-                </div>
-              </div>
-              <button onClick={() => setSelectedApp(null)} className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-muted-foreground">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-              </button>
-            </div>
-
-            {/* Flag warning */}
-            {selFlag && (
-              <div className={`px-4 py-2 text-xs font-medium flex items-center gap-1.5 ${selFlag === '18yas' ? 'bg-orange-50 text-orange-700' : 'bg-red-50 text-red-700'}`}>
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126z" />
-                </svg>
-                {selFlag === '18yas' ? '18 yasindan kucuk' : 'Topluluk ilkeleri kabul edilmemis'}
-              </div>
-            )}
-
-            {/* Duplicate e-posta uyarısı */}
-            {sel.email && (emailCounts.get(sel.email.toLowerCase().trim()) || 1) > 1 && (
-              <div className="px-4 py-2 border-b border-border bg-amber-50">
-                <p className="text-xs font-medium text-amber-800 mb-1">
-                  Bu e-posta ile {emailCounts.get(sel.email.toLowerCase().trim())} başvuru mevcut
-                </p>
-                <div className="space-y-1">
-                  {allApps
-                    .filter(a => a.id !== sel.id && (a.email || '').toLowerCase().trim() === (sel.email || '').toLowerCase().trim())
-                    .slice(0, 5)
-                    .map(other => {
-                      const otherStep = ALL_STATUSES.find(s => s.key === (other.status === 'nihai_olmayan' ? 'kesin_kabul' : other.status))
-                      const when = String(other.submitted_at || (other as any).created_at || '').slice(0, 16).replace('T', ' ')
-                      return (
-                        <button
-                          key={other.id}
-                          onClick={() => setSelectedApp(other)}
-                          className="w-full text-left flex items-center gap-2 px-2 py-1 rounded hover:bg-amber-100/70 transition-colors"
-                        >
-                          <span className="text-[10px] text-amber-900 truncate flex-1">
-                            {other.full_name}
-                          </span>
-                          <span className="text-[10px] text-amber-700/70 shrink-0">{when}</span>
+                        {wc > 0 && (
                           <span
-                            className="text-[9px] px-1.5 py-0.5 rounded-full font-medium shrink-0"
-                            style={{ backgroundColor: otherStep?.color + '22', color: otherStep?.color }}
-                          >
-                            {otherStep?.label}
-                          </span>
-                        </button>
-                      )
-                    })}
-                </div>
-              </div>
-            )}
-
-            {/* Degerlendirme + Islem */}
-            <div className="px-4 py-3 border-b border-border space-y-2.5 shrink-0">
-              {(sel as { is_protected?: boolean }).is_protected ? (
-                <div className="bg-purple-50 border border-purple-200 rounded-lg px-3 py-2.5 text-purple-800">
-                  <div className="flex items-center gap-2 text-sm font-semibold">
-                    🔒 Korumalı kayıt (Circle üyesi)
-                  </div>
-                  <p className="text-xs text-purple-700/80 mt-1">
-                    Bu kayıt gerçek topluluk üyesidir. Mail gönderme, status değiştirme, güncelleme ve silme işlemleri devre dışıdır.
-                  </p>
-                </div>
-              ) : sel.status === 'kesin_ret' || sel.status === 'yas_kucuk' ? (
-                <>
-                  {/* Kesin ret: mail gonder */}
-                  {!sel.mail_sent ? (
-                    <>
-                      {!sel.email && (
-                        <p className="text-[11px] text-amber-600">E-posta adresi yok</p>
-                      )}
-                      <button
-                        onClick={async () => {
-                          const note = (sel.review_note || '').toLowerCase()
-                          const tplId = note.includes('18') && (note.includes('yas') || note.includes('yaş')) ? 'kesin-ret-18yas'
-                            : note.includes('topluluk') && note.includes('ilke') ? 'kesin-ret-topluluk' : 'kesin-ret'
-                          const tpl = mailTemplates.find(t => t.id === tplId)
-                          setActionLoading(true)
-                          try {
-                            const nameParts = sel.full_name.split(' ')
-                            const res = await fetch('/api/mail/send', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({
-                                email: sel.email,
-                                firstName: nameParts[0] || '',
-                                lastName: nameParts.slice(1).join(' ') || '',
-                                template_id: tplId,
-                                subject: tpl?.subject || 'Başvurunuz Hakkında',
-                                application_id: sel.id,
-                                sent_by: 'dashboard',
-                              }),
-                            })
-                            const result = await res.json()
-                            if (result.success) {
-                              setToast({ type: 'success', text: 'Red maili gönderildi — kayıt Kesin Ret tablosuna taşındı' })
-                              // Listeden kaldır + paneli kapat
-                              setAllApps(prev => prev.filter(a => a.id !== sel.id))
-                              setSelectedApp(null)
-                            } else {
-                              setToast({ type: 'error', text: result.error || 'Gönderilemedi' })
-                            }
-                          } catch { setToast({ type: 'error', text: 'Bağlantı hatası' }) }
-                          setActionLoading(false)
-                          setTimeout(() => setToast(null), 3000)
-                        }}
-                        disabled={actionLoading || !sel.email}
-                        className="w-full px-3 py-2 text-xs font-medium text-white bg-red-500 rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50"
-                      >
-                        {actionLoading ? 'Gönderiliyor...' : 'Red Maili Gönder'}
-                      </button>
-                    </>
-                  ) : (
-                    <div className="flex items-center gap-1.5 text-green-600 text-xs bg-green-50 rounded-lg p-2">
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                      Mail gönderildi
-                    </div>
-                  )}
-                  <button onClick={() => handleRollback(sel)} disabled={actionLoading}
-                    className="w-full px-3 py-2 text-[11px] font-medium text-muted-foreground bg-muted rounded-lg hover:bg-secondary transition-colors disabled:opacity-50">
-                    Geri Al
-                  </button>
-                </>
-              ) : (
-                <>
-                  {/* Kontrol/diger: degerlendirme formu */}
-                  {(() => {
-                    const reviewReady = reviewer.trim().length > 0 && reviewNote.trim().length > 0
-                    return (
-                      <>
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <label className="text-[10px] font-medium text-muted-foreground block mb-0.5">
-                              Değerlendiren <span className="text-red-500">*</span>
-                            </label>
-                            <select value={reviewer} onChange={e => setReviewer(e.target.value)}
-                              className={`w-full text-xs border rounded-lg px-2 py-1.5 bg-card focus:ring-1 focus:ring-indigo-300 outline-none ${
-                                !reviewer.trim() ? 'border-amber-300 bg-amber-50' : 'border-border'
-                              }`}>
-                              <option value="">Seç...</option>
-                              <option value="Tuna">Tuna</option>
-                              <option value="Taha">Taha</option>
-                            </select>
-                          </div>
-                          <div>
-                            <label className="text-[10px] font-medium text-muted-foreground block mb-0.5">
-                              Not <span className="text-red-500">*</span>
-                            </label>
-                            <input type="text" value={reviewNote} onChange={e => setReviewNote(e.target.value)} placeholder="Değerlendirme notu..."
-                              className={`w-full text-xs border rounded-lg px-2 py-1.5 bg-card focus:ring-1 focus:ring-indigo-300 outline-none ${
-                                !reviewNote.trim() ? 'border-amber-300 bg-amber-50' : 'border-border'
-                              }`} />
-                          </div>
-                        </div>
-
-                        {/* Mail sablonu + konu — kesin_kabul/kesin_ret icin zorunlu */}
-                        {sel.status === 'kontrol' && (
-                          <div className="space-y-1.5 pt-1">
-                            <div>
-                              <label className="text-[10px] font-medium text-muted-foreground block mb-0.5">
-                                Mail Şablonu <span className="text-red-500">*</span>
-                              </label>
-                              <select
-                                value={selectedTemplateId || ''}
-                                onChange={e => {
-                                  const id = e.target.value || null
-                                  setSelectedTemplateId(id)
-                                  const tpl = mailTemplates.find(t => t.id === id)
-                                  if (tpl?.subject && !mailSubject) setMailSubject(tpl.subject)
-                                }}
-                                className={`w-full text-xs border rounded-lg px-2 py-1.5 bg-card focus:ring-1 focus:ring-indigo-300 outline-none ${
-                                  !selectedTemplateId ? 'border-amber-300 bg-amber-50' : 'border-border'
-                                }`}
-                              >
-                                <option value="">Şablon seç...</option>
-                                {mailTemplates.map(t => (
-                                  <option key={t.id} value={t.id}>{t.name}</option>
-                                ))}
-                              </select>
-                            </div>
-                            <div>
-                              <label className="text-[10px] font-medium text-muted-foreground block mb-0.5">
-                                Mail Konusu <span className="text-red-500">*</span>
-                              </label>
-                              <input
-                                type="text"
-                                value={mailSubject}
-                                onChange={e => setMailSubject(e.target.value)}
-                                placeholder="Mail konusu..."
-                                className={`w-full text-xs border rounded-lg px-2 py-1.5 bg-card focus:ring-1 focus:ring-indigo-300 outline-none ${
-                                  !mailSubject.trim() ? 'border-amber-300 bg-amber-50' : 'border-border'
-                                }`}
-                              />
-                            </div>
-                          </div>
-                        )}
-
-                        {!reviewReady && (
-                          <p className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-1 mt-1">
-                            Status geçişi için değerlendiren ve not zorunludur.
-                          </p>
-                        )}
-
-                        {/* Action butonlari */}
-                        <div className="flex flex-wrap gap-1.5 pt-1">
-                          {selActions.map(a => {
-                            const isMailRequired = a.toStatus === 'kesin_kabul' || a.toStatus === 'kesin_ret'
-                            const mailReady = !isMailRequired || (selectedTemplateId && mailSubject.trim().length > 0)
-                            const ready = reviewReady && mailReady
-                            const tip = !reviewReady ? 'Değerlendiren ve not doldurulmalı'
-                              : isMailRequired && !selectedTemplateId ? 'Mail şablonu seçilmeli'
-                              : isMailRequired && !mailSubject.trim() ? 'Mail konusu boş olamaz'
-                              : ''
-                            return (
-                            <button
-                              key={a.toStatus}
-                              onClick={() => handleAction(sel, a.toStatus)}
-                              disabled={actionLoading || !ready}
-                              title={tip}
-                              className={`px-3 py-2 text-[11px] font-medium text-white rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${a.color}`}
-                            >
-                              {actionLoading ? '...' : a.label}
-                            </button>
-                          )})}
-                          <button onClick={() => handleRollback(sel)} disabled={actionLoading}
-                            className="px-3 py-2 text-[11px] font-medium text-muted-foreground bg-muted rounded-lg hover:bg-secondary transition-colors disabled:opacity-50 ml-auto">
-                            Geri Al
-                          </button>
-                        </div>
-                      </>
-                    )
-                  })()}
-                </>
-              )}
-            </div>
-
-            {/* Scrollable detail — two columns: info left, principles right */}
-            <div className="flex-1 overflow-y-auto flex min-h-0">
-              {/* Left column: bilgiler */}
-              <div className="flex-1 px-3 py-3 space-y-3 overflow-y-auto border-r border-border">
-                {/* Kisisel */}
-                <div>
-                  <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Kisisel</h4>
-                  <div className="grid grid-cols-2 gap-x-2 gap-y-0.5">
-                    <InfoRow label="Telefon" value={sel.phone} />
-                    <InfoRow label="Dogum" value={sel.birth_date} />
-                    <InfoRow label="Cinsiyet" value={sel.gender} />
-                    <InfoRow label="Durum" value={sel.professional_status} />
-                  </div>
-                </div>
-
-                {/* Egitim */}
-                {(sel.university || sel.department) && (
-                  <div>
-                    <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Egitim</h4>
-                    <div className="grid grid-cols-2 gap-x-2 gap-y-0.5">
-                      <InfoRow label="Universite" value={sel.university} />
-                      <InfoRow label="Bolum" value={sel.department} />
-                      <InfoRow label="Ogrenim" value={sel.education_type} />
-                    </div>
-                  </div>
-                )}
-
-                {/* Rol */}
-                {sel.main_role && (
-                  <div>
-                    <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Rol & Degerler</h4>
-                    <InfoRow label="Ana Rol" value={sel.main_role} />
-                    <InfoRow label="Degerler" value={sel.core_values} />
-                  </div>
-                )}
-
-                {/* Kendini ifade */}
-                {(sel.self_expression || sel.video_link || sel.plan_description) && (
-                  <div>
-                    <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Kendini Ifade</h4>
-                    {sel.self_expression && <p className="text-[11px] text-foreground leading-relaxed mb-1">{sel.self_expression}</p>}
-                    {sel.video_link && <a href={sel.video_link} target="_blank" rel="noopener noreferrer" className="text-[11px] text-blue-600 hover:underline block truncate mb-1">{sel.video_link}</a>}
-                    {sel.plan_description && <p className="text-[11px] text-muted-foreground leading-relaxed">{sel.plan_description}</p>}
-                  </div>
-                )}
-
-                {/* Acik uclu sorular */}
-                {(sel.future_ideas || sel.feedback_experience || sel.project_steps || sel.curiosity_topic) && (
-                  <div>
-                    <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Sorular</h4>
-                    <div className="space-y-1">
-                      <QABlock label="Alanin gelecegi" value={sel.future_ideas} />
-                      <QABlock label="Geri bildirim" value={sel.feedback_experience} />
-                      <QABlock label="Proje fikri" value={sel.project_steps} />
-                      <QABlock label="Merak konusu" value={sel.curiosity_topic} />
-                      <QABlock label="Ek notlar" value={sel.additional_notes} />
-                    </div>
-                  </div>
-                )}
-
-                {/* Degerlendirme — sadece kesin ret olmayanlarda goster (kesin ret bilgisi zaten ust banner'da) */}
-                {sel.reviewer && sel.status !== 'kesin_ret' && sel.status !== 'yas_kucuk' && (
-                  <div className="bg-muted/50 rounded-lg p-2 border border-border">
-                    <span className="text-[10px] text-muted-foreground">Degerlendirme</span>
-                    <p className="text-[11px]"><span className="font-medium">{sel.reviewer}</span>{sel.review_note ? ` — ${sel.review_note}` : ''}</p>
-                    {sel.mail_sent && <p className="text-[10px] text-emerald-600 mt-0.5">Mail gonderildi{sel.mail_template ? ` (${sel.mail_template})` : ''}</p>}
-                  </div>
-                )}
-              </div>
-
-              {/* Right column: Topluluk Ilkeleri — sadece flag'li (ihlal) olanlarda goster */}
-              {selFlag === 'topluluk' && <div className="w-[140px] shrink-0 px-2.5 py-3 overflow-y-auto">
-                {(() => {
-                  const principles = Array.from({ length: 10 }, (_, i) => sel[`principle_${i + 1}`] as string || '')
-                  const filled = principles.filter(Boolean).length
-                  const allFilled = filled === 10
-                  const noneFilled = filled === 0
-
-                  return (
-                    <>
-                      <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Ilkeler</h4>
-                      {/* Ozet badge */}
-                      <div className={`rounded-lg px-2 py-1.5 mb-2 text-center ${
-                        noneFilled ? 'bg-red-50 border border-red-200' : allFilled ? 'bg-emerald-50 border border-emerald-200' : 'bg-amber-50 border border-amber-200'
-                      }`}>
-                        {noneFilled ? (
-                          <div className="flex items-center justify-center gap-1">
-                            <svg className="w-3.5 h-3.5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                            <span className="text-[10px] font-bold text-red-700">0/10</span>
-                          </div>
-                        ) : allFilled ? (
-                          <div className="flex items-center justify-center gap-1">
-                            <svg className="w-3.5 h-3.5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                            </svg>
-                            <span className="text-[10px] font-bold text-emerald-700">{filled}/10</span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center justify-center gap-1">
-                            <span className="text-[10px] font-bold text-amber-700">⚠ {filled}/10</span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Her ilke */}
-                      <div className="space-y-0.5">
-                        {principles.map((val, i) => (
-                          <div key={i} className="flex items-center gap-1" title={val || 'Kabul edilmedi'}>
-                            {val ? (
-                              <svg className="w-3 h-3 text-emerald-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                              </svg>
-                            ) : (
-                              <svg className="w-3 h-3 text-red-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                              </svg>
+                            className={cn(
+                              'inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium',
+                              wcCritical ? 'bg-destructive/15 text-destructive' : 'bg-warning/15 text-warning'
                             )}
-                            <span className={`text-[10px] truncate ${val ? 'text-muted-foreground' : 'text-red-400'}`}>{i + 1}. ilke</span>
-                          </div>
-                        ))}
+                            title={wcCritical ? `${wc} uyarı — kritik` : `${wc} uyarı`}
+                          >
+                            <ExclamationTriangleIcon className="w-3 h-3" />
+                            {wc}
+                          </span>
+                        )}
                       </div>
-                    </>
-                  )
-                })()}
-              </div>}
-            </div>
-          </div>
-          </>
-        )}
-      </div>
 
-      {/* Nihai Üye'ye zorla taşıma onay modal'ı */}
-      {forceConfirm && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setForceConfirm(null)} />
-          <div className="relative bg-card rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
-            <div className="flex items-start gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
-                <svg className="w-5 h-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126z" />
-                </svg>
-              </div>
-              <div className="flex-1">
-                <h3 className="text-sm font-semibold text-foreground">Eksik görevler var</h3>
-                <p className="text-xs text-muted-foreground mt-1">
-                  <span className="font-medium">{forceConfirm.app.full_name}</span> henüz şu görevleri tamamlamadı:
-                </p>
-              </div>
-            </div>
+                      <StatusBadge status={app.status} size="sm" />
 
-            <ul className="space-y-1 mb-4 pl-4 list-disc text-xs text-foreground">
-              {forceConfirm.missing.map(t => {
-                const labels: Record<string, string> = {
-                  karakteristik_envanter: 'Karakteristik Envanter',
-                  disipliner_envanter: 'Disipliner Envanter',
-                  oryantasyon: 'Oryantasyon',
-                }
-                return <li key={t}>{labels[t] || t}</li>
+                      <span className="text-[10px] text-muted-foreground tabular-nums shrink-0 w-[58px] text-right">
+                        {formatRelative(app.updated_at || app.submitted_at)}
+                      </span>
+                    </button>
+                  </li>
+                )
               })}
             </ul>
+          )}
+        </section>
+      </div>
 
-            <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4">
-              <p className="text-xs text-amber-800">
-                Normalde kullanıcı oryantasyon + envanter testleri tamamlamalı. Yine de Nihai Ağ Üyesi'ne taşımak istediğinize emin misiniz?
-              </p>
-            </div>
-
-            <div className="flex gap-2">
-              <button
-                onClick={() => setForceConfirm(null)}
-                className="flex-1 px-3 py-2 text-sm border border-border text-foreground rounded-lg hover:bg-muted/50"
-              >
-                İptal
-              </button>
-              <button
-                onClick={async () => {
-                  const fc = forceConfirm
-                  setForceConfirm(null)
-                  await handleAction(fc.app, fc.toStatus, true)
-                }}
-                className="flex-1 px-3 py-2 text-sm text-white bg-amber-500 rounded-lg hover:bg-amber-600 font-medium"
-              >
-                Yine de Taşı
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Detail popup — status'e göre yönlendir */}
+      {(() => {
+        if (!selectedApp) return null
+        const memberStatuses = ['kesin_kabul', 'nihai_olmayan', 'nihai_uye', 'etkinlik']
+        const onClose = () => { setSelectedApp(null); fetchApps() }
+        if (memberStatuses.includes(selectedApp.status)) {
+          return <MemberDetailModal data={selectedApp} onClose={onClose} />
+        }
+        return <KontrolDetailModal data={selectedApp} onClose={onClose} />
+      })()}
     </div>
   )
 }

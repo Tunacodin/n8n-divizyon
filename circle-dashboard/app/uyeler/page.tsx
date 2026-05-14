@@ -1,66 +1,710 @@
 'use client'
 
-import { Suspense, useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { TabBar, type Tab } from '@/components/ui/tabs'
-import OryantasyonContent from '@/components/uyeler/OryantasyonContent'
-import NihaiAgUyesiContent from '@/components/uyeler/NihaiAgUyesiContent'
-import EtkinliktenGelenContent from '@/components/uyeler/EtkinliktenGelenContent'
-import DeaktiveContent from '@/components/uyeler/DeaktiveContent'
+import {
+  MagnifyingGlassIcon,
+  ArrowPathIcon,
+  EnvelopeIcon,
+  CheckCircleIcon,
+  XCircleIcon,
+  ClockIcon,
+  ExclamationTriangleIcon,
+} from '@heroicons/react/24/outline'
+import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh'
+import { StatusBadge } from '@/components/ui/StatusBadge'
+import { LoadingState } from '@/components/ui/LoadingState'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { Pagination } from '@/components/ui/Pagination'
+import KontrolDetailModal from '@/components/kontrol/KontrolDetailModal'
+import MemberDetailModal from '@/components/uyeler/MemberDetailModal'
+import { cn } from '@/lib/utils'
 
-const TABS: Tab[] = [
-  { key: 'oryantasyon', label: 'Oryantasyon', dotColor: 'bg-violet-400' },
-  { key: 'nihai-ag-uyesi', label: 'Nihai Ağ Üyesi', dotColor: 'bg-amber-400' },
-  { key: 'etkinlikten-gelen', label: 'Etkinlikten Gelen', dotColor: 'bg-cyan-400' },
-  { key: 'deaktive', label: 'Deaktive', dotColor: 'bg-gray-400' },
+interface TaskCompletion {
+  task_type: string
+  completed: boolean
+}
+
+interface AppItem {
+  id: string
+  full_name: string
+  email: string
+  phone?: string
+  status: string
+  reviewer?: string
+  review_note?: string
+  mail_sent?: boolean
+  mail_template?: string
+  approval_status?: string
+  submitted_at?: string
+  created_at?: string
+  updated_at?: string
+  is_protected?: boolean
+  university?: string
+  department?: string
+  main_role?: string
+  source?: string
+  tasks?: TaskCompletion[]
+  warning_count?: number
+  tags?: string[]
+  [key: string]: unknown
+}
+
+// ─── Top tabs ───
+
+type TopTab = 'kontrol' | 'kesin_ret' | 'gecici_uye' | 'nihai_uye'
+
+const TOP_TABS: { key: TopTab; label: string; hint: string }[] = [
+  { key: 'kontrol',    label: 'Kontrol Bekleyen', hint: 'Manuel değerlendirme bekleyen başvurular' },
+  { key: 'kesin_ret',  label: 'Kesin Ret',        hint: 'Reddedilen başvurular' },
+  { key: 'gecici_uye', label: 'Geçici Üye',       hint: 'Kabul edilen, geçiş sürecinde' },
+  { key: 'nihai_uye',  label: 'Nihai Ağ Üyesi',   hint: 'Tüm görevleri tamamlamış üyeler' },
 ]
 
-function UyelerContent() {
-  const searchParams = useSearchParams()
-  const router = useRouter()
-  const activeTab = searchParams.get('tab') || 'oryantasyon'
-  const [mounted, setMounted] = useState<Set<string>>(new Set([activeTab]))
+// ─── Kontrol alt filtreleri ───
 
-  useEffect(() => {
-    setMounted((prev) => new Set(prev).add(activeTab))
-  }, [activeTab])
+type KontrolFilter = 'tumu' | 'bugun' | 'dun' | 'bu_hafta' | 'atanmamis'
 
-  const handleTabChange = (key: string) => {
-    router.replace(`/uyeler?tab=${key}`, { scroll: false })
+const KONTROL_FILTERS: { key: KontrolFilter; label: string }[] = [
+  { key: 'tumu',       label: 'Tümü' },
+  { key: 'bugun',      label: 'Bugün' },
+  { key: 'dun',        label: 'Dün' },
+  { key: 'bu_hafta',   label: 'Bu Hafta' },
+  { key: 'atanmamis',  label: 'Atanmamış' },
+]
+
+function startOfDay(d: Date) {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+}
+
+function classifyKontrol(a: AppItem, filter: KontrolFilter): boolean {
+  if (filter === 'tumu') return true
+  if (filter === 'atanmamis') return !a.reviewer || !a.reviewer.trim()
+  const ts = new Date(a.submitted_at || a.created_at || 0).getTime()
+  const today = startOfDay(new Date())
+  const yesterday = today - 86400000
+  const week = today - 6 * 86400000
+  if (filter === 'bugun') return ts >= today
+  if (filter === 'dun') return ts >= yesterday && ts < today
+  if (filter === 'bu_hafta') return ts >= week
+  return true
+}
+
+// ─── Ret kategorileri ───
+
+type RetCat = 'tumu' | 'yas_kucuk' | 'topluluk' | 'manuel' | 'otomasyon'
+
+const RET_CATS: { key: RetCat; label: string }[] = [
+  { key: 'tumu',      label: 'Tümü' },
+  { key: 'yas_kucuk', label: '18 Yaş Altı' },
+  { key: 'topluluk',  label: 'Topluluk İlkeleri' },
+  { key: 'manuel',    label: 'Manuel Ret' },
+  { key: 'otomasyon', label: 'Otomasyon' },
+]
+
+function classifyRet(a: AppItem): RetCat {
+  if (a.status === 'yas_kucuk') return 'yas_kucuk'
+  const note = (a.review_note || '').toLowerCase()
+  const reviewer = (a.reviewer || '').trim()
+  if (note.includes('topluluk') && note.includes('ilke')) return 'topluluk'
+  if (reviewer === 'Otomasyon' || reviewer === 'otomasyon' || reviewer.toLowerCase().includes('otomasyon')) return 'otomasyon'
+  if (reviewer) return 'manuel'
+  return 'manuel'
+}
+
+// ─── Geçici üye kaynakları ───
+
+type GeciciSource = 'tumu' | 'basvuru' | 'etkinlik'
+
+const GECICI_SOURCES: { key: GeciciSource; label: string }[] = [
+  { key: 'tumu',     label: 'Tümü' },
+  { key: 'basvuru',  label: 'Başvuru Üzerinden' },
+  { key: 'etkinlik', label: 'Etkinlikten Gelen' },
+]
+
+function sourceOfGecici(a: AppItem): GeciciSource {
+  if (a.status === 'etkinlik' || a.source === 'event') return 'etkinlik'
+  return 'basvuru'
+}
+
+// ─── Görev tamamlama yardımcıları ───
+
+const TASK_LABELS: Record<string, string> = {
+  karakteristik_envanter: 'Karakteristik',
+  disipliner_envanter: 'Disipliner',
+  oryantasyon: 'Oryantasyon',
+}
+
+function getTaskMap(a: AppItem): Record<string, boolean> {
+  const m: Record<string, boolean> = {}
+  for (const t of a.tasks || []) {
+    if (t.completed) m[t.task_type] = true
   }
+  return m
+}
 
+function hasBasvuruForm(a: AppItem): boolean {
+  // Başvuru yapmış olanlarda submitted_at + form_token veya core_values dolu olur.
+  // Etkinlikten gelenlerin başvurusu yoksa source=event ve submitted_at olmayabilir.
+  // Pragmatik: source 'form' veya submitted_at varsa "başvuru yapıldı"
+  if (a.source === 'event' && !a.submitted_at) return false
+  // Form tabanlı verilerden biri varsa
+  return !!(a.submitted_at || a.core_values || a.self_expression || a.main_role)
+}
+
+// ─── Helpers ───
+
+function timestampOf(a: AppItem): number {
+  return new Date(a.updated_at || a.submitted_at || a.created_at || 0).getTime()
+}
+
+function formatRelative(iso: string | undefined): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return ''
+  const diff = (Date.now() - d.getTime()) / 1000
+  if (diff < 60) return 'az önce'
+  if (diff < 3600) return `${Math.floor(diff / 60)} dk önce`
+  if (diff < 86400) return `${Math.floor(diff / 3600)} sa önce`
+  if (diff < 7 * 86400) return `${Math.floor(diff / 86400)} gün önce`
+  return d.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' })
+}
+
+// ─── Avatar ───
+
+function Avatar({ name }: { name: string }) {
+  const initials = name
+    .split(' ')
+    .map(p => p.charAt(0))
+    .join('')
+    .toUpperCase()
+    .slice(0, 2)
   return (
-    <div className="min-h-screen bg-background">
-      <div className="sticky top-20 z-30 bg-card border-b border-border px-8 py-4">
-        <h1 className="text-xl font-bold text-foreground mb-3">Ağ Üyeleri</h1>
-        <TabBar tabs={TABS} activeTab={activeTab} onChange={handleTabChange} />
-      </div>
-
-      <div className="relative">
-        {TABS.map((tab) => {
-          if (!mounted.has(tab.key)) return null
-          return (
-            <div key={tab.key} style={{ display: activeTab === tab.key ? 'block' : 'none' }}>
-              {tab.key === 'oryantasyon' && <OryantasyonContent />}
-              {tab.key === 'nihai-ag-uyesi' && <NihaiAgUyesiContent />}
-              {tab.key === 'etkinlikten-gelen' && <EtkinliktenGelenContent />}
-              {tab.key === 'deaktive' && <DeaktiveContent />}
-            </div>
-          )
-        })}
-      </div>
+    <div className="w-9 h-9 rounded-full bg-secondary text-muted-foreground flex items-center justify-center text-[11px] font-bold shrink-0">
+      {initials}
     </div>
   )
 }
 
-export default function UyelerPage() {
+// ─── Chip ───
+
+function Chip({ active, onClick, count, children }: { active: boolean; onClick: () => void; count?: number; children: React.ReactNode }) {
   return (
-    <Suspense fallback={
-      <div className="flex items-center justify-center py-20">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500" />
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium border transition-colors cursor-pointer',
+        active
+          ? 'bg-primary text-primary-foreground border-primary'
+          : 'bg-card text-muted-foreground border-border hover:text-foreground hover:bg-muted'
+      )}
+    >
+      {children}
+      {count !== undefined && (
+        <span className={cn(
+          'inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold',
+          active ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-muted text-muted-foreground'
+        )}>
+          {count}
+        </span>
+      )}
+    </button>
+  )
+}
+
+// ─── Task indicator ───
+
+function WarningBadge({ count }: { count: number }) {
+  if (count <= 0) return null
+  const critical = count >= 2
+  return (
+    <span
+      className={cn(
+        'hidden sm:inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium',
+        critical ? 'bg-destructive/15 text-destructive' : 'bg-warning/15 text-warning'
+      )}
+      title={critical ? `${count} uyarı — kritik (2'de Circle deaktif)` : `${count} uyarı`}
+    >
+      <ExclamationTriangleIcon className="w-3 h-3" />
+      {count}
+    </span>
+  )
+}
+
+function TagBadges({ tags }: { tags?: string[] }) {
+  if (!tags || tags.length === 0) return null
+  const visible = tags.slice(0, 2)
+  const extra = tags.length - visible.length
+  return (
+    <div className="hidden lg:flex items-center gap-1">
+      {visible.map(t => (
+        <span
+          key={t}
+          className="inline-flex items-center text-[10px] px-2 py-0.5 rounded-full font-medium bg-primary/10 text-primary border border-primary/20"
+          title={t}
+        >
+          {t.length > 18 ? t.slice(0, 16) + '…' : t}
+        </span>
+      ))}
+      {extra > 0 && (
+        <span className="text-[10px] text-muted-foreground" title={tags.slice(2).join(', ')}>+{extra}</span>
+      )}
+    </div>
+  )
+}
+
+function TaskIndicator({ label, done, missing }: { label: string; done: boolean; missing?: boolean }) {
+  return (
+    <span
+      title={`${label}: ${done ? 'Tamamlandı' : missing ? 'Yapılmadı' : 'Bekliyor'}`}
+      className={cn(
+        'inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium',
+        done
+          ? 'bg-success/15 text-success'
+          : missing
+          ? 'bg-destructive/15 text-destructive'
+          : 'bg-warning/15 text-warning'
+      )}
+    >
+      {done ? (
+        <CheckCircleIcon className="w-3 h-3" />
+      ) : missing ? (
+        <XCircleIcon className="w-3 h-3" />
+      ) : (
+        <ClockIcon className="w-3 h-3" />
+      )}
+      {label}
+    </span>
+  )
+}
+
+// ─── Main Page ───
+
+const PER_PAGE = 20
+
+function BasvuruYonetimiContent() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
+
+  const activeTab = ((searchParams.get('tab') as TopTab) || 'kontrol')
+  const activeRetCat = ((searchParams.get('kategori') as RetCat) || 'tumu')
+  const activeGeciciSource = ((searchParams.get('kaynak') as GeciciSource) || 'tumu')
+  const activeKontrolFilter = ((searchParams.get('zaman') as KontrolFilter) || 'tumu')
+
+  const [apps, setApps] = useState<AppItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [selectedApp, setSelectedApp] = useState<AppItem | null>(null)
+  const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
+
+  const fetchData = useCallback(async () => {
+    try {
+      const res = await fetch('/api/applications?with=tasks,warnings&sort=updated_at&order=desc&limit=2000')
+      const j = await res.json()
+      if (j.success) setApps(j.data || [])
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { fetchData() }, [fetchData])
+  useRealtimeRefresh(['applications', 'task_completions'], fetchData)
+
+  useEffect(() => { setPage(1); setSearch('') }, [activeTab, activeRetCat, activeGeciciSource, activeKontrolFilter])
+
+  const setTab = (t: TopTab) => router.replace(`/uyeler?tab=${t}`, { scroll: false })
+  const setRetCat = (c: RetCat) => router.replace(`/uyeler?tab=kesin_ret&kategori=${c}`, { scroll: false })
+  const setGeciciSource = (s: GeciciSource) => router.replace(`/uyeler?tab=gecici_uye&kaynak=${s}`, { scroll: false })
+  const setKontrolFilter = (f: KontrolFilter) => router.replace(`/uyeler?tab=kontrol&zaman=${f}`, { scroll: false })
+
+  // Pre-filter: top tab'a göre temel filtre
+  const byTab = useMemo(() => {
+    return apps.filter(a => {
+      if (activeTab === 'kontrol')    return a.status === 'kontrol'
+      if (activeTab === 'kesin_ret')  return a.status === 'kesin_ret' || a.status === 'yas_kucuk'
+      if (activeTab === 'gecici_uye') return a.status === 'kesin_kabul' || a.status === 'nihai_olmayan' || a.status === 'etkinlik'
+      if (activeTab === 'nihai_uye')  return a.status === 'nihai_uye'
+      return false
+    })
+  }, [apps, activeTab])
+
+  // Tab içinde alt filtre
+  const filtered = useMemo(() => {
+    let items = byTab
+
+    if (activeTab === 'kesin_ret' && activeRetCat !== 'tumu') {
+      items = items.filter(a => classifyRet(a) === activeRetCat)
+    }
+
+    if (activeTab === 'gecici_uye' && activeGeciciSource !== 'tumu') {
+      items = items.filter(a => sourceOfGecici(a) === activeGeciciSource)
+    }
+
+    if (activeTab === 'kontrol' && activeKontrolFilter !== 'tumu') {
+      items = items.filter(a => classifyKontrol(a, activeKontrolFilter))
+    }
+
+    if (search.trim()) {
+      const q = search.toLowerCase().trim()
+      items = items.filter(a =>
+        (a.full_name || '').toLowerCase().includes(q) ||
+        (a.email || '').toLowerCase().includes(q) ||
+        (a.phone || '').toLowerCase().includes(q)
+      )
+    }
+
+    return items.sort((a, b) => timestampOf(b) - timestampOf(a))
+  }, [byTab, activeTab, activeRetCat, activeGeciciSource, activeKontrolFilter, search])
+
+  // Tab sayıları
+  const tabCounts = useMemo(() => {
+    let kontrol = 0, kesinRet = 0, geciciUye = 0, nihaiUye = 0
+    for (const a of apps) {
+      if (a.status === 'kontrol') kontrol++
+      else if (a.status === 'kesin_ret' || a.status === 'yas_kucuk') kesinRet++
+      else if (a.status === 'kesin_kabul' || a.status === 'nihai_olmayan' || a.status === 'etkinlik') geciciUye++
+      else if (a.status === 'nihai_uye') nihaiUye++
+    }
+    return { kontrol, kesin_ret: kesinRet, gecici_uye: geciciUye, nihai_uye: nihaiUye }
+  }, [apps])
+
+  // Kontrol alt filtre sayıları
+  const kontrolCounts = useMemo(() => {
+    const c: Record<KontrolFilter, number> = { tumu: byTab.length, bugun: 0, dun: 0, bu_hafta: 0, atanmamis: 0 }
+    if (activeTab !== 'kontrol') return c
+    for (const a of byTab) {
+      if (classifyKontrol(a, 'bugun')) c.bugun++
+      if (classifyKontrol(a, 'dun')) c.dun++
+      if (classifyKontrol(a, 'bu_hafta')) c.bu_hafta++
+      if (classifyKontrol(a, 'atanmamis')) c.atanmamis++
+    }
+    return c
+  }, [byTab, activeTab])
+
+  // Alt kategori sayıları (Kesin Ret tab'ı için)
+  const retCatCounts = useMemo(() => {
+    const c: Record<RetCat, number> = { tumu: byTab.length, yas_kucuk: 0, topluluk: 0, manuel: 0, otomasyon: 0 }
+    if (activeTab !== 'kesin_ret') return c
+    for (const a of byTab) {
+      const cat = classifyRet(a)
+      c[cat]++
+    }
+    return c
+  }, [byTab, activeTab])
+
+  // Alt kaynak sayıları (Geçici Üye tab'ı için)
+  const geciciSourceCounts = useMemo(() => {
+    const c: Record<GeciciSource, number> = { tumu: byTab.length, basvuru: 0, etkinlik: 0 }
+    if (activeTab !== 'gecici_uye') return c
+    for (const a of byTab) {
+      const src = sourceOfGecici(a)
+      c[src]++
+    }
+    return c
+  }, [byTab, activeTab])
+
+  // Pagination
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE))
+  useEffect(() => { if (page > totalPages) setPage(totalPages) }, [page, totalPages])
+  const paged = useMemo(() => {
+    const start = (page - 1) * PER_PAGE
+    return filtered.slice(start, start + PER_PAGE)
+  }, [filtered, page])
+
+  return (
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <div className="sticky top-0 z-30 bg-card border-b border-border">
+        <div className="max-w-7xl mx-auto px-6 py-4 space-y-3">
+          {/* Title + refresh */}
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h1 className="text-xl font-bold text-foreground">Başvuru Yönetimi</h1>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {TOP_TABS.find(t => t.key === activeTab)?.hint}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => fetchData()}
+              className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-lg hover:bg-muted transition-colors cursor-pointer"
+              aria-label="Yenile"
+            >
+              <ArrowPathIcon className={cn('w-3.5 h-3.5', loading && 'animate-spin')} />
+              Yenile
+            </button>
+          </div>
+
+          {/* Top tabs */}
+          <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1 w-fit">
+            {TOP_TABS.map(t => {
+              const active = activeTab === t.key
+              return (
+                <button
+                  key={t.key}
+                  type="button"
+                  onClick={() => setTab(t.key)}
+                  className={cn(
+                    'inline-flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer',
+                    active
+                      ? 'bg-card text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  {t.label}
+                  <span className={cn(
+                    'inline-flex items-center justify-center min-w-[20px] h-[20px] px-1.5 rounded-full text-[10px] font-bold',
+                    active ? 'bg-primary/15 text-primary' : 'bg-secondary text-muted-foreground'
+                  )}>
+                    {tabCounts[t.key]}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Sub-filter row */}
+          <div className="flex items-center gap-3 flex-wrap">
+            {/* Search */}
+            <div className="relative flex-1 max-w-md">
+              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <input
+                type="text"
+                value={search}
+                onChange={e => { setSearch(e.target.value); setPage(1) }}
+                placeholder="Ad, e-posta, telefon ara..."
+                className="w-full pl-9 pr-3 py-2 text-sm border border-border rounded-lg bg-card focus:ring-2 focus:ring-ring focus:border-primary outline-none transition-colors"
+              />
+            </div>
+
+            {/* Time chips for kontrol */}
+            {activeTab === 'kontrol' && (
+              <div className="flex flex-wrap gap-1.5">
+                {KONTROL_FILTERS.map(f => (
+                  <Chip
+                    key={f.key}
+                    active={activeKontrolFilter === f.key}
+                    onClick={() => setKontrolFilter(f.key)}
+                    count={kontrolCounts[f.key]}
+                  >
+                    {f.label}
+                  </Chip>
+                ))}
+              </div>
+            )}
+
+            {/* Sub-category chips for kesin_ret */}
+            {activeTab === 'kesin_ret' && (
+              <div className="flex flex-wrap gap-1.5">
+                {RET_CATS.map(c => (
+                  <Chip
+                    key={c.key}
+                    active={activeRetCat === c.key}
+                    onClick={() => setRetCat(c.key)}
+                    count={retCatCounts[c.key]}
+                  >
+                    {c.label}
+                  </Chip>
+                ))}
+              </div>
+            )}
+
+            {/* Source chips for gecici_uye */}
+            {activeTab === 'gecici_uye' && (
+              <div className="flex flex-wrap gap-1.5">
+                {GECICI_SOURCES.map(s => (
+                  <Chip
+                    key={s.key}
+                    active={activeGeciciSource === s.key}
+                    onClick={() => setGeciciSource(s.key)}
+                    count={geciciSourceCounts[s.key]}
+                  >
+                    {s.label}
+                  </Chip>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
-    }>
-      <UyelerContent />
+
+      {/* Liste */}
+      <div className="max-w-7xl mx-auto px-6 py-6">
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <div className="px-5 py-3 border-b border-border flex items-center justify-between bg-muted/30">
+            <p className="text-xs text-muted-foreground">
+              {loading ? 'Yükleniyor...' : (
+                <>
+                  <span className="font-semibold text-foreground">{filtered.length}</span>
+                  {' kayıt'}
+                </>
+              )}
+            </p>
+          </div>
+
+          {loading ? (
+            <LoadingState label="Üyeler yükleniyor..." />
+          ) : filtered.length === 0 ? (
+            <EmptyState
+              title="Eşleşen kayıt yok"
+              description="Bu filtre kombinasyonunda kullanıcı bulunmuyor."
+            />
+          ) : (
+            <>
+              <ul className="divide-y divide-border">
+                {paged.map(app => {
+                  const tasks = getTaskMap(app)
+                  const isKontrol = activeTab === 'kontrol'
+                  const isGecici = activeTab === 'gecici_uye'
+                  const isNihai = activeTab === 'nihai_uye'
+                  const isRet = activeTab === 'kesin_ret'
+                  const basvuruDone = hasBasvuruForm(app)
+                  const reviewerAssigned = !!(app.reviewer && app.reviewer.trim())
+
+                  return (
+                    <li key={app.id}>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedApp(app)}
+                        className="w-full flex items-center gap-3 px-5 py-3 hover:bg-muted/50 transition-colors text-left cursor-pointer"
+                      >
+                        <Avatar name={app.full_name} />
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-sm font-medium text-foreground truncate">{app.full_name}</p>
+                            {app.is_protected && (
+                              <span
+                                className="inline-flex items-center text-[9px] px-1.5 py-0.5 rounded-full bg-primary/15 text-primary font-semibold shrink-0"
+                                title="Korumalı (Circle üyesi)"
+                              >
+                                <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clipRule="evenodd" /></svg>
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-muted-foreground truncate">
+                            {app.email}
+                            {(app.university || app.department) && (
+                              <span className="ml-1.5">· {[app.university, app.department].filter(Boolean).join(' · ')}</span>
+                            )}
+                          </p>
+                        </div>
+
+                        {/* Tab-specific badges */}
+                        {isKontrol && (
+                          <>
+                            <span
+                              className={cn(
+                                'hidden md:inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium',
+                                reviewerAssigned
+                                  ? 'bg-info/15 text-info'
+                                  : 'bg-warning/15 text-warning'
+                              )}
+                              title={reviewerAssigned ? `Değerlendiren: ${app.reviewer}` : 'Henüz atanmamış'}
+                            >
+                              {reviewerAssigned ? app.reviewer : 'Atanmamış'}
+                            </span>
+                            {app.approval_status && (
+                              <span
+                                className={cn(
+                                  'hidden sm:inline-flex items-center text-[10px] px-2 py-0.5 rounded-full font-medium',
+                                  app.approval_status.toLowerCase().includes('kabul')
+                                    ? 'bg-success/15 text-success'
+                                    : app.approval_status.toLowerCase().includes('ret')
+                                    ? 'bg-destructive/15 text-destructive'
+                                    : 'bg-muted text-muted-foreground'
+                                )}
+                              >
+                                {app.approval_status}
+                              </span>
+                            )}
+                          </>
+                        )}
+
+                        {isRet && (
+                          <>
+                            {/* Ret sebebi label */}
+                            <span className="hidden md:inline text-[11px] text-muted-foreground truncate max-w-[140px]">
+                              {RET_CATS.find(c => c.key === classifyRet(app))?.label}
+                            </span>
+                            {/* Mail durumu */}
+                            <span
+                              className={cn(
+                                'inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium',
+                                app.mail_sent
+                                  ? 'bg-success/15 text-success'
+                                  : 'bg-warning/15 text-warning'
+                              )}
+                              title={app.mail_sent ? 'Mail gönderildi' : 'Mail bekliyor'}
+                            >
+                              <EnvelopeIcon className="w-3 h-3" />
+                              {app.mail_sent ? 'Atıldı' : 'Bekliyor'}
+                            </span>
+                          </>
+                        )}
+
+                        {isGecici && (
+                          <div className="hidden sm:flex items-center gap-1.5">
+                            <TaskIndicator label={TASK_LABELS.karakteristik_envanter} done={!!tasks.karakteristik_envanter} />
+                            <TaskIndicator label={TASK_LABELS.disipliner_envanter} done={!!tasks.disipliner_envanter} />
+                            <WarningBadge count={app.warning_count || 0} />
+                          </div>
+                        )}
+
+                        {isNihai && (
+                          <div className="hidden sm:flex items-center gap-1.5">
+                            <TagBadges tags={app.tags} />
+                            <TaskIndicator label={TASK_LABELS.karakteristik_envanter} done={!!tasks.karakteristik_envanter} />
+                            <TaskIndicator label={TASK_LABELS.disipliner_envanter} done={!!tasks.disipliner_envanter} />
+                            <TaskIndicator label={TASK_LABELS.oryantasyon} done={!!tasks.oryantasyon} />
+                            <WarningBadge count={app.warning_count || 0} />
+                          </div>
+                        )}
+
+                        <StatusBadge status={app.status} size="sm" />
+
+                        <span className="text-[10px] text-muted-foreground tabular-nums shrink-0 w-[64px] text-right">
+                          {formatRelative(app.updated_at || app.submitted_at)}
+                        </span>
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+
+              <Pagination
+                page={page}
+                totalPages={totalPages}
+                totalItems={filtered.length}
+                perPage={PER_PAGE}
+                onChange={setPage}
+              />
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Detail popup — status'e göre yönlendir */}
+      {(() => {
+        if (!selectedApp) return null
+        const memberStatuses = ['kesin_kabul', 'nihai_olmayan', 'nihai_uye', 'etkinlik']
+        const onClose = () => { setSelectedApp(null); fetchData() }
+        if (memberStatuses.includes(selectedApp.status)) {
+          return <MemberDetailModal data={selectedApp} onClose={onClose} />
+        }
+        return <KontrolDetailModal data={selectedApp} onClose={onClose} />
+      })()}
+    </div>
+  )
+}
+
+export default function BasvuruYonetimiPage() {
+  return (
+    <Suspense fallback={<LoadingState />}>
+      <BasvuruYonetimiContent />
     </Suspense>
   )
 }

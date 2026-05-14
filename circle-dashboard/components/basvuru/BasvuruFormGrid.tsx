@@ -109,7 +109,7 @@ export default function BasvuruFormGrid({ data }: BasvuruFormGridProps) {
                     onClick={() => goToPage(pageNum)}
                     className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
                       currentPage === pageNum
-                        ? 'bg-purple-600 text-white'
+                        ? 'bg-primary text-white'
                         : 'text-foreground bg-card border border-border hover:bg-muted/50'
                     }`}
                   >

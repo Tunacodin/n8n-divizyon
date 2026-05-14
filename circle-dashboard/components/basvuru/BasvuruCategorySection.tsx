@@ -106,7 +106,7 @@ export default function BasvuruCategorySection({ category, data, defaultOpen = f
                           {field.label}
                         </label>
                         {isEmpty ? (
-                          <span className="text-sm text-gray-300 italic">Belirtilmedi</span>
+                          <span className="text-sm text-muted-foreground/60 italic">Belirtilmedi</span>
                         ) : (
                           <FieldValue field={field} value={value} />
                         )}
@@ -123,7 +123,7 @@ export default function BasvuruCategorySection({ category, data, defaultOpen = f
                     Alt Roller
                   </label>
                   {activeBadges.length === 0 ? (
-                    <span className="text-sm text-gray-300 italic">Belirtilmedi</span>
+                    <span className="text-sm text-muted-foreground/60 italic">Belirtilmedi</span>
                   ) : (
                     <div className="flex flex-wrap gap-2">
                       {activeBadges.map(b => (
@@ -155,7 +155,7 @@ function FieldValue({ field, value }: { field: { type: string; label: string }; 
       return (
         <a
           href={`mailto:${strValue}`}
-          className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 hover:underline"
+          className="inline-flex items-center gap-1.5 text-sm text-info hover:text-primary hover:underline"
         >
           <EnvelopeIcon className="w-4 h-4" />
           {strValue}
@@ -166,7 +166,7 @@ function FieldValue({ field, value }: { field: { type: string; label: string }; 
       return (
         <a
           href={`tel:${strValue}`}
-          className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 hover:underline"
+          className="inline-flex items-center gap-1.5 text-sm text-info hover:text-primary hover:underline"
         >
           <PhoneIcon className="w-4 h-4" />
           {strValue}
@@ -179,7 +179,7 @@ function FieldValue({ field, value }: { field: { type: string; label: string }; 
           href={strValue}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 hover:underline break-all"
+          className="inline-flex items-center gap-1.5 text-sm text-info hover:text-primary hover:underline break-all"
         >
           <LinkIcon className="w-4 h-4 shrink-0" />
           <span className="truncate max-w-xs">{strValue}</span>
@@ -188,7 +188,7 @@ function FieldValue({ field, value }: { field: { type: string; label: string }; 
 
     case 'boolean':
       return value && value !== 'Hayir' ? (
-        <CheckIcon className="w-5 h-5 text-green-600" />
+        <CheckIcon className="w-5 h-5 text-success" />
       ) : (
         <XMarkIcon className="w-5 h-5 text-muted-foreground" />
       )

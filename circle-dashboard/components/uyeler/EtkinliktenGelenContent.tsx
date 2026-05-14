@@ -16,9 +16,9 @@ type Member = { id: string } & Record<string, unknown>
 type SourceKey = 'all' | 'circle_event' | 'circle_pre_panel' | 'circle_existing_match' | 'manual' | 'other'
 
 const SOURCE_META: Record<Exclude<SourceKey, 'all'>, { label: string; color: string }> = {
-  circle_event:            { label: 'Etkinlik',        color: 'bg-cyan-100 text-cyan-700' },
+  circle_event:            { label: 'Etkinlik',        color: 'bg-cyan-100 text-cyan-700 dark:text-cyan-300' },
   circle_pre_panel:        { label: 'Panel Öncesi',    color: 'bg-violet-100 text-violet-700' },
-  circle_existing_match:   { label: 'Mevcut Eşleşme',  color: 'bg-blue-100 text-blue-700' },
+  circle_existing_match:   { label: 'Mevcut Eşleşme',  color: 'bg-info/15 text-blue-700' },
   manual:                  { label: 'Manuel',          color: 'bg-muted text-foreground' },
   other:                   { label: 'Diğer',           color: 'bg-muted text-muted-foreground' },
 }
@@ -159,7 +159,7 @@ export default function EtkinliktenGelenContent() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <span className="px-3 py-1.5 rounded-full text-sm font-medium bg-cyan-100 text-cyan-700">
+            <span className="px-3 py-1.5 rounded-full text-sm font-medium bg-cyan-100 text-cyan-700 dark:text-cyan-300">
               {data.length} üye
             </span>
           </div>
@@ -169,7 +169,7 @@ export default function EtkinliktenGelenContent() {
       <div className="p-8">
         {isEmpty ? (
           <div className="bg-card rounded-xl border border-border shadow-sm flex flex-col items-center justify-center py-20 px-8">
-            <div className="w-14 h-14 rounded-2xl bg-green-50 flex items-center justify-center mb-4">
+            <div className="w-14 h-14 rounded-2xl bg-success/10 flex items-center justify-center mb-4">
               <CheckCircleIcon className="w-8 h-8 text-green-500" />
             </div>
             <h2 className="text-lg font-semibold text-foreground mb-1">
@@ -211,12 +211,12 @@ export default function EtkinliktenGelenContent() {
                     key={t.key}
                     onClick={() => { setSource(t.key); setPage(1) }}
                     className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
-                      source === t.key ? 'bg-cyan-50 text-cyan-700' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                      source === t.key ? 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-300' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
                     }`}
                   >
                     {t.label}
                     <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-xs ${
-                      source === t.key ? 'bg-cyan-100 text-cyan-700' : 'bg-muted text-muted-foreground'
+                      source === t.key ? 'bg-cyan-100 text-cyan-700 dark:text-cyan-300' : 'bg-muted text-muted-foreground'
                     }`}>
                       {t.count}
                     </span>
@@ -231,7 +231,7 @@ export default function EtkinliktenGelenContent() {
                   placeholder="İsim, e-posta veya telefon..."
                   value={search}
                   onChange={(e) => { setSearch(e.target.value); setPage(1) }}
-                  className="pl-9 pr-4 py-2 border border-border rounded-lg text-sm w-64 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+                  className="pl-9 pr-4 py-2 border border-border rounded-lg text-sm w-64 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500/60"
                 />
               </div>
             </div>
@@ -287,13 +287,13 @@ export default function EtkinliktenGelenContent() {
                                 // eslint-disable-next-line @next/next/no-img-element
                                 <img src={avatar} alt={name} className="w-8 h-8 rounded-full object-cover border border-border" />
                               ) : (
-                                <div className="w-8 h-8 rounded-full bg-cyan-100 flex items-center justify-center text-xs font-semibold text-cyan-700">
+                                <div className="w-8 h-8 rounded-full bg-cyan-100 flex items-center justify-center text-xs font-semibold text-cyan-700 dark:text-cyan-300">
                                   {initials || '—'}
                                 </div>
                               )}
                               <span className="text-sm font-medium text-foreground">{name}</span>
-                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 font-semibold" title="Circle üyesi — salt okunur">
-                                🔒
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/15 text-primary font-semibold" title="Circle üyesi — salt okunur">
+                                <svg className="w-2.5 h-2.5 inline-block" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path fillRule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clipRule="evenodd" /></svg>
                               </span>
                             </div>
                           </td>
