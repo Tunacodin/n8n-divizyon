@@ -6,10 +6,6 @@ import {
   MagnifyingGlassIcon,
   ArrowPathIcon,
   EnvelopeIcon,
-  CheckCircleIcon,
-  XCircleIcon,
-  ClockIcon,
-  ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline'
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh'
 import { StatusBadge } from '@/components/ui/StatusBadge'
@@ -40,6 +36,7 @@ interface AppItem {
   created_at?: string
   updated_at?: string
   is_protected?: boolean
+  circle_id?: number | null
   university?: string
   department?: string
   main_role?: string
@@ -52,13 +49,12 @@ interface AppItem {
 
 // ─── Top tabs ───
 
-type TopTab = 'kontrol' | 'kesin_ret' | 'gecici_uye' | 'nihai_uye'
+type TopTab = 'kontrol' | 'kesin_ret' | 'henuz_aga_girmeyen'
 
 const TOP_TABS: { key: TopTab; label: string; hint: string }[] = [
-  { key: 'kontrol',    label: 'Kontrol Bekleyen', hint: 'Manuel değerlendirme bekleyen başvurular' },
-  { key: 'kesin_ret',  label: 'Kesin Ret',        hint: 'Reddedilen başvurular' },
-  { key: 'gecici_uye', label: 'Geçici Üye',       hint: 'Kabul edilen, geçiş sürecinde' },
-  { key: 'nihai_uye',  label: 'Nihai Ağ Üyesi',   hint: 'Tüm görevleri tamamlamış üyeler' },
+  { key: 'kontrol',            label: 'Kontrol Bekleyen',     hint: 'Manuel değerlendirme bekleyen başvurular' },
+  { key: 'kesin_ret',          label: 'Kesin Ret',            hint: 'Reddedilen başvurular' },
+  { key: 'henuz_aga_girmeyen', label: 'Henüz Ağa Girmeyenler', hint: 'Kesin kabul aldı ama Circle topluluğuna katılmadı' },
 ]
 
 // ─── Kontrol alt filtreleri ───
@@ -110,46 +106,6 @@ function classifyRet(a: AppItem): RetCat {
   if (reviewer === 'Otomasyon' || reviewer === 'otomasyon' || reviewer.toLowerCase().includes('otomasyon')) return 'otomasyon'
   if (reviewer) return 'manuel'
   return 'manuel'
-}
-
-// ─── Geçici üye kaynakları ───
-
-type GeciciSource = 'tumu' | 'basvuru' | 'etkinlik'
-
-const GECICI_SOURCES: { key: GeciciSource; label: string }[] = [
-  { key: 'tumu',     label: 'Tümü' },
-  { key: 'basvuru',  label: 'Başvuru Üzerinden' },
-  { key: 'etkinlik', label: 'Etkinlikten Gelen' },
-]
-
-function sourceOfGecici(a: AppItem): GeciciSource {
-  if (a.status === 'etkinlik' || a.source === 'event') return 'etkinlik'
-  return 'basvuru'
-}
-
-// ─── Görev tamamlama yardımcıları ───
-
-const TASK_LABELS: Record<string, string> = {
-  karakteristik_envanter: 'Karakteristik',
-  disipliner_envanter: 'Disipliner',
-  oryantasyon: 'Oryantasyon',
-}
-
-function getTaskMap(a: AppItem): Record<string, boolean> {
-  const m: Record<string, boolean> = {}
-  for (const t of a.tasks || []) {
-    if (t.completed) m[t.task_type] = true
-  }
-  return m
-}
-
-function hasBasvuruForm(a: AppItem): boolean {
-  // Başvuru yapmış olanlarda submitted_at + form_token veya core_values dolu olur.
-  // Etkinlikten gelenlerin başvurusu yoksa source=event ve submitted_at olmayabilir.
-  // Pragmatik: source 'form' veya submitted_at varsa "başvuru yapıldı"
-  if (a.source === 'event' && !a.submitted_at) return false
-  // Form tabanlı verilerden biri varsa
-  return !!(a.submitted_at || a.core_values || a.self_expression || a.main_role)
 }
 
 // ─── Helpers ───
@@ -213,72 +169,6 @@ function Chip({ active, onClick, count, children }: { active: boolean; onClick: 
   )
 }
 
-// ─── Task indicator ───
-
-function WarningBadge({ count }: { count: number }) {
-  if (count <= 0) return null
-  const critical = count >= 2
-  return (
-    <span
-      className={cn(
-        'hidden sm:inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium',
-        critical ? 'bg-destructive/15 text-destructive' : 'bg-warning/15 text-warning'
-      )}
-      title={critical ? `${count} uyarı — kritik (2'de Circle deaktif)` : `${count} uyarı`}
-    >
-      <ExclamationTriangleIcon className="w-3 h-3" />
-      {count}
-    </span>
-  )
-}
-
-function TagBadges({ tags }: { tags?: string[] }) {
-  if (!tags || tags.length === 0) return null
-  const visible = tags.slice(0, 2)
-  const extra = tags.length - visible.length
-  return (
-    <div className="hidden lg:flex items-center gap-1">
-      {visible.map(t => (
-        <span
-          key={t}
-          className="inline-flex items-center text-[10px] px-2 py-0.5 rounded-full font-medium bg-primary/10 text-primary border border-primary/20"
-          title={t}
-        >
-          {t.length > 18 ? t.slice(0, 16) + '…' : t}
-        </span>
-      ))}
-      {extra > 0 && (
-        <span className="text-[10px] text-muted-foreground" title={tags.slice(2).join(', ')}>+{extra}</span>
-      )}
-    </div>
-  )
-}
-
-function TaskIndicator({ label, done, missing }: { label: string; done: boolean; missing?: boolean }) {
-  return (
-    <span
-      title={`${label}: ${done ? 'Tamamlandı' : missing ? 'Yapılmadı' : 'Bekliyor'}`}
-      className={cn(
-        'inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium',
-        done
-          ? 'bg-success/15 text-success'
-          : missing
-          ? 'bg-destructive/15 text-destructive'
-          : 'bg-warning/15 text-warning'
-      )}
-    >
-      {done ? (
-        <CheckCircleIcon className="w-3 h-3" />
-      ) : missing ? (
-        <XCircleIcon className="w-3 h-3" />
-      ) : (
-        <ClockIcon className="w-3 h-3" />
-      )}
-      {label}
-    </span>
-  )
-}
-
 // ─── Main Page ───
 
 const PER_PAGE = 20
@@ -289,7 +179,6 @@ function BasvuruYonetimiContent() {
 
   const activeTab = ((searchParams.get('tab') as TopTab) || 'kontrol')
   const activeRetCat = ((searchParams.get('kategori') as RetCat) || 'tumu')
-  const activeGeciciSource = ((searchParams.get('kaynak') as GeciciSource) || 'tumu')
   const activeKontrolFilter = ((searchParams.get('zaman') as KontrolFilter) || 'tumu')
 
   const [apps, setApps] = useState<AppItem[]>([])
@@ -313,20 +202,18 @@ function BasvuruYonetimiContent() {
   useEffect(() => { fetchData() }, [fetchData])
   useRealtimeRefresh(['applications', 'task_completions'], fetchData)
 
-  useEffect(() => { setPage(1); setSearch('') }, [activeTab, activeRetCat, activeGeciciSource, activeKontrolFilter])
+  useEffect(() => { setPage(1); setSearch('') }, [activeTab, activeRetCat, activeKontrolFilter])
 
   const setTab = (t: TopTab) => router.replace(`/uyeler?tab=${t}`, { scroll: false })
   const setRetCat = (c: RetCat) => router.replace(`/uyeler?tab=kesin_ret&kategori=${c}`, { scroll: false })
-  const setGeciciSource = (s: GeciciSource) => router.replace(`/uyeler?tab=gecici_uye&kaynak=${s}`, { scroll: false })
   const setKontrolFilter = (f: KontrolFilter) => router.replace(`/uyeler?tab=kontrol&zaman=${f}`, { scroll: false })
 
   // Pre-filter: top tab'a göre temel filtre
   const byTab = useMemo(() => {
     return apps.filter(a => {
-      if (activeTab === 'kontrol')    return a.status === 'kontrol'
-      if (activeTab === 'kesin_ret')  return a.status === 'kesin_ret' || a.status === 'yas_kucuk'
-      if (activeTab === 'gecici_uye') return a.status === 'kesin_kabul' || a.status === 'nihai_olmayan' || a.status === 'etkinlik'
-      if (activeTab === 'nihai_uye')  return a.status === 'nihai_uye'
+      if (activeTab === 'kontrol')   return a.status === 'kontrol'
+      if (activeTab === 'kesin_ret') return a.status === 'kesin_ret' || a.status === 'yas_kucuk'
+      if (activeTab === 'henuz_aga_girmeyen') return a.status === 'kesin_kabul' && !a.circle_id
       return false
     })
   }, [apps, activeTab])
@@ -337,10 +224,6 @@ function BasvuruYonetimiContent() {
 
     if (activeTab === 'kesin_ret' && activeRetCat !== 'tumu') {
       items = items.filter(a => classifyRet(a) === activeRetCat)
-    }
-
-    if (activeTab === 'gecici_uye' && activeGeciciSource !== 'tumu') {
-      items = items.filter(a => sourceOfGecici(a) === activeGeciciSource)
     }
 
     if (activeTab === 'kontrol' && activeKontrolFilter !== 'tumu') {
@@ -357,18 +240,17 @@ function BasvuruYonetimiContent() {
     }
 
     return items.sort((a, b) => timestampOf(b) - timestampOf(a))
-  }, [byTab, activeTab, activeRetCat, activeGeciciSource, activeKontrolFilter, search])
+  }, [byTab, activeTab, activeRetCat, activeKontrolFilter, search])
 
   // Tab sayıları
   const tabCounts = useMemo(() => {
-    let kontrol = 0, kesinRet = 0, geciciUye = 0, nihaiUye = 0
+    let kontrol = 0, kesinRet = 0, henuz = 0
     for (const a of apps) {
       if (a.status === 'kontrol') kontrol++
       else if (a.status === 'kesin_ret' || a.status === 'yas_kucuk') kesinRet++
-      else if (a.status === 'kesin_kabul' || a.status === 'nihai_olmayan' || a.status === 'etkinlik') geciciUye++
-      else if (a.status === 'nihai_uye') nihaiUye++
+      if (a.status === 'kesin_kabul' && !a.circle_id) henuz++
     }
-    return { kontrol, kesin_ret: kesinRet, gecici_uye: geciciUye, nihai_uye: nihaiUye }
+    return { kontrol, kesin_ret: kesinRet, henuz_aga_girmeyen: henuz }
   }, [apps])
 
   // Kontrol alt filtre sayıları
@@ -391,17 +273,6 @@ function BasvuruYonetimiContent() {
     for (const a of byTab) {
       const cat = classifyRet(a)
       c[cat]++
-    }
-    return c
-  }, [byTab, activeTab])
-
-  // Alt kaynak sayıları (Geçici Üye tab'ı için)
-  const geciciSourceCounts = useMemo(() => {
-    const c: Record<GeciciSource, number> = { tumu: byTab.length, basvuru: 0, etkinlik: 0 }
-    if (activeTab !== 'gecici_uye') return c
-    for (const a of byTab) {
-      const src = sourceOfGecici(a)
-      c[src]++
     }
     return c
   }, [byTab, activeTab])
@@ -512,21 +383,6 @@ function BasvuruYonetimiContent() {
               </div>
             )}
 
-            {/* Source chips for gecici_uye */}
-            {activeTab === 'gecici_uye' && (
-              <div className="flex flex-wrap gap-1.5">
-                {GECICI_SOURCES.map(s => (
-                  <Chip
-                    key={s.key}
-                    active={activeGeciciSource === s.key}
-                    onClick={() => setGeciciSource(s.key)}
-                    count={geciciSourceCounts[s.key]}
-                  >
-                    {s.label}
-                  </Chip>
-                ))}
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -556,12 +412,9 @@ function BasvuruYonetimiContent() {
             <>
               <ul className="divide-y divide-border">
                 {paged.map(app => {
-                  const tasks = getTaskMap(app)
                   const isKontrol = activeTab === 'kontrol'
-                  const isGecici = activeTab === 'gecici_uye'
-                  const isNihai = activeTab === 'nihai_uye'
+                  const isHenuz = activeTab === 'henuz_aga_girmeyen'
                   const isRet = activeTab === 'kesin_ret'
-                  const basvuruDone = hasBasvuruForm(app)
                   const reviewerAssigned = !!(app.reviewer && app.reviewer.trim())
 
                   return (
@@ -646,22 +499,19 @@ function BasvuruYonetimiContent() {
                           </>
                         )}
 
-                        {isGecici && (
-                          <div className="hidden sm:flex items-center gap-1.5">
-                            <TaskIndicator label={TASK_LABELS.karakteristik_envanter} done={!!tasks.karakteristik_envanter} />
-                            <TaskIndicator label={TASK_LABELS.disipliner_envanter} done={!!tasks.disipliner_envanter} />
-                            <WarningBadge count={app.warning_count || 0} />
-                          </div>
-                        )}
-
-                        {isNihai && (
-                          <div className="hidden sm:flex items-center gap-1.5">
-                            <TagBadges tags={app.tags} />
-                            <TaskIndicator label={TASK_LABELS.karakteristik_envanter} done={!!tasks.karakteristik_envanter} />
-                            <TaskIndicator label={TASK_LABELS.disipliner_envanter} done={!!tasks.disipliner_envanter} />
-                            <TaskIndicator label={TASK_LABELS.oryantasyon} done={!!tasks.oryantasyon} />
-                            <WarningBadge count={app.warning_count || 0} />
-                          </div>
+                        {isHenuz && (
+                          <span
+                            className={cn(
+                              'hidden sm:inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium',
+                              app.mail_sent
+                                ? 'bg-success/15 text-success'
+                                : 'bg-warning/15 text-warning',
+                            )}
+                            title={app.mail_sent ? 'Davet maili gönderildi' : 'Davet maili bekliyor'}
+                          >
+                            <EnvelopeIcon className="w-3 h-3" />
+                            {app.mail_sent ? 'Davet gönderildi' : 'Davet bekliyor'}
+                          </span>
                         )}
 
                         <StatusBadge status={app.status} size="sm" />

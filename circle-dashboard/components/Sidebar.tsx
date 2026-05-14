@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import { cn } from '@/lib/utils'
 import { ThemeToggle } from './ThemeToggle'
 
@@ -136,6 +137,11 @@ const navigation: NavEntry[] = [
   { id: 'dashboard',   label: 'Dashboard',         href: '/',             icon: icons.home },
   { id: 'basvurular',  label: 'Başvurular',        href: '/basvurular',   icon: icons.inbox },
   { id: 'members',     label: 'Başvuru Yönetimi',  href: '/uyeler',       icon: icons.users },
+  { id: 'uyelik',      label: 'Üyelik Süreci',     href: '/uyelik-sureci', icon: (
+      <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3 4.5h18l-7 8.25v6.75l-4-2.25v-4.5L3 4.5z" />
+      </svg>
+    ) },
   { id: 'activity',    label: 'Aktiviteler',       href: '/aktivite',     icon: icons.activity },
   { id: 'mail',        label: 'Mail Servisi',      href: '/mail-servisi', icon: icons.envelope },
   { id: 'analytics',   label: 'Raporlama',         href: '/analiz',       icon: icons.chart },
@@ -332,16 +338,26 @@ export function Sidebar() {
       <div className="h-14 flex items-center justify-between px-3 border-b border-sidebar-border shrink-0">
         {!collapsed ? (
           <Link href="/" className="flex items-center gap-2.5 cursor-pointer">
-            <div className="w-8 h-8 bg-gradient-to-br from-primary to-primary/70 rounded-lg flex items-center justify-center shadow-sm">
-              <span className="text-primary-foreground text-xs font-bold">D</span>
-            </div>
+            <Image
+              src="/divizyon-logo.png"
+              alt="Divizyon"
+              width={32}
+              height={32}
+              priority
+              className="w-8 h-8 rounded-lg shadow-sm"
+            />
             <span className="text-sm font-semibold text-foreground">Divizyon</span>
           </Link>
         ) : (
           <Link href="/" className="mx-auto cursor-pointer">
-            <div className="w-8 h-8 bg-gradient-to-br from-primary to-primary/70 rounded-lg flex items-center justify-center shadow-sm">
-              <span className="text-primary-foreground text-xs font-bold">D</span>
-            </div>
+            <Image
+              src="/divizyon-logo.png"
+              alt="Divizyon"
+              width={32}
+              height={32}
+              priority
+              className="w-8 h-8 rounded-lg shadow-sm"
+            />
           </Link>
         )}
         {!collapsed && (

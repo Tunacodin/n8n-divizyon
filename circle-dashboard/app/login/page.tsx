@@ -2,6 +2,7 @@
 
 import { Suspense, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import Image from 'next/image'
 import { cn } from '@/lib/utils'
 import { ThemeToggle } from '@/components/ThemeToggle'
 
@@ -71,9 +72,14 @@ function LoginForm() {
       {/* Top bar */}
       <header className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between p-6">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary via-violet-500 to-fuchsia-500 shadow-glow">
-            <span className="text-sm font-bold text-white">D</span>
-          </div>
+          <Image
+            src="/divizyon-logo.png"
+            alt="Divizyon"
+            width={36}
+            height={36}
+            priority
+            className="h-9 w-9 rounded-xl shadow-glow"
+          />
           <span className="text-sm font-semibold tracking-tight text-foreground">Divizyon</span>
         </div>
         <ThemeToggle />

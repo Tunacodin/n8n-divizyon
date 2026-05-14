@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { ThemeToggle } from './ThemeToggle'
@@ -178,9 +179,14 @@ export function Header() {
       <div className="flex h-16 items-center gap-6 px-6 lg:px-8">
         {/* Logo */}
         <Link href="/" className="flex shrink-0 items-center gap-2.5 group">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary via-violet-500 to-fuchsia-500 shadow-glow transition-transform group-hover:scale-105">
-            <span className="text-sm font-bold text-white">D</span>
-          </div>
+          <Image
+            src="/divizyon-logo.png"
+            alt="Divizyon"
+            width={36}
+            height={36}
+            priority
+            className="h-9 w-9 rounded-xl shadow-glow transition-transform group-hover:scale-105"
+          />
           <span className="hidden text-base font-semibold tracking-tight text-foreground sm:block">
             Divizyon
           </span>
